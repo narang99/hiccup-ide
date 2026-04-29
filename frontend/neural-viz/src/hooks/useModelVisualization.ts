@@ -3,17 +3,13 @@ import { useNodesState, useEdgesState, addEdge, type OnConnect, type Node, type 
 import { type ModelData, type KernelExpandedState } from '../types/model';
 import { createConvolutionNode } from '../utils/createConvolutionNode';
 import { 
-  createOutputKernelNode,
-  createInputSliceNode,
-  createKernelSliceNode,
-  createSliceOutputNode,
-  createSumNode
+  createOutputKernelNode
 } from '../utils/kernelNodes';
 import { 
   createKernelEdges,
-  createKernelSliceEdges,
   createInputToKernelSliceEdges
 } from '../utils/kernelEdges';
+import { ReluChannelNodeData } from '../components/nodes/ReluChannelNode';
 
 export const useModelVisualization = () => {
   const [modelData, setModelData] = useState<ModelData | null>(null);
@@ -79,8 +75,38 @@ export const useModelVisualization = () => {
           //   allEdges.push(...createKernelSliceEdges(modelNode, kernelIndex, kernelExpandedState));
           // }
         }
+      } else if (modelNode.type === 'ReLU') {
+        // For ReLU: show channel-wise operations
+        const basePosition = { x: 300, y: index * 200 };
+        // Get number of channels from the shape (assuming format [batch, channels, height, width])
+        const numChannels = modelNode.shape.length > 1 ? modelNode.shape[1] : 1;
+        
+        for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
+          const reluChannelNode = {
+            id: `${modelNode.id}-channel-${channelIndex}`,
+            type: 'default',
+            position: {
+              x: basePosition.x + (channelIndex - numChannels / 2) * 120,
+              y: basePosition.y
+            },
+            data: {
+              label: ReluChannelNodeData({ channelIndex }),
+            },
+            style: {
+              background: '#fbbf24', // Yellow for ReLU
+              color: '#000',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '8px',
+              minWidth: '50px',
+              fontSize: '10px',
+            },
+            parentNode: modelNode.id,
+          };
+          allNodes.push(reluChannelNode);
+        }
       } else {
-        // For non-Conv2d layers: show regular node
+        // For other layers: show regular node
         const mainNode = createConvolutionNode(modelNode, index);
         allNodes.push(mainNode);
       }

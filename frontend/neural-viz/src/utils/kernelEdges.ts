@@ -8,8 +8,44 @@ export const createKernelEdges = (
 ): Edge[] => {
   const edges: Edge[] = [];
   
-  if (sourceNode.type === 'Conv2d' && targetNode.type === 'Conv2d') {
-    // Conv2d to Conv2d: connect to kernels
+  if (sourceNode.type === 'Conv2d' && targetNode.type === 'ReLU') {
+    // Conv2d kernels to ReLU channels (1:1 mapping)
+    const outChannels = sourceNode.params.out_channels as number;
+    
+    for (let i = 0; i < outChannels; i++) {
+      const sourceKernelId = `${sourceNode.id}-kernel-${i}`;
+      const targetChannelId = `${targetNode.id}-channel-${i}`;
+      
+      edges.push({
+        id: `${sourceKernelId}-${targetChannelId}`,
+        source: sourceKernelId,
+        target: targetChannelId,
+        type: 'default',
+        style: { stroke: '#374151', strokeWidth: 2 },
+      });
+    }
+  } else if (sourceNode.type === 'ReLU' && targetNode.type === 'Conv2d') {
+    // ReLU channels to Conv2d kernels (each channel connects to all kernels)
+    const sourceChannels = sourceNode.shape.length > 1 ? sourceNode.shape[1] : 1;
+    const targetKernels = targetNode.params.out_channels as number;
+    
+    for (let i = 0; i < sourceChannels; i++) {
+      const sourceChannelId = `${sourceNode.id}-channel-${i}`;
+      
+      for (let j = 0; j < targetKernels; j++) {
+        const targetKernelId = `${targetNode.id}-kernel-${j}`;
+        
+        edges.push({
+          id: `${sourceChannelId}-${targetKernelId}`,
+          source: sourceChannelId,
+          target: targetKernelId,
+          type: 'default',
+          style: { stroke: '#6b7280', strokeWidth: 1, opacity: 0.7 },
+        });
+      }
+    }
+  } else if (sourceNode.type === 'Conv2d' && targetNode.type === 'Conv2d') {
+    // Conv2d to Conv2d: connect kernels directly
     const outChannels = sourceNode.params.out_channels as number;
     const targetKernels = targetNode.params.out_channels as number;
     
@@ -29,7 +65,7 @@ export const createKernelEdges = (
       }
     }
   } else if (sourceNode.type === 'Conv2d') {
-    // Conv2d to other layer: connect from kernels
+    // Conv2d to other layer types: connect from kernels
     const outChannels = sourceNode.params.out_channels as number;
     
     for (let i = 0; i < outChannels; i++) {
@@ -44,7 +80,7 @@ export const createKernelEdges = (
       });
     }
   } else if (targetNode.type === 'Conv2d') {
-    // Other layer to Conv2d: connect to kernels
+    // Other layer types to Conv2d: connect to kernels
     const targetKernels = targetNode.params.out_channels as number;
     
     for (let j = 0; j < targetKernels; j++) {
@@ -58,8 +94,23 @@ export const createKernelEdges = (
         style: { stroke: '#374151', strokeWidth: 2 },
       });
     }
+  } else if (sourceNode.type === 'ReLU') {
+    // ReLU channels to other layer types: connect all channels to target
+    const sourceChannels = sourceNode.shape.length > 1 ? sourceNode.shape[1] : 1;
+    
+    for (let i = 0; i < sourceChannels; i++) {
+      const sourceChannelId = `${sourceNode.id}-channel-${i}`;
+      
+      edges.push({
+        id: `${sourceChannelId}-${targetNode.id}`,
+        source: sourceChannelId,
+        target: targetNode.id,
+        type: 'default',
+        style: { stroke: '#374151', strokeWidth: 2 },
+      });
+    }
   } else {
-    // Non-Conv2d to Non-Conv2d: normal connection
+    // Non-Conv2d, non-ReLU connections: normal connection
     edges.push(createReactFlowEdge({ source: sourceNode.id, target: targetNode.id }));
   }
   
