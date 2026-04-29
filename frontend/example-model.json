@@ -1,0 +1,143 @@
+{
+    "nodes": [
+        {
+            "id": "x",
+            "type": "Input",
+            "params": {},
+            "shape": [
+                1,
+                1,
+                28,
+                28
+            ]
+        },
+        {
+            "id": "layers_0",
+            "type": "Conv2d",
+            "params": {
+                "in_channels": 1,
+                "out_channels": 8,
+                "kernel_size": [
+                    3,
+                    3
+                ],
+                "stride": [
+                    2,
+                    2
+                ],
+                "padding": [
+                    1,
+                    1
+                ]
+            },
+            "shape": [
+                1,
+                8,
+                14,
+                14
+            ]
+        },
+        {
+            "id": "layers_1",
+            "type": "ReLU",
+            "params": {},
+            "shape": [
+                1,
+                8,
+                14,
+                14
+            ]
+        },
+        {
+            "id": "layers_2",
+            "type": "Conv2d",
+            "params": {
+                "in_channels": 8,
+                "out_channels": 16,
+                "kernel_size": [
+                    3,
+                    3
+                ],
+                "stride": [
+                    2,
+                    2
+                ],
+                "padding": [
+                    1,
+                    1
+                ]
+            },
+            "shape": [
+                1,
+                16,
+                7,
+                7
+            ]
+        },
+        {
+            "id": "layers_3",
+            "type": "ReLU",
+            "params": {},
+            "shape": [
+                1,
+                16,
+                7,
+                7
+            ]
+        },
+        {
+            "id": "layers_4",
+            "type": "Flatten",
+            "params": {},
+            "shape": [
+                1,
+                784
+            ]
+        },
+        {
+            "id": "layers_5",
+            "type": "Linear",
+            "params": {},
+            "shape": [
+                1,
+                10
+            ]
+        },
+        {
+            "id": "output",
+            "type": "Output",
+            "params": {},
+            "shape": []
+        }
+    ],
+    "edges": [
+        {
+            "source": "x",
+            "target": "layers_0"
+        },
+        {
+            "source": "layers_0",
+            "target": "layers_1"
+        },
+        {
+            "source": "layers_1",
+            "target": "layers_2"
+        },
+        {
+            "source": "layers_2",
+            "target": "layers_3"
+        },
+        {
+            "source": "layers_3",
+            "target": "layers_4"
+        },
+        {
+            "source": "layers_4",
+            "target": "layers_5"
+        },
+        {
+            "source": "layers_5",
+            "target": "output"
+        }
+    ]
+}
