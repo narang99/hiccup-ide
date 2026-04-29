@@ -18,3 +18,7 @@ export interface ModelData {
 export interface ExpandedState {
   [nodeId: string]: boolean;
 }
+
+export interface KernelExpandedState {
+  [kernelId: string]: boolean; // Format: "nodeId-kernel-index"
+}

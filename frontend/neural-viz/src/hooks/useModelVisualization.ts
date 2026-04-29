@@ -1,60 +1,99 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNodesState, useEdgesState, addEdge, type OnConnect, type Node, type Edge } from '@xyflow/react';
-import { type ModelData, type ExpandedState } from '../types/model';
-import { createChannelNode } from '../utils/nodeUtils';
+import { type ModelData, type KernelExpandedState } from '../types/model';
 import { createConvolutionNode } from '../utils/createConvolutionNode';
-import { createChannelEdges, createReactFlowEdge } from '../utils/edgeUtils';
+import { 
+  createOutputKernelNode,
+  createInputSliceNode,
+  createKernelSliceNode,
+  createSliceOutputNode,
+  createSumNode
+} from '../utils/kernelNodes';
+import { 
+  createKernelEdges,
+  createKernelSliceEdges,
+  createInputToKernelSliceEdges
+} from '../utils/kernelEdges';
 
 export const useModelVisualization = () => {
   const [modelData, setModelData] = useState<ModelData | null>(null);
-  const initialNodesForState: Node[] = []
-  const initialEdgesForState: Edge[] = []
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodesForState);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdgesForState);
-  const [expandedState, setExpandedState] = useState<ExpandedState>({});
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [kernelExpandedState, setKernelExpandedState] = useState<KernelExpandedState>({});
 
-  const toggleExpand = useCallback((nodeId: string) => {
-    setExpandedState(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
+  const toggleKernelExpand = useCallback((kernelId: string) => {
+    setKernelExpandedState(prev => ({ ...prev, [kernelId]: !prev[kernelId] }));
   }, []);
 
-  const generateNodesAndEdges = useCallback((data: ModelData, expandedState: ExpandedState, toggleExpandFn: (nodeId: string) => void) => {
+  const generateNodesAndEdges = useCallback((
+    data: ModelData, 
+    kernelExpandedState: KernelExpandedState, 
+    toggleKernelExpandFn: (kernelId: string) => void
+  ) => {
     const allNodes: Node[] = [];
     const allEdges: Edge[] = [];
 
-    // Create main nodes
+    // Create nodes - kernels for Conv2d, regular nodes for others
     data.nodes.forEach((modelNode, index) => {
-      const mainNode = createConvolutionNode(modelNode, index, expandedState, toggleExpandFn);
-      allNodes.push(mainNode);
-
-      // Add channel nodes if expanded
-      if (expandedState[modelNode.id] && modelNode.type === 'Conv2d') {
-        const inChannels = modelNode.params.in_channels as number;
+      if (modelNode.type === 'Conv2d') {
+        // For Conv2d: only show kernels, no main block
+        const basePosition = { x: 300, y: index * 200 }; // Virtual position for kernel placement
         const outChannels = modelNode.params.out_channels as number;
-
-        // Input channels
-        for (let i = 0; i < inChannels; i++) {
-          allNodes.push(createChannelNode(modelNode, i, true, mainNode.position));
+        
+        for (let kernelIndex = 0; kernelIndex < outChannels; kernelIndex++) {
+          const kernelNode = createOutputKernelNode(
+            modelNode, 
+            kernelIndex, 
+            kernelExpandedState,
+            toggleKernelExpandFn,
+            basePosition
+          );
+          allNodes.push(kernelNode);
+          
+          // TEMPORARILY DISABLED: Add kernel slice nodes if this kernel is expanded
+          // const kernelId = `${modelNode.id}-kernel-${kernelIndex}`;
+          // if (kernelExpandedState[kernelId]) {
+          //   const inChannels = modelNode.params.in_channels as number;
+          //   
+          //   for (let inputIndex = 0; inputIndex < inChannels; inputIndex++) {
+          //     // Input slice node
+          //     allNodes.push(createInputSliceNode(
+          //       modelNode, kernelIndex, inputIndex, kernelNode.position
+          //     ));
+          //     
+          //     // Kernel slice node
+          //     allNodes.push(createKernelSliceNode(
+          //       modelNode, kernelIndex, inputIndex, kernelNode.position
+          //     ));
+          //     
+          //     // Slice output node
+          //     allNodes.push(createSliceOutputNode(
+          //       modelNode, kernelIndex, inputIndex, kernelNode.position
+          //     ));
+          //   }
+          //   
+          //   // Sum node
+          //   allNodes.push(createSumNode(modelNode, kernelIndex, kernelNode.position));
+          //   
+          //   // Add internal kernel slice edges
+          //   allEdges.push(...createKernelSliceEdges(modelNode, kernelIndex, kernelExpandedState));
+          // }
         }
-
-        // Output channels
-        for (let i = 0; i < outChannels; i++) {
-          allNodes.push(createChannelNode(modelNode, i, false, mainNode.position));
-        }
+      } else {
+        // For non-Conv2d layers: show regular node
+        const mainNode = createConvolutionNode(modelNode, index);
+        allNodes.push(mainNode);
       }
     });
 
-    // Create edges
+    // Create main edges between layers
     data.edges.forEach((modelEdge) => {
       const sourceNode = data.nodes.find(n => n.id === modelEdge.source);
       const targetNode = data.nodes.find(n => n.id === modelEdge.target);
 
-      if (sourceNode && targetNode && 
-          sourceNode.type === 'Conv2d' && targetNode.type === 'Conv2d') {
-        // Conv2d to Conv2d: use channel-aware edges
-        allEdges.push(...createChannelEdges(sourceNode, targetNode, expandedState));
-      } else {
-        // Regular edge for non-Conv2d connections
-        allEdges.push(createReactFlowEdge(modelEdge));
+      if (sourceNode && targetNode) {
+        allEdges.push(...createKernelEdges(sourceNode, targetNode));
+        allEdges.push(...createInputToKernelSliceEdges(sourceNode, targetNode, kernelExpandedState));
       }
     });
 
@@ -76,14 +115,18 @@ export const useModelVisualization = () => {
       .catch((error) => console.error('Error loading model data:', error));
   }, []);
 
-  // Update nodes and edges when model data or expanded state changes
+  // Update nodes and edges when model data or kernel expanded state changes
   useEffect(() => {
     if (modelData) {
-      const { nodes: newNodes, edges: newEdges } = generateNodesAndEdges(modelData, expandedState, toggleExpand);
+      const { nodes: newNodes, edges: newEdges } = generateNodesAndEdges(
+        modelData, 
+        kernelExpandedState, 
+        toggleKernelExpand
+      );
       setNodes(newNodes);
       setEdges(newEdges);
     }
-  }, [modelData, expandedState, generateNodesAndEdges, toggleExpand, setNodes, setEdges]);
+  }, [modelData, kernelExpandedState, generateNodesAndEdges, toggleKernelExpand, setNodes, setEdges]);
 
   return {
     modelData,
