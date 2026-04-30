@@ -86,11 +86,30 @@ def test_feature_with_edge_case():
     pass
 ```
 
+## Data Loading Interface Guidelines
+
+### Backend Data Interfaces
+- **Separation of concerns**: Keep data persistence/export functions in the `persist/` submodule
+- **Minimal interfaces**: Only implement what's currently needed, avoid over-engineering
+- **Clear boundaries**: Data export/import should have simple, focused functions
+
+### Frontend Data Loading
+- **Separate data loading files**: All data loading functionality should be in separate files with clear interfaces
+- **Easy to change**: Data loading implementations should be easily swappable (static JSON files → REST API later)
+- **Interface consistency**: Maintain the same interface regardless of backend implementation
+
+### Current Implementation
+- **Static JSON files**: Currently using individual JSON files per coordinate for frontend development
+- **Future migration**: Will be replaced with REST API endpoints later, but interface stays the same
+
 ### Project Structure
 ```
 hiccup-ide/
 ├── src/
 │   └── hiccup_ide/
+│       ├── persist/
+│       │   ├── __init__.py
+│       │   └── activation_processor_outputs.py
 │       ├── capture.py
 │       ├── activation_processor.py
 │       └── model_to_json.py
