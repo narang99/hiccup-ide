@@ -50,20 +50,20 @@ export const useModelVisualization = () => {
             id: `${modelNode.id}-channel-${channelIndex}`,
             type: 'default',
             position: {
-              x: basePosition.x + (channelIndex - numChannels / 2) * 120,
+              x: basePosition.x + (channelIndex - numChannels / 2) * 110,
               y: basePosition.y
             },
             data: {
               label: ReluChannelNodeData({ channelIndex, layerId: modelNode.id, fetchers: DEFAULT_FETCHERS }),
             },
             style: {
-              background: '#fbbf24', // Yellow for ReLU
-              color: '#000',
-              border: '1px solid #374151',
+              background: 'transparent',
+              border: '1px solid rgba(251, 191, 36, 0.35)',
               borderRadius: '6px',
-              padding: '8px',
-              minWidth: '50px',
+              padding: 0,
+              minWidth: '96px',
               fontSize: '10px',
+              overflow: 'hidden',
             },
             parentNode: modelNode.id,
           };

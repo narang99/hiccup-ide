@@ -9,24 +9,67 @@ interface ReluChannelNodeProps {
 
 export const ReluChannelNodeData = ({ channelIndex, layerId, fetchers }: ReluChannelNodeProps) => {
   const coordinate = `${layerId}.out_${channelIndex}`;
-  
+
   return (
-    <div className="text-center">
-      <div className="font-bold text-xs">ReLU{channelIndex}</div>
-      
-      {/* Activation Display */}
-      {fetchers?.activation ? (
-        <ActivationDisplay 
-          coordinate={coordinate}
-          fetcher={fetchers.activation}
-          maxSize={30}
-          className="my-1"
-        />
-      ) : (
-        <div className="w-8 h-8 bg-gray-400 rounded border my-1" />
-      )}
-      
-      <div className="text-xs text-gray-500">Ch{channelIndex}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+
+      {/* ── Toolbar ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '4px 8px',
+        background: 'rgba(0, 0, 0, 0.55)',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '5px 5px 0 0',
+      }}>
+        <span style={{
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: '#fbbf24',
+          lineHeight: 1,
+        }}>
+          ReLU
+        </span>
+        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, lineHeight: 1 }}>·</span>
+        <span style={{
+          fontSize: 9,
+          fontWeight: 500,
+          color: 'rgba(255,255,255,0.65)',
+          lineHeight: 1,
+        }}>
+          Ch {channelIndex}
+        </span>
+      </div>
+
+      {/* ── Activation map (main area) ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 6,
+        background: '#0d0d14',
+        borderRadius: '0 0 5px 5px',
+      }}>
+        {fetchers?.activation ? (
+          <ActivationDisplay
+            coordinate={coordinate}
+            fetcher={fetchers.activation}
+            maxSize={84}
+          />
+        ) : (
+          <div style={{
+            width: 84,
+            height: 84,
+            background: '#1e1e2e',
+            borderRadius: 4,
+            border: '1px solid rgba(255,255,255,0.08)',
+          }} />
+        )}
+      </div>
+
     </div>
   );
 };
