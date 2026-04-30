@@ -49,3 +49,7 @@ Finally we would like to see the meaning (meaning can be propagated at each step
   - Then for each POI, we find the most significant POIs of it, its a kinda of depth first search.  
   - We create a tree, and at point in the tree, we cut branches which are not useful.  
   - Then we merge them to find the most useful graph.  
+
+- Good now that the saliency map view is done, it is time to think about how i can go about creating a graph out of my contributions.  
+  - This graph is important. Its not technically just contributions, its the graph of all input activations which affect an output activation (its the whole model graph actually, but instead of operations, we track each activation)
+  - This might be huge in terms of size i guess, ill have to think about what i can do. but its okay. lets first try to generate the graph
