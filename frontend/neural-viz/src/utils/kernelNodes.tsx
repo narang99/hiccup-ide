@@ -1,6 +1,6 @@
 import type { Node } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
-import { type NodeFetchers } from '../fetchers';
+import { type NodeFetchers, type FetcherType } from '../fetchers';
 import ConvOutActNode from '../components/nodes/ConvOutActNode';
 
 export const getKernelNodeColor = (nodeType: string): string => {
@@ -25,7 +25,8 @@ export const createOutputKernelNode = (
   parentNode: ModelNode,
   kernelIndex: number,
   basePosition: { x: number; y: number },
-  fetchers?: NodeFetchers
+  fetchers?: NodeFetchers,
+  fetcherType?: FetcherType
 ): Node => {
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
   const coordinate = `${parentNode.id}.out_${kernelIndex}`;
@@ -54,6 +55,7 @@ export const createOutputKernelNode = (
         >
           <ConvOutActNode
             fetchers={fetchers}
+            fetcherType={fetcherType}
             kernelIdx={kernelIndex}
             maxSize={84}
             coordinate={coordinate}

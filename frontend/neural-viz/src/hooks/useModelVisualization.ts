@@ -10,9 +10,9 @@ import {
   createInputToKernelSliceEdges
 } from '../utils/kernelEdges';
 import { ReluChannelNodeData } from '../components/nodes/ReluChannelNode';
-import { DEFAULT_FETCHERS } from '../fetchers';
+import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 
-export const useModelVisualization = () => {
+export const useModelVisualization = (fetcherType: FetcherType = "saliency_map") => {
   const [modelData, setModelData] = useState<ModelData | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -36,6 +36,7 @@ export const useModelVisualization = () => {
             kernelIndex, 
             basePosition,
             DEFAULT_FETCHERS,
+            fetcherType
           );
           allNodes.push(kernelNode);
         }
@@ -54,7 +55,7 @@ export const useModelVisualization = () => {
               y: basePosition.y
             },
             data: {
-              label: ReluChannelNodeData({ channelIndex, layerId: modelNode.id, fetchers: DEFAULT_FETCHERS }),
+              label: ReluChannelNodeData({ channelIndex, layerId: modelNode.id, fetchers: DEFAULT_FETCHERS, fetcherType }),
             },
             style: {
               background: 'transparent',

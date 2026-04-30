@@ -1,18 +1,21 @@
-import type { NodeFetchers } from "../../fetchers";
+import type { NodeFetchers, FetcherType } from "../../fetchers";
 import { ActivationDisplay } from "../ActivationDisplay";
 
 interface ConvOutActNodeProps {
     coordinate: string;
     kernelIdx?: number;
     fetchers?: NodeFetchers;
+    fetcherType?: FetcherType;
     maxSize?: number;
     className?: string;
     title: string;
 }
 
 export default function ConvOutActNode(
-    { kernelIdx, coordinate, fetchers, maxSize = 84, className = "", title }: ConvOutActNodeProps
+    { kernelIdx, coordinate, fetchers, fetcherType = "activation", maxSize = 84, className = "", title }: ConvOutActNodeProps
 ) {
+    const fetcher = fetchers?.[fetcherType];
+
     return (
         <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
 
@@ -61,10 +64,10 @@ export default function ConvOutActNode(
                 borderRadius: '0 0 5px 5px',
                 cursor: 'pointer',
             }}>
-                {fetchers?.activation ? (
+                {fetcher ? (
                     <ActivationDisplay
                         coordinate={coordinate}
-                        fetcher={fetchers.activation}
+                        fetcher={fetcher}
                         maxSize={maxSize}
                     />
                 ) : (

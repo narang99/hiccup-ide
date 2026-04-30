@@ -4,13 +4,13 @@ import { ReactFlow, Background, Controls, MiniMap, Panel, type Node, type Edge }
 import '@xyflow/react/dist/style.css';
 import { type ModelData } from '../types/model';
 import ConvOutActNode from './nodes/ConvOutActNode';
-import { DEFAULT_FETCHERS } from '../fetchers';
+import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useColormap } from '../contexts/ColormapContext';
 import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps';
 
 const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
 
-const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string) => {
+const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string, fetcherType: FetcherType = "activation") => {
   return ({
     id: id,
     type: 'default',
@@ -19,6 +19,7 @@ const getNodeShowingActivation = (id: string, position: { x: number, y: number }
       label: (
         <ConvOutActNode
           fetchers={DEFAULT_FETCHERS}
+          fetcherType={fetcherType}
           maxSize={84}
           coordinate={coordinate}
           title={title}
@@ -36,7 +37,11 @@ const getNodeShowingActivation = (id: string, position: { x: number, y: number }
   });
 };
 
-export default function KernelDetailView() {
+interface KernelDetailViewProps {
+  fetcherType?: FetcherType;
+}
+
+export default function KernelDetailView({ fetcherType = "activation" }: KernelDetailViewProps) {
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
   const navigate = useNavigate();
   const [modelData, setModelData] = useState<ModelData | null>(null);
@@ -78,7 +83,7 @@ export default function KernelDetailView() {
     // Input channel nodes
     for (let i = 0; i < inChannels; i++) {
       const inputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}.input`;
-      nodes.push(getNodeShowingActivation(`input-${i}`, { x: 100, y: 200 + i * 100 }, "Input", inputCoordinate));
+      nodes.push(getNodeShowingActivation(`input-${i}`, { x: 100, y: 200 + i * 100 }, "Input", inputCoordinate, fetcherType));
 
       // Kernel slice nodes
       nodes.push({
@@ -110,7 +115,7 @@ export default function KernelDetailView() {
 
       // Slice output nodes
       const outputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
-      nodes.push(getNodeShowingActivation(`output-${i}`, { x: 500, y: 200 + i * 100 }, "Output", outputCoordinate));
+      nodes.push(getNodeShowingActivation(`output-${i}`, { x: 500, y: 200 + i * 100 }, "Output", outputCoordinate, fetcherType));
 
       // Edges: Input -> Kernel -> Output
       edges.push({
@@ -132,7 +137,7 @@ export default function KernelDetailView() {
 
     // Sum node
     const sumCoordinate = `${nodeId}.out_${kernelIndex}`;
-    nodes.push(getNodeShowingActivation(`sum`, { x: 700, y: 200 + (inChannels / 2) * 100 }, "sum", sumCoordinate));
+    nodes.push(getNodeShowingActivation(`sum`, { x: 700, y: 200 + (inChannels / 2) * 100 }, "sum", sumCoordinate, fetcherType));
 
     // Edges from all outputs to sum
     for (let i = 0; i < inChannels; i++) {
@@ -147,7 +152,7 @@ export default function KernelDetailView() {
 
     setKernelNodes(nodes);
     setKernelEdges(edges);
-  }, []);
+  }, [fetcherType]);
 
   useEffect(() => {
     // Load model data

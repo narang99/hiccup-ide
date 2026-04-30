@@ -1,14 +1,16 @@
-import { type NodeFetchers } from '../../fetchers';
+import { type NodeFetchers, type FetcherType } from '../../fetchers';
 import { ActivationDisplay } from '../ActivationDisplay';
 
 interface ReluChannelNodeProps {
   channelIndex: number;
   layerId: string;
   fetchers?: NodeFetchers;
+  fetcherType?: FetcherType;
 }
 
-export const ReluChannelNodeData = ({ channelIndex, layerId, fetchers }: ReluChannelNodeProps) => {
+export const ReluChannelNodeData = ({ channelIndex, layerId, fetchers, fetcherType = "activation" }: ReluChannelNodeProps) => {
   const coordinate = `${layerId}.out_${channelIndex}`;
+  const fetcher = fetchers?.[fetcherType];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -53,10 +55,10 @@ export const ReluChannelNodeData = ({ channelIndex, layerId, fetchers }: ReluCha
         background: '#0d0d14',
         borderRadius: '0 0 5px 5px',
       }}>
-        {fetchers?.activation ? (
+        {fetcher ? (
           <ActivationDisplay
             coordinate={coordinate}
-            fetcher={fetchers.activation}
+            fetcher={fetcher}
             maxSize={84}
           />
         ) : (
