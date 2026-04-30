@@ -1,6 +1,5 @@
-import React from 'react';
 import type { Node } from '@xyflow/react';
-import { type ModelNode, type KernelExpandedState } from '../types/model';
+import { type ModelNode } from '../types/model';
 
 export const getKernelNodeColor = (nodeType: string): string => {
   switch (nodeType) {
@@ -23,12 +22,9 @@ export const getKernelNodeColor = (nodeType: string): string => {
 export const createOutputKernelNode = (
   parentNode: ModelNode,
   kernelIndex: number,
-  kernelExpandedState: KernelExpandedState,
-  toggleKernelExpand: (kernelId: string) => void,
   basePosition: { x: number; y: number }
 ): Node => {
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
-  const isExpanded = kernelExpandedState[kernelId];
   
   const handleKernelClick = () => {
     // Navigate to kernel detail view
@@ -70,7 +66,6 @@ export const createOutputKernelNode = (
       minWidth: '80px',
       fontSize: '10px',
     },
-    parentNode: parentNode.id,
   };
 };
 
@@ -107,7 +102,6 @@ export const createInputSliceNode = (
       minWidth: '40px',
       fontSize: '9px',
     },
-    parentNode: `${parentNode.id}-kernel-${kernelIndex}`,
   };
 };
 
@@ -144,7 +138,6 @@ export const createKernelSliceNode = (
       minWidth: '45px',
       fontSize: '9px',
     },
-    parentNode: `${parentNode.id}-kernel-${kernelIndex}`,
   };
 };
 
@@ -181,7 +174,6 @@ export const createSliceOutputNode = (
       minWidth: '40px',
       fontSize: '9px',
     },
-    parentNode: `${parentNode.id}-kernel-${kernelIndex}`,
   };
 };
 
@@ -217,6 +209,5 @@ export const createSumNode = (
       minWidth: '40px',
       fontSize: '10px',
     },
-    parentNode: `${parentNode.id}-kernel-${kernelIndex}`,
   };
 };

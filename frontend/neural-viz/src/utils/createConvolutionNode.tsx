@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Node } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
 import { getNodeColor } from './nodeUtils';

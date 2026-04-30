@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNodesState, useEdgesState, addEdge, type OnConnect, type Node, type Edge } from '@xyflow/react';
-import { type ModelData, type KernelExpandedState } from '../types/model';
+import { type ModelData } from '../types/model';
 import { createConvolutionNode } from '../utils/createConvolutionNode';
 import { 
   createOutputKernelNode
@@ -15,16 +15,8 @@ export const useModelVisualization = () => {
   const [modelData, setModelData] = useState<ModelData | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [kernelExpandedState, setKernelExpandedState] = useState<KernelExpandedState>({});
-
-  const toggleKernelExpand = (kernelId: string) => {
-    setKernelExpandedState(prev => ({ ...prev, [kernelId]: !prev[kernelId] }));
-  };
-
   const generateNodesAndEdges = (
-    data: ModelData, 
-    kernelExpandedState: KernelExpandedState, 
-    toggleKernelExpandFn: (kernelId: string) => void
+    data: ModelData
   ) => {
     const allNodes: Node[] = [];
     const allEdges: Edge[] = [];
@@ -40,8 +32,6 @@ export const useModelVisualization = () => {
           const kernelNode = createOutputKernelNode(
             modelNode, 
             kernelIndex, 
-            kernelExpandedState,
-            toggleKernelExpandFn,
             basePosition
           );
           allNodes.push(kernelNode);
@@ -119,7 +109,7 @@ export const useModelVisualization = () => {
 
       if (sourceNode && targetNode) {
         allEdges.push(...createKernelEdges(sourceNode, targetNode));
-        allEdges.push(...createInputToKernelSliceEdges(sourceNode, targetNode, kernelExpandedState));
+        allEdges.push(...createInputToKernelSliceEdges());
       }
     });
 
@@ -144,15 +134,11 @@ export const useModelVisualization = () => {
   // Update nodes and edges when model data or kernel expanded state changes
   useEffect(() => {
     if (modelData) {
-      const { nodes: newNodes, edges: newEdges } = generateNodesAndEdges(
-        modelData, 
-        kernelExpandedState, 
-        toggleKernelExpand
-      );
+      const { nodes: newNodes, edges: newEdges } = generateNodesAndEdges(modelData);
       setNodes(newNodes);
       setEdges(newEdges);
     }
-  }, [modelData, kernelExpandedState, setNodes, setEdges]);
+  }, [modelData, setNodes, setEdges]);
 
   return {
     modelData,

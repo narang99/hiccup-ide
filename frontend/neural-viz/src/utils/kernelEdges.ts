@@ -169,38 +169,8 @@ export const createKernelSliceEdges = (
   return edges;
 };
 
-export const createInputToKernelSliceEdges = (
-  sourceNode: ModelNode,
-  targetNode: ModelNode,
-  kernelExpandedState: KernelExpandedState
-): Edge[] => {
-  const edges: Edge[] = [];
-  
-  if (targetNode.type !== 'Conv2d') {
-    return edges;
-  }
-  
-  const targetKernels = targetNode.params.out_channels as number;
-  const inChannels = targetNode.params.in_channels as number;
-  
-  for (let kernelIndex = 0; kernelIndex < targetKernels; kernelIndex++) {
-    const kernelId = `${targetNode.id}-kernel-${kernelIndex}`;
-    
-    if (kernelExpandedState[kernelId]) {
-      // Connect source to expanded kernel input slices
-      for (let i = 0; i < inChannels; i++) {
-        const inputSliceId = `${targetNode.id}-kernel-${kernelIndex}-input-${i}`;
-        
-        edges.push({
-          id: `${sourceNode.id}-${inputSliceId}`,
-          source: sourceNode.id,
-          target: inputSliceId,
-          type: 'default',
-          style: { stroke: '#374151', strokeWidth: 1, opacity: 0.8 },
-        });
-      }
-    }
-  }
-  
-  return edges;
+export const createInputToKernelSliceEdges = (): Edge[] => {
+  // Kernel expansion functionality has been removed
+  // This function now returns empty array
+  return [];
 };

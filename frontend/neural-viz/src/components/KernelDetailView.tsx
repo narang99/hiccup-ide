@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { type ModelData, type ModelNode } from '../types/model';
+import { type ModelData } from '../types/model';
 
 export default function KernelDetailView() {
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
@@ -11,21 +11,7 @@ export default function KernelDetailView() {
   const [kernelNodes, setKernelNodes] = useState<Node[]>([]);
   const [kernelEdges, setKernelEdges] = useState<Edge[]>([]);
 
-  useEffect(() => {
-    // Load model data
-    fetch('/example-model.json')
-      .then((response) => response.json())
-      .then((data: ModelData) => {
-        setModelData(data);
-        
-        if (nodeId && kernelIndex) {
-          generateKernelDetailView(data, nodeId, parseInt(kernelIndex));
-        }
-      })
-      .catch((error) => console.error('Error loading model data:', error));
-  }, [nodeId, kernelIndex]);
-
-  const generateKernelDetailView = (data: ModelData, nodeId: string, kernelIdx: number) => {
+  const generateKernelDetailView = useCallback((data: ModelData, nodeId: string, kernelIdx: number) => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
     if (!targetNode || targetNode.type !== 'Conv2d') return;
 
@@ -185,7 +171,21 @@ export default function KernelDetailView() {
 
     setKernelNodes(nodes);
     setKernelEdges(edges);
-  };
+  }, []);
+
+  useEffect(() => {
+    // Load model data
+    fetch('/example-model.json')
+      .then((response) => response.json())
+      .then((data: ModelData) => {
+        setModelData(data);
+        
+        if (nodeId && kernelIndex) {
+          generateKernelDetailView(data, nodeId, parseInt(kernelIndex));
+        }
+      })
+      .catch((error) => console.error('Error loading model data:', error));
+  }, [nodeId, kernelIndex, generateKernelDetailView]);
 
   const handleBackClick = () => {
     navigate('/');
