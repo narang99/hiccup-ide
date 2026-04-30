@@ -10,17 +10,12 @@ import {
   createInputToKernelSliceEdges
 } from '../utils/kernelEdges';
 import { ReluChannelNodeData } from '../components/nodes/ReluChannelNode';
-import { type NodeFetchers, loadActivationFromFile } from '../fetchers';
+import { DEFAULT_FETCHERS, type NodeFetchers, loadActivationFromFile } from '../fetchers';
 
 export const useModelVisualization = () => {
   const [modelData, setModelData] = useState<ModelData | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  
-  // Create fetchers for data loading
-  const fetchers: NodeFetchers = {
-    activation: loadActivationFromFile
-  };
   
   const generateNodesAndEdges = (
     data: ModelData
@@ -40,7 +35,7 @@ export const useModelVisualization = () => {
             modelNode, 
             kernelIndex, 
             basePosition,
-            fetchers
+            DEFAULT_FETCHERS,
           );
           allNodes.push(kernelNode);
         }
@@ -59,7 +54,7 @@ export const useModelVisualization = () => {
               y: basePosition.y
             },
             data: {
-              label: ReluChannelNodeData({ channelIndex, layerId: modelNode.id, fetchers }),
+              label: ReluChannelNodeData({ channelIndex, layerId: modelNode.id, fetchers: DEFAULT_FETCHERS }),
             },
             style: {
               background: '#fbbf24', // Yellow for ReLU

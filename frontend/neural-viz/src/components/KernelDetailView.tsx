@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlow, Background, Controls, MiniMap, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { type ModelData } from '../types/model';
+import ConvOutActNode from './nodes/ConvOutActNode';
+import { DEFAULT_FETCHERS } from '../fetchers';
 
 export default function KernelDetailView() {
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
@@ -95,16 +97,19 @@ export default function KernelDetailView() {
       });
 
       // Slice output nodes
+      const coordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
       nodes.push({
         id: `output-${i}`,
         type: 'default',
         position: { x: 500, y: 200 + i * 100 },
         data: {
           label: (
-            <div className="text-center">
-              <div className="font-bold text-sm">Out {i}</div>
-              <div className="text-xs text-gray-500">Slice</div>
-            </div>
+            <ConvOutActNode 
+              fetchers={DEFAULT_FETCHERS}
+              maxSize={45}
+              coordinate={coordinate}
+              title="Output"
+            />
           ),
         },
         style: {

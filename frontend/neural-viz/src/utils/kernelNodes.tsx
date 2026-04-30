@@ -1,7 +1,7 @@
 import type { Node } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
 import { type NodeFetchers } from '../fetchers';
-import { ActivationDisplay } from '../components/ActivationDisplay';
+import ConvOutActNode from '../components/nodes/ConvOutActNode';
 
 export const getKernelNodeColor = (nodeType: string): string => {
   switch (nodeType) {
@@ -29,13 +29,13 @@ export const createOutputKernelNode = (
 ): Node => {
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
   const coordinate = `${parentNode.id}.out_${kernelIndex}`;
-  
+
   const handleKernelClick = () => {
     // Navigate to kernel detail view
     // window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
     window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
   };
-  
+
   return {
     id: kernelId,
     type: 'default',
@@ -45,31 +45,17 @@ export const createOutputKernelNode = (
     },
     data: {
       label: (
-        <div 
+        <div
           className="text-center cursor-pointer hover:opacity-80"
           onClick={handleKernelClick}
         >
-          <div className="flex flex-col items-center gap-1">
-            <div className="font-bold text-xs">K{kernelIndex}</div>
-            
-            {/* Activation Display */}
-            {fetchers?.activation ? (
-              <ActivationDisplay 
-                coordinate={coordinate}
-                fetcher={fetchers.activation}
-                maxSize={40}
-              />
-            ) : (
-              <div className="w-10 h-10 bg-gray-400 rounded border" />
-            )}
-            
-            <div className="text-xs text-gray-200">
-              {parentNode.params.kernel_size ? 
-                `${(parentNode.params.kernel_size as number[])[0]}×${(parentNode.params.kernel_size as number[])[1]}` : 
-                'Conv'}
-            </div>
-            <div className="text-xs text-gray-300">🔍</div>
-          </div>
+          <ConvOutActNode 
+            fetchers={fetchers} 
+            kernelIdx={kernelIndex} 
+            maxSize={40} 
+            coordinate={coordinate} 
+            title={`Conv ${parentNode.params.kernel_size ? parentNode.params.kernel_size as number[] : undefined}`}
+          />
         </div>
       ),
     },
@@ -93,7 +79,7 @@ export const createInputSliceNode = (
   basePosition: { x: number; y: number }
 ): Node => {
   const sliceId = `${parentNode.id}-kernel-${kernelIndex}-input-${inputChannelIndex}`;
-  
+
   return {
     id: sliceId,
     type: 'default',
@@ -129,7 +115,7 @@ export const createKernelSliceNode = (
   basePosition: { x: number; y: number }
 ): Node => {
   const sliceId = `${parentNode.id}-kernel-${kernelIndex}-slice-${inputChannelIndex}`;
-  
+
   return {
     id: sliceId,
     type: 'default',
@@ -165,7 +151,7 @@ export const createSliceOutputNode = (
   basePosition: { x: number; y: number }
 ): Node => {
   const outputId = `${parentNode.id}-kernel-${kernelIndex}-output-${inputChannelIndex}`;
-  
+
   return {
     id: outputId,
     type: 'default',
@@ -200,7 +186,7 @@ export const createSumNode = (
   basePosition: { x: number; y: number }
 ): Node => {
   const sumId = `${parentNode.id}-kernel-${kernelIndex}-sum`;
-  
+
   return {
     id: sumId,
     type: 'default',
