@@ -1,5 +1,7 @@
 import type { Node } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
+import { type NodeFetchers } from '../fetchers';
+import { ActivationDisplay } from '../components/ActivationDisplay';
 
 export const getKernelNodeColor = (nodeType: string): string => {
   switch (nodeType) {
@@ -22,9 +24,11 @@ export const getKernelNodeColor = (nodeType: string): string => {
 export const createOutputKernelNode = (
   parentNode: ModelNode,
   kernelIndex: number,
-  basePosition: { x: number; y: number }
+  basePosition: { x: number; y: number },
+  fetchers?: NodeFetchers
 ): Node => {
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
+  const coordinate = `${parentNode.id}.out_${kernelIndex}`;
   
   const handleKernelClick = () => {
     // Navigate to kernel detail view
@@ -44,16 +48,27 @@ export const createOutputKernelNode = (
           className="text-center cursor-pointer hover:opacity-80"
           onClick={handleKernelClick}
         >
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex flex-col items-center gap-1">
             <div className="font-bold text-xs">K{kernelIndex}</div>
-            <div className="text-xs text-gray-200">🔍</div>
+            
+            {/* Activation Display */}
+            {fetchers?.activation ? (
+              <ActivationDisplay 
+                coordinate={coordinate}
+                fetcher={fetchers.activation}
+                maxSize={40}
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gray-400 rounded border" />
+            )}
+            
+            <div className="text-xs text-gray-200">
+              {parentNode.params.kernel_size ? 
+                `${(parentNode.params.kernel_size as number[])[0]}×${(parentNode.params.kernel_size as number[])[1]}` : 
+                'Conv'}
+            </div>
+            <div className="text-xs text-gray-300">🔍</div>
           </div>
-          <div className="text-xs text-gray-200">
-            {parentNode.params.kernel_size ? 
-              `${(parentNode.params.kernel_size as number[])[0]}×${(parentNode.params.kernel_size as number[])[1]}` : 
-              'Conv'}
-          </div>
-          <div className="text-xs text-gray-300">Click to expand</div>
         </div>
       ),
     },

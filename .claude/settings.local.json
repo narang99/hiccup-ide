@@ -5,7 +5,8 @@
       "Bash(npm run lint)",
       "Bash(npx tsc --noEmit)",
       "Bash(npm run build)",
-      "Bash(uv run pytest -v)"
+      "Bash(uv run pytest -v)",
+      "Bash(npm run typecheck)"
     ],
     "deny": [],
     "ask": []

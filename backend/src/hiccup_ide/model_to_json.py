@@ -57,7 +57,8 @@ def model_to_json(model: torch.nn.Module, input_shape: tuple = (1, 3, 224, 224))
             if node.op == 'placeholder':
                 # Input node
                 nodes.append({
-                    "id": node.name,
+                    # "id": node.name,
+                    "id": node.target,
                     "type": "Input",
                     "params": {},
                     "shape": list(input_shape)
@@ -84,7 +85,8 @@ def model_to_json(model: torch.nn.Module, input_shape: tuple = (1, 3, 224, 224))
                     params['num_features'] = module.num_features
                 
                 nodes.append({
-                    "id": node.name,
+                    # "id": node.name,
+                    "id": node.target,
                     "type": module_type,
                     "params": params,
                     "shape": shapes.get(node.target, [])
@@ -94,8 +96,10 @@ def model_to_json(model: torch.nn.Module, input_shape: tuple = (1, 3, 224, 224))
                 for arg in node.args:
                     if isinstance(arg, fx.Node):
                         edges.append({
-                            "source": arg.name,
-                            "target": node.name
+                            # "source": arg.name,
+                            # "target": node.name
+                            "source": arg.target,
+                            "target": node.target,
                         })
             
             elif node.op == 'call_function':
@@ -103,7 +107,8 @@ def model_to_json(model: torch.nn.Module, input_shape: tuple = (1, 3, 224, 224))
                 func_name = node.target.__name__ if hasattr(node.target, '__name__') else str(node.target)
                 
                 nodes.append({
-                    "id": node.name,
+                    # "id": node.name,
+                    "id": node.target,
                     "type": func_name,
                     "params": {},
                     "shape": []
@@ -113,14 +118,17 @@ def model_to_json(model: torch.nn.Module, input_shape: tuple = (1, 3, 224, 224))
                 for arg in node.args:
                     if isinstance(arg, fx.Node):
                         edges.append({
-                            "source": arg.name,
-                            "target": node.name
+                            # "source": arg.name,
+                            # "target": node.name
+                            "source": arg.target,
+                            "target": node.target
                         })
             
             elif node.op == 'output':
                 # Output node
                 nodes.append({
-                    "id": node.name,
+                    # "id": node.name,
+                    "id": node.target,
                     "type": "Output",
                     "params": {},
                     "shape": []
@@ -130,8 +138,10 @@ def model_to_json(model: torch.nn.Module, input_shape: tuple = (1, 3, 224, 224))
                 for arg in node.args:
                     if isinstance(arg, fx.Node):
                         edges.append({
-                            "source": arg.name,
-                            "target": node.name
+                            # "source": arg.name,
+                            # "target": node.name
+                            "source": arg.target,
+                            "target": node.target,
                         })
         
         return {
