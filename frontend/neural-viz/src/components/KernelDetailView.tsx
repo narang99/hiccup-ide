@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ReactFlow, Background, Controls, MiniMap, Panel, type Node, type Edge } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+import { Panel, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
 import ConvOutActNode from './nodes/ConvOutActNode';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
-import { useColormap } from '../contexts/ColormapContext';
-import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps';
-
-const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
+import SharedCanvas from './SharedCanvas';
 
 const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string, fetcherType: FetcherType = "activation") => {
   return ({
@@ -176,116 +172,37 @@ export default function KernelDetailView({ fetcherType = "activation" }: KernelD
     return <div className="flex items-center justify-center h-screen">Loading kernel details...</div>;
   }
 
-  const { colormap: activeColormap, setColormap } = useColormap();
-
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow
-        nodes={kernelNodes}
-        edges={kernelEdges}
-        fitView
-        minZoom={0.5}
-        maxZoom={2}
-      >
-        <Controls />
-        <MiniMap />
-        <Background />
-
-        {/* ── Back button ── */}
-        <Panel position="top-left">
-          <button
-            onClick={handleBackClick}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '7px 12px',
-              background: 'rgba(13, 13, 20, 0.88)',
-              border: '1px solid rgba(255,255,255,0.09)',
-              borderRadius: 10,
-              backdropFilter: 'blur(10px)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-              color: 'rgba(255,255,255,0.75)',
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            ← Overview
-          </button>
-        </Panel>
-
-        {/* ── Colormap selector ── */}
-        <Panel position="top-right">
-          <div style={{
+    <SharedCanvas
+      nodes={kernelNodes}
+      edges={kernelEdges}
+      fitView
+      minZoom={0.5}
+      maxZoom={2}
+    >
+      {/* ── Back button ── */}
+      <Panel position="top-left">
+        <button
+          onClick={handleBackClick}
+          style={{
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            padding: '7px 10px',
+            padding: '7px 12px',
             background: 'rgba(13, 13, 20, 0.88)',
             border: '1px solid rgba(255,255,255,0.09)',
             borderRadius: 10,
             backdropFilter: 'blur(10px)',
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-          }}>
-            <span style={{
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'rgba(255,255,255,0.35)',
-              marginRight: 2,
-            }}>
-              Colormap
-            </span>
-
-            {COLORMAP_KEYS.map((key) => {
-              const isActive = key === activeColormap;
-              const meta = COLORMAP_META[key];
-              return (
-                <button
-                  key={key}
-                  onClick={() => setColormap(key)}
-                  title={key}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '4px 9px',
-                    borderRadius: 6,
-                    border: isActive
-                      ? '1px solid rgba(255,255,255,0.3)'
-                      : '1px solid rgba(255,255,255,0.07)',
-                    background: isActive
-                      ? 'rgba(255,255,255,0.12)'
-                      : 'transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <span style={{
-                    display: 'inline-block',
-                    width: 28,
-                    height: 8,
-                    borderRadius: 3,
-                    background: meta.gradient,
-                    flexShrink: 0,
-                  }} />
-                  <span style={{
-                    fontSize: 10,
-                    fontWeight: isActive ? 700 : 400,
-                    color: isActive ? '#fff' : 'rgba(255,255,255,0.4)',
-                    lineHeight: 1,
-                  }}>
-                    {meta.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </Panel>
-
-      </ReactFlow>
-    </div>
+            color: 'rgba(255,255,255,0.75)',
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          ← Overview
+        </button>
+      </Panel>
+    </SharedCanvas>
   );
 }
