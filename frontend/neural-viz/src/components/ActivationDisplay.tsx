@@ -1,22 +1,33 @@
 import { useEffect, useState } from 'react';
+import chroma from 'chroma-js';
 import { type ActivationData } from '../fetchers/activation';
+import { COLORMAPS, COLORMAP_META, normalizeSymmetric, type ColormapName } from '../utils/colormaps';
+import { useColormap } from '../contexts/ColormapContext';
 
 interface ActivationDisplayProps {
   coordinate: string;
   fetcher: (coordinate: string) => Promise<ActivationData>;
   className?: string;
-  maxSize?: number; // Maximum display size in pixels
+  maxSize?: number;
+  /** Explicit override. If omitted, the global colormap from context is used. */
+  colormap?: ColormapName;
 }
 
-export const ActivationDisplay = ({ 
-  coordinate, 
-  fetcher, 
-  className = "", 
-  maxSize = 60 
+export const ActivationDisplay = ({
+  coordinate,
+  fetcher,
+  className = '',
+  maxSize = 60,
+  colormap,
 }: ActivationDisplayProps) => {
   const [activationData, setActivationData] = useState<ActivationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fall back to global context colormap when no explicit prop is passed
+  const { colormap: globalColormap } = useColormap();
+  const resolvedColormap = colormap ?? globalColormap;
+  const scale = COLORMAPS[resolvedColormap];
 
   useEffect(() => {
     let cancelled = false;
@@ -24,101 +35,109 @@ export const ActivationDisplay = ({
     const loadActivation = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const data = await fetcher(coordinate);
-        if (!cancelled) {
-          setActivationData(data);
-        }
+        if (!cancelled) setActivationData(data);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load activation');
           setActivationData(null);
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadActivation();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [coordinate, fetcher]);
 
   const renderActivation = () => {
     if (isLoading) {
       return (
-        <div 
-          className="bg-gray-300 animate-pulse rounded"
-          style={{ width: maxSize, height: maxSize }}
+        <div
+          style={{
+            width: maxSize,
+            height: maxSize,
+            background: 'rgba(255,255,255,0.06)',
+            borderRadius: 4,
+          }}
         />
       );
     }
 
     if (error || !activationData) {
       return (
-        <div 
-          className="bg-red-200 border border-red-400 rounded flex items-center justify-center text-xs text-red-700"
-          style={{ width: maxSize, height: maxSize }}
+        <div
+          style={{
+            width: maxSize,
+            height: maxSize,
+            background: 'rgba(255,80,80,0.15)',
+            border: '1px solid rgba(255,80,80,0.4)',
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 14,
+          }}
         >
           ⚠️
         </div>
       );
     }
 
-    // Handle 2D activation data (activation maps)
+    // ── 2-D activation map ──────────────────────────────────────────────────
     if (Array.isArray(activationData.data) && activationData.shape.length === 2) {
       const [height, width] = activationData.shape;
       const data = activationData.data as number[][];
-      
-      // Find min/max for normalization
+
       const flatData = data.flat();
-      const min = Math.min(...flatData);
-      const max = Math.max(...flatData);
-      const range = max - min;
-      
+      const absMax = Math.max(
+        Math.abs(Math.min(...flatData)),
+        Math.abs(Math.max(...flatData)),
+      );
+
       return (
-        <div 
-          className="border rounded overflow-hidden"
-          style={{ width: maxSize, height: maxSize }}
-        >
+        <div style={{ width: maxSize, height: maxSize, borderRadius: 4, overflow: 'hidden' }}>
           <svg width={maxSize} height={maxSize} viewBox={`0 0 ${width} ${height}`}>
             {data.map((row, y) =>
-              row.map((value, x) => {
-                const intensity = range === 0 ? 0.5 : (value - min) / range;
-                return (
-                  <rect
-                    key={`${x}-${y}`}
-                    x={x}
-                    y={y}
-                    width={1}
-                    height={1}
-                    fill={`rgb(${Math.round(intensity * 255)}, ${Math.round(intensity * 255)}, ${Math.round(intensity * 255)})`}
-                  />
-                );
-              })
+              row.map((value, x) => (
+                <rect
+                  key={`${x}-${y}`}
+                  x={x}
+                  y={y}
+                  width={1}
+                  height={1}
+                  fill={scale(normalizeSymmetric(value, absMax)).hex()}
+                />
+              ))
             )}
           </svg>
         </div>
       );
     }
 
-    // Handle scalar values (linear layer outputs)
+    // ── Scalar value (e.g. linear layer output) ─────────────────────────────
     if (typeof activationData.data === 'number') {
       const value = activationData.data;
-      const intensity = Math.max(0, Math.min(1, (value + 1) / 2)); // Assume range [-1, 1]
-      
+      const t = normalizeSymmetric(value, 3); // ±3 as default range
+      const bg = scale(t).hex();
+      const textColor = chroma(bg).luminance() > 0.35 ? '#000' : '#fff';
+
       return (
-        <div 
-          className="border rounded flex items-center justify-center text-xs font-bold"
-          style={{ 
-            width: maxSize, 
+        <div
+          style={{
+            width: maxSize,
             height: maxSize,
-            backgroundColor: `rgb(${Math.round(intensity * 255)}, ${Math.round(intensity * 255)}, ${Math.round(intensity * 255)})`
+            background: bg,
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 10,
+            fontWeight: 700,
+            color: textColor,
           }}
         >
           {value.toFixed(2)}
@@ -126,11 +145,21 @@ export const ActivationDisplay = ({
       );
     }
 
-    // Fallback for unknown data format
+    // ── Fallback ────────────────────────────────────────────────────────────
     return (
-      <div 
-        className="bg-gray-200 border border-gray-400 rounded flex items-center justify-center text-xs"
-        style={{ width: maxSize, height: maxSize }}
+      <div
+        style={{
+          width: maxSize,
+          height: maxSize,
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 12,
+          color: 'rgba(255,255,255,0.4)',
+        }}
       >
         ?
       </div>
@@ -143,3 +172,7 @@ export const ActivationDisplay = ({
     </div>
   );
 };
+
+// Re-export for convenience
+export type { ColormapName };
+export { COLORMAPS, COLORMAP_META };
