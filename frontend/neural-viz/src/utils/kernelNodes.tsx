@@ -32,6 +32,7 @@ export const createOutputKernelNode = (
   
   const handleKernelClick = () => {
     // Navigate to kernel detail view
+    // window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
     window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
   };
   

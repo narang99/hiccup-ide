@@ -43,35 +43,6 @@ export const useModelVisualization = () => {
             fetchers
           );
           allNodes.push(kernelNode);
-          
-          // TEMPORARILY DISABLED: Add kernel slice nodes if this kernel is expanded
-          // const kernelId = `${modelNode.id}-kernel-${kernelIndex}`;
-          // if (kernelExpandedState[kernelId]) {
-          //   const inChannels = modelNode.params.in_channels as number;
-          //   
-          //   for (let inputIndex = 0; inputIndex < inChannels; inputIndex++) {
-          //     // Input slice node
-          //     allNodes.push(createInputSliceNode(
-          //       modelNode, kernelIndex, inputIndex, kernelNode.position
-          //     ));
-          //     
-          //     // Kernel slice node
-          //     allNodes.push(createKernelSliceNode(
-          //       modelNode, kernelIndex, inputIndex, kernelNode.position
-          //     ));
-          //     
-          //     // Slice output node
-          //     allNodes.push(createSliceOutputNode(
-          //       modelNode, kernelIndex, inputIndex, kernelNode.position
-          //     ));
-          //   }
-          //   
-          //   // Sum node
-          //   allNodes.push(createSumNode(modelNode, kernelIndex, kernelNode.position));
-          //   
-          //   // Add internal kernel slice edges
-          //   allEdges.push(...createKernelSliceEdges(modelNode, kernelIndex, kernelExpandedState));
-          // }
         }
       } else if (modelNode.type === 'ReLU') {
         // For ReLU: show channel-wise operations
