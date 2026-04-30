@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict
 
 
-def dump_coordinates_to_files(coordinate_data: Dict[str, Dict], output_dir: str) -> None:
+def dump_coordinates_to_files(coordinate_data: Dict[str, Dict], output_dir: str | Path) -> None:
     """
     Export coordinate data to individual JSON files for frontend consumption.
     Each coordinate gets its own JSON file named with the coordinate key.

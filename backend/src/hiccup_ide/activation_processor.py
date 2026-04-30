@@ -100,12 +100,6 @@ def process_activations_to_coordinates(activations: Dict[str, torch.Tensor],
     return generate_coordinates(activations, parameters, model)
 
 
-def save_coordinates_to_json(coordinate_data: Dict[str, Dict], output_path: str):
-    """Save coordinate data to JSON file for frontend consumption."""
-    with open(output_path, 'w') as f:
-        json.dump(coordinate_data, f, indent=2)
-
-
 def get_coordinate_data(coordinate: str, coordinate_data: Dict[str, Dict]) -> Optional[dict[str, Any]]:
     """
     Get activation data for a specific coordinate.
