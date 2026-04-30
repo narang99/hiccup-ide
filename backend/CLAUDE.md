@@ -41,8 +41,49 @@ uv run --python 3.11 python script.py
 # Install all dependencies including dev
 uv sync --dev
 
-# Run tests (when added)
+# Run tests
 uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_activation_processor.py
+
+# Run tests with verbose output
+uv run pytest -v
+```
+
+## Testing Guidelines
+
+This project uses pytest for testing with the following preferences:
+
+### Test Structure
+- **Function-based tests only**: Use `def test_*()` functions, not test classes unless absolutely necessary
+- **Modular organization**: Separate test files by feature/module (e.g., `test_activation_processor.py`, `test_capture.py`)
+- **Clear test names**: Use descriptive function names that explain what's being tested
+
+### Development Workflow
+1. **Adhoc scripts for development**: Feel free to create temporary test scripts while developing features
+2. **Convert to pytest later**: Once a feature is working, convert your adhoc tests to proper pytest functions
+3. **Keep tests simple**: Focus on testing behavior, not implementation details
+
+### Test File Naming
+- Test files should start with `test_` (e.g., `test_activation_processor.py`)
+- Test functions should start with `test_` (e.g., `test_generate_coordinates()`)
+
+### Example Test Structure
+```python
+def test_feature_with_valid_input():
+    # Arrange
+    input_data = create_test_data()
+    
+    # Act
+    result = function_under_test(input_data)
+    
+    # Assert
+    assert result == expected_result
+
+def test_feature_with_edge_case():
+    # Test edge cases, error conditions, etc.
+    pass
 ```
 
 ### Project Structure
@@ -50,7 +91,13 @@ uv run pytest
 hiccup-ide/
 ├── src/
 │   └── hiccup_ide/
+│       ├── capture.py
+│       ├── activation_processor.py
 │       └── model_to_json.py
+├── tests/
+│   ├── test_capture.py
+│   ├── test_activation_processor.py
+│   └── conftest.py
 ├── pyproject.toml
 ├── uv.lock
 └── CLAUDE.md
