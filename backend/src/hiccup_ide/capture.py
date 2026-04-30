@@ -45,7 +45,7 @@ def compute_conv_input_channel_contributions(module, input_tensor):
                 contribution = contribution + bias_portion
             
             coord_key = f"out_{out_ch}.in_{in_ch}"
-            contributions[coord_key] = contribution.detach().cpu()
+            contributions[coord_key] = (contribution.detach().cpu(), input_slice.detach().cpu())
     
     return contributions
 
@@ -98,9 +98,11 @@ class ModelSnapshot:
             if hasattr(module, '__class__') and 'Conv' in module.__class__.__name__:
                 input_contributions = compute_conv_input_channel_contributions(module, input)
                 # Store with layer name prefix
-                for coord_key, contribution in input_contributions.items():
+                for coord_key, (contribution, input_slice) in input_contributions.items():
                     full_key = f"{name}.{coord_key}"
+                    input_key = f"{full_key}.input"
                     self.activations[full_key] = contribution
+                    self.activations[input_key] = input_slice
                     
         return hook_fn
 

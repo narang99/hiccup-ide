@@ -51,25 +51,29 @@ export default function KernelDetailView() {
 
     // Input channel nodes
     for (let i = 0; i < inChannels; i++) {
+      const inputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}.input`;
       nodes.push({
         id: `input-${i}`,
         type: 'default',
+        // position: { x: 500, y: 200 + i * 100 },
         position: { x: 100, y: 200 + i * 100 },
         data: {
           label: (
-            <div className="text-center">
-              <div className="font-bold text-sm">Input {i}</div>
-              <div className="text-xs text-gray-500">Channel {i}</div>
-            </div>
+            <ConvOutActNode
+              fetchers={DEFAULT_FETCHERS}
+              maxSize={84}
+              coordinate={inputCoordinate}
+              title="Input"
+            />
           ),
         },
         style: {
-          background: '#10b981',
-          color: '#fff',
-          border: '1px solid #374151',
+          background: 'transparent',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
           borderRadius: '6px',
-          padding: '10px',
-          minWidth: '80px',
+          padding: 0,
+          minWidth: '96px',
+          overflow: 'hidden',
         },
       });
 
@@ -101,7 +105,7 @@ export default function KernelDetailView() {
       });
 
       // Slice output nodes
-      const coordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
+      const outputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
       nodes.push({
         id: `output-${i}`,
         type: 'default',
@@ -111,7 +115,7 @@ export default function KernelDetailView() {
             <ConvOutActNode
               fetchers={DEFAULT_FETCHERS}
               maxSize={84}
-              coordinate={coordinate}
+              coordinate={outputCoordinate}
               title="Output"
             />
           ),

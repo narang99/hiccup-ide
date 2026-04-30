@@ -10,7 +10,7 @@ import {
   createInputToKernelSliceEdges
 } from '../utils/kernelEdges';
 import { ReluChannelNodeData } from '../components/nodes/ReluChannelNode';
-import { DEFAULT_FETCHERS, type NodeFetchers, loadActivationFromFile } from '../fetchers';
+import { DEFAULT_FETCHERS } from '../fetchers';
 
 export const useModelVisualization = () => {
   const [modelData, setModelData] = useState<ModelData | null>(null);

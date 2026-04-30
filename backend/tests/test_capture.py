@@ -85,8 +85,9 @@ def test_compute_conv_input_channel_contributions(test_model, test_input):
     assert "out_7.in_0" in contributions
     
     # Check tensor shapes
-    for coord, tensor in contributions.items():
-        assert tensor.shape == (1, 1, 14, 14)  # [batch, 1, H, W]
+    for coord, (contribution, input_slice) in contributions.items():
+        assert contribution.shape == (1, 1, 14, 14)  # [batch, 1, H, W]
+        assert input_slice.shape == (1, 1, 28, 28)
 
 
 def test_conv_input_channel_contributions_captured_in_activations(test_model, test_input):
@@ -125,7 +126,7 @@ def test_bias_distribution_in_input_channel_contributions(test_model, test_input
     # since bias[out_ch] / 1 = bias[out_ch]
     for out_ch in range(8):
         coord_key = f"out_{out_ch}.in_0"
-        contribution = contributions[coord_key]  # [1, 1, 14, 14]
+        contribution, input_slice = contributions[coord_key]  # [1, 1, 14, 14]
         
         # The contribution should equal the full output for that channel
         # (since there's only 1 input channel, it gets the full bias)
@@ -160,7 +161,7 @@ def test_bias_distribution_multi_input_channels():
         channel_sum = torch.zeros_like(full_output[:, out_ch:out_ch+1])
         for in_ch in range(3):
             coord_key = f"out_{out_ch}.in_{in_ch}"
-            channel_sum += contributions[coord_key]
+            channel_sum += contributions[coord_key][0]
         
         # Should equal the full output for that channel
         expected = full_output[:, out_ch:out_ch+1]
