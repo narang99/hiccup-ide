@@ -1,3 +1,4 @@
+from hiccup_ide.capture import get_model_internals
 import random
 from collections import defaultdict
 from fastai.basics import (
@@ -22,7 +23,8 @@ from fastai.vision.all import (
     ProgressCallback,
     ImageBlock,
 )
-import numpy as np
+from hiccup_ide.contribs import v1, v2
+from hiccup_ide.utils import to_device, detach_all
 
 
 # 2. Define the Model
@@ -79,7 +81,8 @@ def get_mnist_dataloader(fraction=1.0, **kwargs):
     item_tfms = [Resize(28)]
     batch_tfms = [Normalize()]
 
-    def _get_items(f): return _mnist_stratified_subset(f, fraction)
+    def _get_items(f):
+        return _mnist_stratified_subset(f, fraction)
 
     dblock = DataBlock(
         blocks=[
@@ -94,3 +97,79 @@ def get_mnist_dataloader(fraction=1.0, **kwargs):
     )
     return DataLoaders.from_dblock(dblock, path, path=path, **kwargs)
 
+
+def get_contribs_for_inp_vectorized(batch_inp_tens, model, batch_input_ratios, device):
+    acts, parameters = get_model_internals(model, batch_inp_tens)
+    acts["inputs"] = batch_inp_tens
+
+    acts = to_device(acts, device)
+
+    total_contribs = {}
+    total_contribs["layers.5"] = batch_input_ratios
+
+    total_contribs["layers.4"] = v2.linear_calculate_contribs_for_all(
+        model.get_submodule("layers.5"),
+        acts["layers.4"],
+        total_contribs["layers.5"],
+        device,
+    )
+    # flatten
+    total_contribs["layers.3"] = total_contribs["layers.4"].view(acts["layers.3"].shape)
+
+    total_contribs["layers.2"] = v1.relu_calculate_contribs(total_contribs["layers.3"])
+
+    total_contribs["layers.1"], total_contribs["layers.2.slice"] = (
+        v2.conv_calculate_contribs_for_all(
+            acts["layers.1"],
+            model.get_submodule("layers.2"),
+            total_contribs["layers.2"],
+        )
+    )
+    total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
+
+    total_contribs["inputs"], total_contribs["layers.0.slice"] = (
+        v2.conv_calculate_contribs_for_all(
+            acts["inputs"],
+            model.get_submodule("layers.0"),
+            total_contribs["layers.0"],
+        )
+    )
+    total_contribs = detach_all(to_device(total_contribs, "cpu"))
+    acts = detach_all(to_device(acts, "cpu"))
+    parameters = detach_all(to_device(parameters, "cpu"))
+    return total_contribs, acts, parameters
+
+
+# def get_contribs_for_inp(inp_tens, model, input_ratios):
+#     acts, parameters = get_model_internals(model, inp_tens)
+#     total_contribs = {}
+
+#     total_contribs["layers.5"] = input_ratios
+
+#     total_contribs["layers.4"] = v1.linear_calculate_contribs_for_all(
+#         model.get_submodule("layers.5"),
+#         acts["layers.4"],
+#         acts["layers.5"],
+#         total_contribs["layers.5"],
+#     )
+
+#     # flatten
+#     total_contribs["layers.3"] = total_contribs["layers.4"].view([1, 16, 7, 7])
+
+#     total_contribs["layers.2"] = v1.relu_calculate_contribs(total_contribs["layers.3"])
+
+#     total_contribs["layers.1"] = v1.conv_calculate_contribs_for_all(
+#         model.get_submodule("layers.2"),
+#         acts["layers.1"],
+#         acts["layers.2"],
+#         total_contribs["layers.2"],
+#     )
+#     total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
+#     total_contribs["inputs"] = v1.conv_calculate_contribs_for_all(
+#         model.get_submodule("layers.0"),
+#         inp_tens,
+#         acts["layers.0"],
+#         total_contribs["layers.0"],
+#     )
+#     acts["inputs"] = inp_tens
+#     return total_contribs, acts, parameters
