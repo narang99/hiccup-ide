@@ -104,21 +104,21 @@ export default function KernelDetailView() {
         position: { x: 500, y: 200 + i * 100 },
         data: {
           label: (
-            <ConvOutActNode 
+            <ConvOutActNode
               fetchers={DEFAULT_FETCHERS}
-              maxSize={45}
+              maxSize={84}
               coordinate={coordinate}
               title="Output"
             />
           ),
         },
         style: {
-          background: '#f59e0b',
-          color: '#fff',
-          border: '1px solid #374151',
+          background: 'transparent',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
           borderRadius: '6px',
-          padding: '10px',
-          minWidth: '80px',
+          padding: 0,
+          minWidth: '96px',
+          overflow: 'hidden',
         },
       });
 

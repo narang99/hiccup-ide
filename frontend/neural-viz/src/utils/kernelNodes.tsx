@@ -36,37 +36,40 @@ export const createOutputKernelNode = (
     window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
   };
 
+  const ks = parentNode.params.kernel_size as number[] | undefined;
+  const title = ks ? `${ks[0]}×${ks[1]}` : parentNode.id;
+
   return {
     id: kernelId,
     type: 'default',
     position: {
-      x: basePosition.x + (kernelIndex - (parentNode.params.out_channels as number) / 2) * 120, // 120px spacing for 50px nodes + 70px gap
-      y: basePosition.y // Same vertical level as parent layer
+      x: basePosition.x + (kernelIndex - (parentNode.params.out_channels as number) / 2) * 110,
+      y: basePosition.y
     },
     data: {
       label: (
         <div
-          className="text-center cursor-pointer hover:opacity-80"
+          style={{ width: '100%', cursor: 'pointer' }}
           onClick={handleKernelClick}
         >
-          <ConvOutActNode 
-            fetchers={fetchers} 
-            kernelIdx={kernelIndex} 
-            maxSize={40} 
-            coordinate={coordinate} 
-            title={`Conv ${parentNode.params.kernel_size ? parentNode.params.kernel_size as number[] : undefined}`}
+          <ConvOutActNode
+            fetchers={fetchers}
+            kernelIdx={kernelIndex}
+            maxSize={84}
+            coordinate={coordinate}
+            title={title}
           />
         </div>
       ),
     },
     style: {
-      background: getKernelNodeColor('Output-Kernel'),
-      color: '#fff',
-      border: '1px solid #374151',
+      background: 'transparent',
+      border: '1px solid rgba(96, 165, 250, 0.35)',
       borderRadius: '6px',
-      padding: '8px',
-      minWidth: '80px',
+      padding: 0,
+      minWidth: '96px',
       fontSize: '10px',
+      overflow: 'hidden',
     },
   };
 };
