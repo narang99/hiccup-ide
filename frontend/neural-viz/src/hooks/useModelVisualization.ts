@@ -12,12 +12,12 @@ import {
 import { ReluChannelNodeData } from '../components/nodes/ReluChannelNode';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 
-export const useModelVisualization = (fetcherType: FetcherType = "saliency_map") => {
+export const useModelVisualization = (fetcherType: FetcherType = "activation") => {
   const [modelData, setModelData] = useState<ModelData | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   
-  const generateNodesAndEdges = (
+  const generateNodesAndEdges = useCallback((
     data: ModelData
   ) => {
     const allNodes: Node[] = [];
@@ -89,7 +89,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "saliency_map")
     });
 
     return { nodes: allNodes, edges: allEdges };
-  };
+  }, [fetcherType]);
 
   const onConnect: OnConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
@@ -113,7 +113,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "saliency_map")
       setNodes(newNodes);
       setEdges(newEdges);
     }
-  }, [modelData, setNodes, setEdges]);
+  }, [modelData, generateNodesAndEdges, setNodes, setEdges]);
 
   return {
     modelData,

@@ -4,6 +4,7 @@ import { Panel, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
 import ConvOutActNode from './nodes/ConvOutActNode';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
+import { useFetcherType } from '../contexts/FetcherTypeContext';
 import SharedCanvas from './SharedCanvas';
 
 const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string, fetcherType: FetcherType = "activation") => {
@@ -33,11 +34,8 @@ const getNodeShowingActivation = (id: string, position: { x: number, y: number }
   });
 };
 
-interface KernelDetailViewProps {
-  fetcherType?: FetcherType;
-}
-
-export default function KernelDetailView({ fetcherType = "activation" }: KernelDetailViewProps) {
+export default function KernelDetailView() {
+  const { fetcherType } = useFetcherType();
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
   const navigate = useNavigate();
   const [modelData, setModelData] = useState<ModelData | null>(null);

@@ -40,3 +40,12 @@ Finally we would like to see the meaning (meaning can be propagated at each step
   - This aggressively prunes the graph.   
   - We would have inputs to POIs which won't be fully assigned a meaning and that is okay for now.  
   - Technically, I should prune the graph for each POI, but that might be excessive  
+
+
+- Until now my workflow is
+  - Find all significant POI, find why they are POI, note down what is happening basically.  
+- We want to change this workflow. We first take a pruned up graph
+  - This will start by first pruning all POIs in the last conv layer
+  - Then for each POI, we find the most significant POIs of it, its a kinda of depth first search.  
+  - We create a tree, and at point in the tree, we cut branches which are not useful.  
+  - Then we merge them to find the most useful graph.  

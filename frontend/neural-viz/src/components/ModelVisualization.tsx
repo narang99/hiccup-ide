@@ -1,7 +1,9 @@
 import { useModelVisualization } from '../hooks/useModelVisualization';
 import SharedCanvas from './SharedCanvas';
+import { useFetcherType } from '../contexts/FetcherTypeContext';
 
 export default function ModelVisualization() {
+  const { fetcherType } = useFetcherType();
   const {
     modelData,
     nodes,
@@ -9,7 +11,7 @@ export default function ModelVisualization() {
     onNodesChange,
     onEdgesChange,
     onConnect,
-  } = useModelVisualization();
+  } = useModelVisualization(fetcherType);
 
   if (!modelData) {
     return <div className="flex items-center justify-center h-screen">Loading model...</div>;
