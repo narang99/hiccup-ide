@@ -17,11 +17,11 @@ export const useModelVisualization = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [kernelExpandedState, setKernelExpandedState] = useState<KernelExpandedState>({});
 
-  const toggleKernelExpand = useCallback((kernelId: string) => {
+  const toggleKernelExpand = (kernelId: string) => {
     setKernelExpandedState(prev => ({ ...prev, [kernelId]: !prev[kernelId] }));
-  }, []);
+  };
 
-  const generateNodesAndEdges = useCallback((
+  const generateNodesAndEdges = (
     data: ModelData, 
     kernelExpandedState: KernelExpandedState, 
     toggleKernelExpandFn: (kernelId: string) => void
@@ -124,7 +124,7 @@ export const useModelVisualization = () => {
     });
 
     return { nodes: allNodes, edges: allEdges };
-  }, []);
+  };
 
   const onConnect: OnConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
@@ -152,7 +152,7 @@ export const useModelVisualization = () => {
       setNodes(newNodes);
       setEdges(newEdges);
     }
-  }, [modelData, kernelExpandedState, generateNodesAndEdges, toggleKernelExpand, setNodes, setEdges]);
+  }, [modelData, kernelExpandedState, setNodes, setEdges]);
 
   return {
     modelData,

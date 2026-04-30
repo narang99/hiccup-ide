@@ -30,6 +30,11 @@ export const createOutputKernelNode = (
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
   const isExpanded = kernelExpandedState[kernelId];
   
+  const handleKernelClick = () => {
+    // Navigate to kernel detail view
+    window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
+  };
+  
   return {
     id: kernelId,
     type: 'default',
@@ -39,34 +44,30 @@ export const createOutputKernelNode = (
     },
     data: {
       label: (
-        <div className="text-center">
+        <div 
+          className="text-center cursor-pointer hover:opacity-80"
+          onClick={handleKernelClick}
+        >
           <div className="flex items-center justify-center gap-2">
             <div className="font-bold text-xs">K{kernelIndex}</div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleKernelExpand(kernelId);
-              }}
-              className="text-xs bg-gray-200 hover:bg-gray-300 px-1 py-0.5 rounded"
-            >
-              {isExpanded ? '−' : '+'}
-            </button>
+            <div className="text-xs text-gray-200">🔍</div>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-200">
             {parentNode.params.kernel_size ? 
               `${(parentNode.params.kernel_size as number[])[0]}×${(parentNode.params.kernel_size as number[])[1]}` : 
               'Conv'}
           </div>
+          <div className="text-xs text-gray-300">Click to expand</div>
         </div>
       ),
     },
     style: {
       background: getKernelNodeColor('Output-Kernel'),
       color: '#fff',
-      border: isExpanded ? '2px solid #059669' : '1px solid #374151',
+      border: '1px solid #374151',
       borderRadius: '6px',
       padding: '8px',
-      minWidth: '50px',
+      minWidth: '80px',
       fontSize: '10px',
     },
     parentNode: parentNode.id,
