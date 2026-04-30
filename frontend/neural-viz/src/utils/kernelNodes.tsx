@@ -2,6 +2,7 @@ import type { Node } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
 import { type NodeFetchers, type FetcherType } from '../fetchers';
 import ConvOutActNode from '../components/nodes/ConvOutActNode';
+import { Link } from 'react-router-dom';
 
 export const getKernelNodeColor = (nodeType: string): string => {
   switch (nodeType) {
@@ -31,12 +32,6 @@ export const createOutputKernelNode = (
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
   const coordinate = `${parentNode.id}.out_${kernelIndex}`;
 
-  const handleKernelClick = () => {
-    // Navigate to kernel detail view
-    // window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
-    window.location.href = `/kernel/${parentNode.id}/${kernelIndex}`;
-  };
-
   const ks = parentNode.params.kernel_size as number[] | undefined;
   const title = ks ? `${ks[0]}×${ks[1]}` : parentNode.id;
 
@@ -49,9 +44,9 @@ export const createOutputKernelNode = (
     },
     data: {
       label: (
-        <div
-          style={{ width: '100%', cursor: 'pointer' }}
-          onClick={handleKernelClick}
+        <Link
+          to={`/kernel/${parentNode.id}/${kernelIndex}`}
+          style={{ width: '100%', cursor: 'pointer', display: 'block', textDecoration: 'none' }}
         >
           <ConvOutActNode
             fetchers={fetchers}
@@ -61,7 +56,7 @@ export const createOutputKernelNode = (
             coordinate={coordinate}
             title={title}
           />
-        </div>
+        </Link>
       ),
     },
     style: {
