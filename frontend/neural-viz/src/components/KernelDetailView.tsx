@@ -10,6 +10,32 @@ import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps'
 
 const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
 
+const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string) => {
+  return ({
+    id: id,
+    type: 'default',
+    position: position,
+    data: {
+      label: (
+        <ConvOutActNode
+          fetchers={DEFAULT_FETCHERS}
+          maxSize={84}
+          coordinate={coordinate}
+          title={title}
+        />
+      ),
+    },
+    style: {
+      background: 'transparent',
+      border: '1px solid rgba(245, 158, 11, 0.35)',
+      borderRadius: '6px',
+      padding: 0,
+      minWidth: '96px',
+      overflow: 'hidden',
+    },
+  });
+};
+
 export default function KernelDetailView() {
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
   const navigate = useNavigate();
@@ -52,30 +78,7 @@ export default function KernelDetailView() {
     // Input channel nodes
     for (let i = 0; i < inChannels; i++) {
       const inputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}.input`;
-      nodes.push({
-        id: `input-${i}`,
-        type: 'default',
-        // position: { x: 500, y: 200 + i * 100 },
-        position: { x: 100, y: 200 + i * 100 },
-        data: {
-          label: (
-            <ConvOutActNode
-              fetchers={DEFAULT_FETCHERS}
-              maxSize={84}
-              coordinate={inputCoordinate}
-              title="Input"
-            />
-          ),
-        },
-        style: {
-          background: 'transparent',
-          border: '1px solid rgba(245, 158, 11, 0.35)',
-          borderRadius: '6px',
-          padding: 0,
-          minWidth: '96px',
-          overflow: 'hidden',
-        },
-      });
+      nodes.push(getNodeShowingActivation(`input-${i}`, { x: 100, y: 200 + i * 100 }, "Input", inputCoordinate));
 
       // Kernel slice nodes
       nodes.push({
@@ -87,8 +90,8 @@ export default function KernelDetailView() {
             <div className="text-center">
               <div className="font-bold text-sm">K{kernelIdx}:{i}</div>
               <div className="text-xs text-gray-500">
-                {targetNode.params.kernel_size ? 
-                  `${(targetNode.params.kernel_size as number[])[0]}×${(targetNode.params.kernel_size as number[])[1]}` : 
+                {targetNode.params.kernel_size ?
+                  `${(targetNode.params.kernel_size as number[])[0]}×${(targetNode.params.kernel_size as number[])[1]}` :
                   'Kernel'}
               </div>
             </div>
@@ -104,31 +107,10 @@ export default function KernelDetailView() {
         },
       });
 
+
       // Slice output nodes
       const outputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
-      nodes.push({
-        id: `output-${i}`,
-        type: 'default',
-        position: { x: 500, y: 200 + i * 100 },
-        data: {
-          label: (
-            <ConvOutActNode
-              fetchers={DEFAULT_FETCHERS}
-              maxSize={84}
-              coordinate={outputCoordinate}
-              title="Output"
-            />
-          ),
-        },
-        style: {
-          background: 'transparent',
-          border: '1px solid rgba(245, 158, 11, 0.35)',
-          borderRadius: '6px',
-          padding: 0,
-          minWidth: '96px',
-          overflow: 'hidden',
-        },
-      });
+      nodes.push(getNodeShowingActivation(`output-${i}`, { x: 500, y: 200 + i * 100 }, "Output", outputCoordinate));
 
       // Edges: Input -> Kernel -> Output
       edges.push({
@@ -149,27 +131,8 @@ export default function KernelDetailView() {
     }
 
     // Sum node
-    nodes.push({
-      id: 'sum',
-      type: 'default',
-      position: { x: 700, y: 200 + (inChannels / 2) * 100 },
-      data: {
-        label: (
-          <div className="text-center">
-            <div className="font-bold text-xl">Σ</div>
-            <div className="text-xs text-gray-500">Sum</div>
-          </div>
-        ),
-      },
-      style: {
-        background: '#ef4444',
-        color: '#fff',
-        border: '2px solid #374151',
-        borderRadius: '8px',
-        padding: '15px',
-        minWidth: '60px',
-      },
-    });
+    const sumCoordinate = `${nodeId}.out_${kernelIndex}`;
+    nodes.push(getNodeShowingActivation(`sum`, { x: 700, y: 200 + (inChannels / 2) * 100 }, "sum", sumCoordinate));
 
     // Edges from all outputs to sum
     for (let i = 0; i < inChannels; i++) {
@@ -192,7 +155,7 @@ export default function KernelDetailView() {
       .then((response) => response.json())
       .then((data: ModelData) => {
         setModelData(data);
-        
+
         if (nodeId && kernelIndex) {
           generateKernelDetailView(data, nodeId, parseInt(kernelIndex));
         }
