@@ -1,30 +1,26 @@
 from pathlib import Path
-import json
+from typing import Dict, Union
+
+from .common import dump_coordinates_to_json_files
+
 
 def dump_contribs_to_files(
-    coord_data: dict[str, dict],
-    output_dir: str | Path,
+    coord_data: Dict[str, Dict],
+    output_dir: Union[str, Path],
 ) -> None:
     """
-    Dump each coordinate entry as a separate JSON file, identical in
-    structure to the activation JSON files the frontend already consumes.
+    Dump contribution coordinate data to individual JSON files.
+    
+    Creates one JSON file per coordinate, identical in structure to the 
+    activation JSON files the frontend already consumes.
 
-    The file name is "<coordinate>.json", e.g.:
-        layers.0.out_0.json
-        layers.0.out_0.in_0.json
-        inputs.out_0.json
+    File examples:
+        - layers.0.out_0.json
+        - layers.0.out_0.in_0.json
+        - inputs.out_0.json
 
-    Parameters
-    ----------
-    coord_data : dict
-        Output of process_contribs_to_coordinates.
-    output_dir : path-like
-        Directory to write JSON files into (created if it doesn't exist).
+    Args:
+        coord_data: Output from contrib_processor.process_contribs_to_coordinates
+        output_dir: Directory to write JSON files (created if doesn't exist)
     """
-    out_path = Path(output_dir)
-    out_path.mkdir(parents=True, exist_ok=True)
-
-    for coordinate, entry in coord_data.items():
-        file_path = out_path / f"{coordinate}.json"
-        with open(file_path, "w") as f:
-            json.dump(entry, f, indent=2)
+    dump_coordinates_to_json_files(coord_data, output_dir)
