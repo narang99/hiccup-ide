@@ -49,3 +49,13 @@ class SaliencyMapOut(Schema):
     shape: List[int]
     coordinate_type: str
     data_type: str
+
+
+class WeightOut(Schema):
+    id: int
+    coordinate: str
+    data: Any
+    shape: List[int]
+    layer_type: str
+    coordinate_type: str
+    data_type: str

@@ -59,3 +59,20 @@ class SaliencyMap(models.Model):
     class Meta:
         db_table = "saliency_maps"
         unique_together = ['input', 'coordinate']
+
+class Weight(models.Model):
+    model = models.ForeignKey(Model, on_delete=models.CASCADE, related_name='weights')
+    coordinate = models.CharField(max_length=200, db_index=True)
+    data = models.JSONField()
+    shape = models.JSONField()
+    layer_type = models.CharField(max_length=100)
+    coordinate_type = models.CharField(max_length=100)
+    data_type = models.CharField(max_length=100)  # "weights" or "bias"
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.model.alias} - {self.coordinate} ({self.data_type})"
+
+    class Meta:
+        db_table = "weights"
+        unique_together = ['model', 'coordinate']

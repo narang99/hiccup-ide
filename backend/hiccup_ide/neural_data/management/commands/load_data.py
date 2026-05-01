@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from django.core.management.base import BaseCommand
-from neural_data.models import Model, Input, Activation, SaliencyMap
+from neural_data.models import Model, Input, Activation, SaliencyMap, Weight
 
 
 class Command(BaseCommand):
@@ -138,13 +138,54 @@ class Command(BaseCommand):
                             )
                         )
 
+            # Load weights
+            weights_folder = public_folder / "weights"
+            weights_count = 0
+            if weights_folder.exists():
+                for weights_file in weights_folder.glob("*.json"):
+                    coordinate = weights_file.stem
+                    try:
+                        with open(weights_file, "r") as f:
+                            weights_data = json.load(f)
+
+                        weight, created = Weight.objects.get_or_create(
+                            model=model,
+                            coordinate=coordinate,
+                            defaults={
+                                "data": weights_data["data"],
+                                "shape": weights_data["shape"],
+                                "layer_type": weights_data["layer_type"],
+                                "coordinate_type": weights_data["coordinate_type"],
+                                "data_type": weights_data["data_type"],
+                            },
+                        )
+
+                        if not created:
+                            # Update existing weight
+                            weight.data = weights_data["data"]
+                            weight.shape = weights_data["shape"]
+                            weight.layer_type = weights_data["layer_type"]
+                            weight.coordinate_type = weights_data["coordinate_type"]
+                            weight.data_type = weights_data["data_type"]
+                            weight.save()
+
+                        weights_count += 1
+
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f"Error loading weight {weights_file}: {e}"
+                            )
+                        )
+
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Successfully loaded data:\n"
                     f"- Model: {model.alias}\n"
                     f"- Input: {input_obj.alias}\n"
                     f"- Activations: {activation_count}\n"
-                    f"- Saliency Maps: {saliency_count}"
+                    f"- Saliency Maps: {saliency_count}\n"
+                    f"- Weights: {weights_count}"
                 )
             )
 

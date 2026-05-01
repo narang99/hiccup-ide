@@ -2,8 +2,8 @@ from ninja import Router
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 
-from .models import Model, Input, Activation, SaliencyMap
-from .schemas import ModelOut, InputOut, ActivationOut, SaliencyMapOut
+from .models import Model, Input, Activation, SaliencyMap, Weight
+from .schemas import ModelOut, InputOut, ActivationOut, SaliencyMapOut, WeightOut
 
 router = Router()
 
@@ -45,3 +45,12 @@ def get_saliency_map(request, model_alias: str, input_alias: str, coordinate: st
         coordinate=coordinate
     )
     return saliency_map
+
+@router.get("/models/{model_alias}/weights/{coordinate}/", response=WeightOut)
+def get_weight(request, model_alias: str, coordinate: str):
+    weight = get_object_or_404(
+        Weight,
+        model__alias=model_alias,
+        coordinate=coordinate
+    )
+    return weight

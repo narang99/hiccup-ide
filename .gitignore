@@ -219,5 +219,3 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-
-/hiccup_ide/db.sqlite3
