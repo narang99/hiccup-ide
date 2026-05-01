@@ -26,33 +26,84 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
     // Create nodes - kernels for Conv2d, regular nodes for others
     data.nodes.forEach((modelNode, index) => {
       if (modelNode.type === 'Conv2d') {
-        // For Conv2d: only show kernels, no main block
-        const basePosition = { x: 300, y: index * 200 }; // Virtual position for kernel placement
+        // For Conv2d: create parent layer node and kernel sub-nodes
+        const basePosition = { x: 300, y: index * 200 };
         const outChannels = modelNode.params.out_channels as number;
+        
+        // Calculate parent node dimensions
+        const parentWidth = Math.max(200, (outChannels * 120) + 40);
+        const parentHeight = 140;
 
+        // Create parent layer node
+        const parentLayerNode = {
+          id: modelNode.id,
+          type: 'group',
+          position: basePosition,
+          data: {
+            label: `Conv2d Layer (${outChannels} kernels)`,
+          },
+          style: {
+            background: 'rgba(96, 165, 250, 0.1)',
+            border: '2px solid rgba(96, 165, 250, 0.3)',
+            borderRadius: '8px',
+            padding: '20px',
+            width: parentWidth,
+            height: parentHeight,
+          },
+        };
+        allNodes.push(parentLayerNode);
+
+        // Create kernel sub-nodes with parentId
         for (let kernelIndex = 0; kernelIndex < outChannels; kernelIndex++) {
           const kernelNode = createOutputKernelNode(
             modelNode,
             kernelIndex,
-            basePosition,
+            { x: 20 + (kernelIndex * 120), y: 20 }, // Relative to parent
             DEFAULT_FETCHERS,
             fetcherType
           );
+          // Add parentId to the kernel node
+          kernelNode.parentId = modelNode.id;
+          kernelNode.extent = 'parent';
           allNodes.push(kernelNode);
         }
       } else if (modelNode.type === 'ReLU') {
-        // For ReLU: show channel-wise operations
+        // For ReLU: create parent layer node and channel sub-nodes
         const basePosition = { x: 300, y: index * 200 };
         // Get number of channels from the shape (assuming format [batch, channels, height, width])
         const numChannels = modelNode.shape.length > 1 ? modelNode.shape[1] : 1;
+        
+        // Calculate parent node dimensions
+        const parentWidth = Math.max(160, (numChannels * 110) + 40);
+        const parentHeight = 120;
 
+        // Create parent layer node
+        const parentLayerNode = {
+          id: modelNode.id,
+          type: 'group',
+          position: basePosition,
+          data: {
+            label: `ReLU Layer (${numChannels} channels)`,
+          },
+          style: {
+            background: 'rgba(251, 191, 36, 0.1)',
+            border: '2px solid rgba(251, 191, 36, 0.3)',
+            borderRadius: '8px',
+            padding: '20px',
+            width: parentWidth,
+            height: parentHeight,
+          },
+        };
+        allNodes.push(parentLayerNode);
+
+        // Create channel sub-nodes with parentId
         for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
-          const reluChannelNode = {
+          const reluChannelNode: Node = {
             id: `${modelNode.id}-channel-${channelIndex}`,
             type: 'default',
             position: {
-              x: basePosition.x + (channelIndex - numChannels / 2) * 110,
-              y: basePosition.y
+              x: 20 + (channelIndex * 110), // Relative to parent
+              y: 20 // Relative to parent
             },
             data: {
               label: ReluChannelNodeData({ channelIndex, layerId: modelNode.id, fetchers: DEFAULT_FETCHERS, fetcherType }),
@@ -66,7 +117,9 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
               fontSize: '10px',
               overflow: 'hidden',
             },
-            parentNode: modelNode.id,
+            parentId: modelNode.id,
+            extent: 'parent',
+            // draggable: false,
           };
           allNodes.push(reluChannelNode);
         }
@@ -77,15 +130,14 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
       }
     });
 
-    // Create main edges between layers
+    // Create simple edges between layer groups only
     data.edges.forEach((modelEdge) => {
-      const sourceNode = data.nodes.find(n => n.id === modelEdge.source);
-      const targetNode = data.nodes.find(n => n.id === modelEdge.target);
-
-      if (sourceNode && targetNode) {
-        allEdges.push(...createKernelEdges(sourceNode, targetNode));
-        allEdges.push(...createInputToKernelSliceEdges());
-      }
+      allEdges.push({
+        id: `${modelEdge.source}-${modelEdge.target}`,
+        source: modelEdge.source,
+        target: modelEdge.target,
+        type: 'default',
+      });
     });
 
     return { nodes: allNodes, edges: allEdges };
