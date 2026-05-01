@@ -4,7 +4,7 @@ import { Panel, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
 import ConvOutActNode from './nodes/ConvOutActNode';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
-import { useFetcherType } from '../contexts/FetcherTypeContext';
+import { useFetcherType } from '../hooks/useFetcherType';
 import SharedCanvas from './SharedCanvas';
 
 const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string, fetcherType: FetcherType = "activation") => {
@@ -123,7 +123,7 @@ export default function KernelDetailView() {
 
     setKernelNodes(nodes);
     setKernelEdges(edges);
-  }, [fetcherType]);
+  }, [fetcherType, kernelIndex]);
 
   useEffect(() => {
     // Load model data
@@ -132,7 +132,7 @@ export default function KernelDetailView() {
     
     fetch(`${apiBaseUrl}/api/models/${modelAlias}/`)
       .then((response) => response.json())
-      .then((data: any) => {
+      .then((data: { definition: ModelData }) => {
         const modelData = data.definition;
         setModelData(modelData);
 

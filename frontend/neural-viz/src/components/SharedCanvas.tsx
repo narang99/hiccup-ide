@@ -1,10 +1,11 @@
 import { type ReactNode } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, Panel, type ReactFlowProps } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, Panel, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useColormap } from '../contexts/ColormapContext';
-import { useFetcherType } from '../contexts/FetcherTypeContext';
 import { type FetcherType } from '../fetchers';
 import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps';
+import { useFetcherType } from '../hooks/useFetcherType';
+import { useColormap } from '../hooks/useColormap';
+import dagre from '@dagrejs/dagre';
 
 const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
 
@@ -15,10 +16,12 @@ interface SharedCanvasProps extends ReactFlowProps {
 export default function SharedCanvas({ children, ...props }: SharedCanvasProps) {
   const { colormap: activeColormap, setColormap } = useColormap();
   const { fetcherType, setFetcherType } = useFetcherType();
+  const { nodes, edges } = getLayoutedElements(props, 172, 36);
+  const layoutedProps: ReactFlowProps = { ...props, nodes, edges }
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow {...props}>
+      <ReactFlow {...layoutedProps}>
         <Controls />
         <MiniMap />
         <Background />
@@ -158,3 +161,49 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
     </div>
   );
 }
+
+
+const getLayoutedElements = (props: ReactFlowProps, nodeWidth = 172, nodeHeight = 36): { nodes: Node[], edges: Edge[] } => {
+  const nodes = props.nodes;
+  const edges = props.edges;
+  const direction = "LR";
+  if (nodes === undefined || edges === undefined) {
+    return { nodes: [], edges: [] }
+  }
+
+  const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 100 });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    const newNode: Node = {
+      ...node,
+      // @ts-ignore
+      targetPosition: isHorizontal ? 'left' : 'top',
+      // @ts-ignore
+      sourcePosition: isHorizontal ? 'right' : 'bottom',
+      // We are shifting the dagre node position (anchor=center center) to the top left
+      // so it matches the React Flow node anchor point (top left).
+      position: {
+        x: nodeWithPosition.x - nodeWidth / 2,
+        y: nodeWithPosition.y - nodeHeight / 2,
+      },
+    };
+
+    return newNode;
+  });
+
+  return { nodes: newNodes, edges };
+};

@@ -1,6 +1,6 @@
 import { useModelVisualization } from '../hooks/useModelVisualization';
 import SharedCanvas from './SharedCanvas';
-import { useFetcherType } from '../contexts/FetcherTypeContext';
+import { useFetcherType } from '../hooks/useFetcherType';
 
 export default function ModelVisualization() {
   const { fetcherType } = useFetcherType();

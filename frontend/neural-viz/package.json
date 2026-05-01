@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "lint": "eslint . && npm run typecheck",
+    "lint": "eslint . && npm run build",
     "lint:eslint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.0.0",
     "@xyflow/react": "^12.10.2",
     "chroma-js": "^3.2.0",
     "react": "^19.2.5",

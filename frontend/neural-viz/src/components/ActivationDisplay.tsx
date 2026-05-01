@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import chroma from 'chroma-js';
 import { type ActivationData } from '../fetchers/activation';
 import { COLORMAPS, COLORMAP_META, normalizeSymmetric, type ColormapName } from '../utils/colormaps';
-import { useColormap } from '../contexts/ColormapContext';
+import { useColormap } from '../hooks/useColormap';
 
 interface ActivationDisplayProps {
   coordinate: string;
@@ -26,7 +26,7 @@ export const ActivationDisplay = ({
 
   // Fall back to global context colormap when no explicit prop is passed
   const { colormap: globalColormap } = useColormap();
-  const resolvedColormap = colormap ?? globalColormap;
+  const resolvedColormap: ColormapName = colormap ?? globalColormap;
   const scale = COLORMAPS[resolvedColormap];
 
   useEffect(() => {

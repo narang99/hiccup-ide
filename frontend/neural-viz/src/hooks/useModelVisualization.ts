@@ -2,10 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
 import { createConvolutionNode } from '../utils/createConvolutionNode';
-import { 
+import {
   createOutputKernelNode
 } from '../utils/kernelNodes';
-import { 
+import {
   createKernelEdges,
   createInputToKernelSliceEdges
 } from '../utils/kernelEdges';
@@ -16,7 +16,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
   const [modelData, setModelData] = useState<ModelData | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  
+
   const generateNodesAndEdges = useCallback((
     data: ModelData
   ) => {
@@ -29,11 +29,11 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
         // For Conv2d: only show kernels, no main block
         const basePosition = { x: 300, y: index * 200 }; // Virtual position for kernel placement
         const outChannels = modelNode.params.out_channels as number;
-        
+
         for (let kernelIndex = 0; kernelIndex < outChannels; kernelIndex++) {
           const kernelNode = createOutputKernelNode(
-            modelNode, 
-            kernelIndex, 
+            modelNode,
+            kernelIndex,
             basePosition,
             DEFAULT_FETCHERS,
             fetcherType
@@ -45,7 +45,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
         const basePosition = { x: 300, y: index * 200 };
         // Get number of channels from the shape (assuming format [batch, channels, height, width])
         const numChannels = modelNode.shape.length > 1 ? modelNode.shape[1] : 1;
-        
+
         for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
           const reluChannelNode = {
             id: `${modelNode.id}-channel-${channelIndex}`,
@@ -96,10 +96,10 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
   useEffect(() => {
     const modelAlias = "example-model";
     const apiBaseUrl = "http://localhost:8000";
-    
+
     fetch(`${apiBaseUrl}/api/models/${modelAlias}/`)
       .then((response) => response.json())
-      .then((data: any) => {
+      .then((data) => {
         setModelData(data.definition);
       })
       .catch((error) => console.error('Error loading model data:', error));
