@@ -1,4 +1,4 @@
-import { type Node } from '@xyflow/react';
+import { type Node, type XYPosition } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
 import { createOutputKernelNode } from './kernelNodes';
 import { ReluChannelNodeData } from '../components/nodes/ReluChannelNode';
@@ -14,8 +14,9 @@ export const createConv2dLayer = (
   const childWidth = 120;
   const childHeight = 120;
   const padding = 10;
-  const ourWidth = outChannels * childWidth + (outChannels + 1) * padding;
-  const ourHeight = padding + childHeight;
+  const layout = makeLayerLayout(outChannels, childHeight, childWidth, padding);
+  // const ourWidth = outChannels * childWidth + (outChannels + 1) * padding;
+  // const ourHeight = padding + childHeight;
 
   // Step 1: Create all child nodes first to get their actual sizes
 
@@ -29,40 +30,25 @@ export const createConv2dLayer = (
       layerType: 'Conv2d' as const,
       nodeCount: outChannels,
     },
-    width: ourWidth,
-    height: ourHeight,
+    width: layout.parent.width,
+    height: layout.parent.height,
   };
   nodes.push(parentLayerNode);
 
   for (let kernelIndex = 0; kernelIndex < outChannels; kernelIndex++) {
-    const x = kernelIndex * childWidth + (kernelIndex + 1) * padding;
+    const childPosition = layout.children[kernelIndex];
     const y = padding;
     const kernelNode = createOutputKernelNode(
       modelNode,
       kernelIndex,
       childHeight,
       childWidth,
-      { x: x, y: y },
+      childPosition,
       DEFAULT_FETCHERS,
       fetcherType
     );
     nodes.push(kernelNode);
   }
-  // Step 6: Position child nodes in grid and add to nodes array
-  // childNodes.forEach((kernelNode, kernelIndex) => {
-  //   const row = Math.floor(kernelIndex / kernelsPerRow);
-  //   const col = kernelIndex % kernelsPerRow;
-
-  //   // Update position with actual grid coordinates
-  //   kernelNode.position = {
-  //     x: padding + col * (actualChildWidth + padding),
-  //     y: padding + row * (actualChildHeight + padding)
-  //   };
-  //   kernelNode.parentId = modelNode.id;
-  //   kernelNode.extent = 'parent';
-  //   nodes.push(kernelNode);
-  // });
-
   return nodes;
 };
 
@@ -77,25 +63,15 @@ export const createReLULayer = (
   const childWidth = 120;
   const childHeight = 120;
   const padding = 10;
-  // child node (H, W)
-  // padding = p 
-  // p + W + p + W + p + W + p
-  // the amount of padding is simply W + 1
-  // for now i only do horizontal, although a clean grid layout is very useful but its okay
-  // position of 0: p
-  // 1: p + W + p
-  // 2: p + W + p + W + p
-  // total width = num_channels * child_width + (num_channels + 1) * padding
-  const ourWidth = numChannels * childWidth + (numChannels + 1) * padding;
-  const ourHeight = padding + childHeight;
+  const layout = makeLayerLayout(numChannels, childHeight, childWidth, padding);
 
   // Create parent layer node
   const parentLayerNode = {
     id: modelNode.id,
     type: 'LayerNode',
     position: basePosition,
-    width: ourWidth,
-    height: ourHeight,
+    width: layout.parent.width,
+    height: layout.parent.height,
     data: {
       label: `ReLU Layer (${numChannels} channels)`,
       layerType: 'ReLU' as const,
@@ -106,22 +82,11 @@ export const createReLULayer = (
 
   // Create channel sub-nodes with parentId in grid layout
   for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
-    // const row = Math.floor(channelIndex / channelsPerRow);
-    // const col = channelIndex % channelsPerRow;
-
-    // position of 0: p
-    // 1: p + W + p
-    // 2: p + W + p + W + p
-
-    const x = channelIndex * childWidth + (channelIndex + 1) * padding;
-    const y = padding;
-
+    const childPosition = layout.children[channelIndex];
     const reluChannelNode: Node = {
       id: `${modelNode.id}-channel-${channelIndex}`,
       type: 'default',
-      position: {
-        x: x, y: y
-      },
+      position: childPosition,
       data: {
         label: ReluChannelNodeData({ channelIndex, layerId: modelNode.id, fetchers: DEFAULT_FETCHERS, fetcherType }),
       },
@@ -164,3 +129,41 @@ export const createOtherLayer = (
 
   return [layerNode];
 };
+
+
+interface LayerGroupLayout {
+  children: XYPosition[];
+  parent: { height: number, width: number };
+}
+
+const makeLayerLayout = (
+  numChannels: number,
+  childHeight: number,
+  childWidth: number,
+  padding: number,
+): LayerGroupLayout => {
+  // child node (H, W)
+  // padding = p 
+  // p + W + p + W + p + W + p
+  // the amount of padding is simply W + 1
+  // for now i only do horizontal, although a clean grid layout is very useful but its okay
+  // position of 0: p
+  // 1: p + W + p
+  // 2: p + W + p + W + p
+  // total width = num_channels * child_width + (num_channels + 1) * padding
+  const width = numChannels * childWidth + (numChannels + 1) * padding;
+  const height = padding + childHeight;
+  const parent = { height, width };
+
+  const children = [];
+  for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
+    // position of 0: p
+    // 1: p + W + p
+    // 2: p + W + p + W + p
+    const x = channelIndex * childWidth + (channelIndex + 1) * padding;
+    const y = padding;
+    children.push({ x: x, y: y });
+  }
+
+  return { parent, children };
+}
