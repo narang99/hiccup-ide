@@ -1,11 +1,12 @@
-import { type ReactNode } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, Panel, Position, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
+import { type ReactNode, useState, useCallback } from 'react';
+import { ReactFlow, Background, Controls, Panel, Position, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { type FetcherType } from '../fetchers';
 import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useColormap } from '../hooks/useColormap';
-import { LayerNode } from './nodes/LayerNode';
+import { LayerNode, type LayerNodeData } from './nodes/LayerNode';
+import { LayerSettings } from './LayerSettings';
 import dagre from '@dagrejs/dagre';
 
 const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
@@ -23,12 +24,25 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
   const { fetcherType, setFetcherType } = useFetcherType();
   const { nodes, edges } = getLayoutedElements(props);
   const layoutedProps: ReactFlowProps = { ...props, nodes, edges }
+  
+  const [selectedNodeData, setSelectedNodeData] = useState<LayerNodeData | null>(null);
+
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (node.type === 'LayerNode') {
+      setSelectedNodeData(node.data as LayerNodeData);
+    } else {
+      setSelectedNodeData(null);
+    }
+  }, []);
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedNodeData(null);
+  }, []);
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow {...layoutedProps} nodeTypes={nodeTypes}>
+      <ReactFlow {...layoutedProps} nodeTypes={nodeTypes} onNodeClick={handleNodeClick} onPaneClick={handlePaneClick}>
         <Controls />
-        <MiniMap />
         <Background />
 
         <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
@@ -159,6 +173,12 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
               );
             })}
           </div>
+
+          {/* ── Layer Settings Panel ── */}
+          <LayerSettings 
+            nodeData={selectedNodeData || undefined} 
+            disabled={!selectedNodeData} 
+          />
         </Panel>
 
         {children}
