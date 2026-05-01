@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
-import { createConv2dLayer, createReLULayer, createOtherLayer } from '../utils/layerCreators';
 import { type FetcherType } from '../fetchers';
+import { createConv2dLayer } from '../layerCreators/conv';
+import { createReLULayer } from '../layerCreators/relu';
+import { createOtherLayer } from '../layerCreators/default';
 
 export const useModelVisualization = (fetcherType: FetcherType = "activation") => {
   const [modelData, setModelData] = useState<ModelData | null>(null);

@@ -21,7 +21,7 @@ interface SharedCanvasProps extends ReactFlowProps {
 export default function SharedCanvas({ children, ...props }: SharedCanvasProps) {
   const { colormap: activeColormap, setColormap } = useColormap();
   const { fetcherType, setFetcherType } = useFetcherType();
-  const { nodes, edges } = getLayoutedElements(props, 172, 36);
+  const { nodes, edges } = getLayoutedElements(props);
   const layoutedProps: ReactFlowProps = { ...props, nodes, edges }
 
   return (
@@ -168,7 +168,7 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
 }
 
 
-const getLayoutedElements = (props: ReactFlowProps, nodeWidth = 172, nodeHeight = 36): { nodes: Node[], edges: Edge[] } => {
+const getLayoutedElements = (props: ReactFlowProps): { nodes: Node[], edges: Edge[] } => {
   const nodes = props.nodes;
   const edges = props.edges;
   const direction = "TB";
@@ -179,17 +179,12 @@ const getLayoutedElements = (props: ReactFlowProps, nodeWidth = 172, nodeHeight 
   const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
   const isHorizontal = false;
-  dagreGraph.setGraph({ rankdir: direction, nodesep: 100 });
+  dagreGraph.setGraph({ rankdir: direction });
 
   // Only add LayerNode types to Dagre for positioning
   nodes.forEach((node) => {
     if (node.type === 'LayerNode') {
-      const width = node.style?.width || nodeWidth;
-      const height = node.style?.height || nodeHeight;
-      dagreGraph.setNode(node.id, { 
-        width: typeof width === 'string' ? parseInt(width) : width,
-        height: typeof height === 'string' ? parseInt(height) : height
-      });
+      dagreGraph.setNode(node.id, { width: node.width, height: node.height });
     }
   });
 
@@ -201,13 +196,15 @@ const getLayoutedElements = (props: ReactFlowProps, nodeWidth = 172, nodeHeight 
 
   const newNodes = nodes.map((node) => {
     if (node.type === 'LayerNode') {
-      // LayerNodes get positioned by Dagre
       const nodeWithPosition = dagreGraph.node(node.id);
-      const width = node.style?.width || nodeWidth;
-      const height = node.style?.height || nodeHeight;
+      const width = node.width;
+      const height = node.height;
+      if (width === undefined || height === undefined) {
+        throw Error(`invalid node ${node}: width and height cannot be undefined, width=${width} height=${height}`);
+      }
       const actualWidth = typeof width === 'string' ? parseInt(width) : width;
       const actualHeight = typeof height === 'string' ? parseInt(height) : height;
-      
+
       return {
         ...node,
         targetPosition: isHorizontal ? Position.Left : Position.Top,
@@ -217,22 +214,8 @@ const getLayoutedElements = (props: ReactFlowProps, nodeWidth = 172, nodeHeight 
           y: nodeWithPosition.y - actualHeight / 2,
         },
       };
-    } else if (node.parentId) {
-      // Child nodes keep their manual relative positions
-      return node;
-      // return {
-      //   ...node,
-      //   // targetPosition: isHorizontal ? Position.Left : Position.Top,
-      //   // sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-      // };
     } else {
-      // Other nodes keep their original positions
       return node;
-      // return {
-      //   ...node,
-      //   // targetPosition: isHorizontal ? Position.Left : Position.Top,
-      //   // sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-      // };
     }
   });
 
