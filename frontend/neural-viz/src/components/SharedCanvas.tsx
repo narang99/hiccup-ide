@@ -1,11 +1,12 @@
-import { type ReactNode, useState, useCallback } from 'react';
+import { type ReactNode } from 'react';
 import { ReactFlow, Background, Controls, Panel, Position, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { type FetcherType } from '../fetchers';
 import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useColormap } from '../hooks/useColormap';
-import { LayerNode, type LayerNodeData } from './nodes/LayerNode';
+import { useSelectedNode } from '../hooks/useSelectedNode';
+import { LayerNode } from './nodes/LayerNode';
 import { LayerSettings } from './LayerSettings';
 import dagre from '@dagrejs/dagre';
 
@@ -22,22 +23,9 @@ interface SharedCanvasProps extends ReactFlowProps {
 export default function SharedCanvas({ children, ...props }: SharedCanvasProps) {
   const { colormap: activeColormap, setColormap } = useColormap();
   const { fetcherType, setFetcherType } = useFetcherType();
+  const { handleNodeClick, handlePaneClick } = useSelectedNode();
   const { nodes, edges } = getLayoutedElements(props);
   const layoutedProps: ReactFlowProps = { ...props, nodes, edges }
-  
-  const [selectedNodeData, setSelectedNodeData] = useState<LayerNodeData | null>(null);
-
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    if (node.type === 'LayerNode') {
-      setSelectedNodeData(node.data as LayerNodeData);
-    } else {
-      setSelectedNodeData(null);
-    }
-  }, []);
-
-  const handlePaneClick = useCallback(() => {
-    setSelectedNodeData(null);
-  }, []);
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
@@ -175,10 +163,7 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
           </div>
 
           {/* ── Layer Settings Panel ── */}
-          <LayerSettings 
-            nodeData={selectedNodeData || undefined} 
-            disabled={!selectedNodeData} 
-          />
+          <LayerSettings />
         </Panel>
 
         {children}

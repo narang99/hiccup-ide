@@ -1,16 +1,21 @@
-import { useState } from 'react';
-import { type LayerNodeData } from './nodes/LayerNode';
+import { useLayerSettingsStore } from '../stores/layerSettingsStore';
+import { useSelectedNode } from '../hooks/useSelectedNode';
 
-interface LayerSettingsProps {
-  nodeData?: LayerNodeData;
-  disabled?: boolean;
-}
-
-export const LayerSettings = ({ nodeData, disabled = false }: LayerSettingsProps) => {
-  const [sliderValue, setSliderValue] = useState(50);
+export const LayerSettings = () => {
+  const { selectedNode } = useSelectedNode();
+  const { getLayerSettings, updateSliderValue } = useLayerSettingsStore();
+  
+  const nodeId = selectedNode?.id;
+  const nodeData = selectedNode?.data;
+  const disabled = !selectedNode;
+  
+  const sliderValue = nodeId ? getLayerSettings(nodeId).sliderValue : 50;
 
   const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSliderValue(Number(event.target.value));
+    const value = Number(event.target.value);
+    if (nodeId) {
+      updateSliderValue(nodeId, value);
+    }
   };
 
   return (
@@ -110,27 +115,6 @@ export const LayerSettings = ({ nodeData, disabled = false }: LayerSettingsProps
               borderRadius: '2px',
               appearance: 'none',
               cursor: disabled ? 'not-allowed' : 'pointer',
-            }}
-            css={{
-              '&::-webkit-slider-thumb': {
-                appearance: 'none',
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                background: '#60a5fa',
-                border: '2px solid #fff',
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-              },
-              '&::-moz-range-thumb': {
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                background: '#60a5fa',
-                border: '2px solid #fff',
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-              },
             }}
           />
         </div>

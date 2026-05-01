@@ -21,7 +21,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
     data.nodes.forEach((modelNode, index) => {
       const basePosition = { x: 300, y: index * 200 };
       
-      let layerNodes: Node[] = [];
+      let layerNodes: Node[];
       
       switch (modelNode.type) {
         case 'Conv2d':
