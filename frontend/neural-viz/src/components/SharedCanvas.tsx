@@ -1,13 +1,18 @@
 import { type ReactNode } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, Panel, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, Panel, Position, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { type FetcherType } from '../fetchers';
 import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useColormap } from '../hooks/useColormap';
+import { LayerNode } from './nodes/LayerNode';
 import dagre from '@dagrejs/dagre';
 
 const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
+
+const nodeTypes = {
+  LayerNode,
+};
 
 interface SharedCanvasProps extends ReactFlowProps {
   children?: ReactNode;
@@ -21,7 +26,7 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow {...layoutedProps}>
+      <ReactFlow {...layoutedProps} nodeTypes={nodeTypes}>
         <Controls />
         <MiniMap />
         <Background />
@@ -166,18 +171,26 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
 const getLayoutedElements = (props: ReactFlowProps, nodeWidth = 172, nodeHeight = 36): { nodes: Node[], edges: Edge[] } => {
   const nodes = props.nodes;
   const edges = props.edges;
-  const direction = "LR";
+  const direction = "TB";
   if (nodes === undefined || edges === undefined) {
     return { nodes: [], edges: [] }
   }
 
   const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
-  const isHorizontal = direction === 'LR';
+  const isHorizontal = false;
   dagreGraph.setGraph({ rankdir: direction, nodesep: 100 });
 
+  // Only add LayerNode types to Dagre for positioning
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    if (node.type === 'LayerNode') {
+      const width = node.style?.width || nodeWidth;
+      const height = node.style?.height || nodeHeight;
+      dagreGraph.setNode(node.id, { 
+        width: typeof width === 'string' ? parseInt(width) : width,
+        height: typeof height === 'string' ? parseInt(height) : height
+      });
+    }
   });
 
   edges.forEach((edge) => {
@@ -187,22 +200,40 @@ const getLayoutedElements = (props: ReactFlowProps, nodeWidth = 172, nodeHeight 
   dagre.layout(dagreGraph);
 
   const newNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    const newNode: Node = {
-      ...node,
-      // @ts-ignore
-      targetPosition: isHorizontal ? 'left' : 'top',
-      // @ts-ignore
-      sourcePosition: isHorizontal ? 'right' : 'bottom',
-      // We are shifting the dagre node position (anchor=center center) to the top left
-      // so it matches the React Flow node anchor point (top left).
-      position: {
-        x: nodeWithPosition.x - nodeWidth / 2,
-        y: nodeWithPosition.y - nodeHeight / 2,
-      },
-    };
-
-    return newNode;
+    if (node.type === 'LayerNode') {
+      // LayerNodes get positioned by Dagre
+      const nodeWithPosition = dagreGraph.node(node.id);
+      const width = node.style?.width || nodeWidth;
+      const height = node.style?.height || nodeHeight;
+      const actualWidth = typeof width === 'string' ? parseInt(width) : width;
+      const actualHeight = typeof height === 'string' ? parseInt(height) : height;
+      
+      return {
+        ...node,
+        targetPosition: isHorizontal ? Position.Left : Position.Top,
+        sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+        position: {
+          x: nodeWithPosition.x - actualWidth / 2,
+          y: nodeWithPosition.y - actualHeight / 2,
+        },
+      };
+    } else if (node.parentId) {
+      // Child nodes keep their manual relative positions
+      return node;
+      // return {
+      //   ...node,
+      //   // targetPosition: isHorizontal ? Position.Left : Position.Top,
+      //   // sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+      // };
+    } else {
+      // Other nodes keep their original positions
+      return node;
+      // return {
+      //   ...node,
+      //   // targetPosition: isHorizontal ? Position.Left : Position.Top,
+      //   // sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+      // };
+    }
   });
 
   return { nodes: newNodes, edges };

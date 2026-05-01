@@ -17,7 +17,6 @@ export const ActivationDisplay = ({
   coordinate,
   fetcher,
   className = '',
-  maxSize = 60,
   colormap,
 }: ActivationDisplayProps) => {
   const [activationData, setActivationData] = useState<ActivationData | null>(null);
@@ -58,8 +57,8 @@ export const ActivationDisplay = ({
       return (
         <div
           style={{
-            width: maxSize,
-            height: maxSize,
+            width: "100%",
+            height: "100%",
             background: 'rgba(255,255,255,0.06)',
             borderRadius: 4,
           }}
@@ -71,8 +70,8 @@ export const ActivationDisplay = ({
       return (
         <div
           style={{
-            width: maxSize,
-            height: maxSize,
+            width: "100%",
+            height: "100%",
             background: 'rgba(255,80,80,0.15)',
             border: '1px solid rgba(255,80,80,0.4)',
             borderRadius: 4,
@@ -99,8 +98,8 @@ export const ActivationDisplay = ({
       );
 
       return (
-        <div style={{ width: maxSize, height: maxSize, borderRadius: 4, overflow: 'hidden' }}>
-          <svg width={maxSize} height={maxSize} viewBox={`0 0 ${width} ${height}`}>
+        <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: 'hidden' }}>
+          <svg width={"100%"} height={"100%"} viewBox={`0 0 ${width} ${height}`}>
             {data.map((row, y) =>
               row.map((value, x) => (
                 <rect
@@ -128,8 +127,8 @@ export const ActivationDisplay = ({
       return (
         <div
           style={{
-            width: maxSize,
-            height: maxSize,
+            width: "100%",
+            height: "100%",
             background: bg,
             borderRadius: 4,
             display: 'flex',
@@ -149,8 +148,8 @@ export const ActivationDisplay = ({
     return (
       <div
         style={{
-          width: maxSize,
-          height: maxSize,
+          width: "100%",
+          height: "100%",
           background: 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 4,

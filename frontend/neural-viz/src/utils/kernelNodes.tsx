@@ -25,7 +25,9 @@ export const getKernelNodeColor = (nodeType: string): string => {
 export const createOutputKernelNode = (
   parentNode: ModelNode,
   kernelIndex: number,
-  basePosition: { x: number; y: number },
+  height: number,
+  width: number,
+  position: { x: number; y: number },
   fetchers?: NodeFetchers,
   fetcherType?: FetcherType
 ): Node => {
@@ -38,10 +40,9 @@ export const createOutputKernelNode = (
   return {
     id: kernelId,
     type: 'default',
-    position: {
-      x: basePosition.x + (kernelIndex - (parentNode.params.out_channels as number) / 2) * 110,
-      y: basePosition.y
-    },
+    width: width,
+    height: height,
+    position: position,
     data: {
       label: (
         <Link
@@ -52,7 +53,6 @@ export const createOutputKernelNode = (
             fetchers={fetchers}
             fetcherType={fetcherType}
             kernelIdx={kernelIndex}
-            maxSize={84}
             coordinate={coordinate}
             title={title}
           />
@@ -64,10 +64,11 @@ export const createOutputKernelNode = (
       border: '1px solid rgba(96, 165, 250, 0.35)',
       borderRadius: '6px',
       padding: 0,
-      minWidth: '96px',
       fontSize: '10px',
       overflow: 'hidden',
     },
+    parentId: parentNode.id,
+    extent: 'parent',
   };
 };
 
