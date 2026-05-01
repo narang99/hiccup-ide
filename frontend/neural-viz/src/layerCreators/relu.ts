@@ -12,8 +12,8 @@ export const createReLULayer = (
     const nodes: Node[] = [];
     // Get number of channels from the shape (assuming format [batch, channels, height, width])
     const numChannels = modelNode.shape.length > 1 ? modelNode.shape[1] : 1;
-    const childWidth = 120;
-    const childHeight = 120;
+    const childWidth = 130;
+    const childHeight = 150;
     const padding = 10;
     const layout = makeLayerLayout(numChannels, childHeight, childWidth, padding);
 

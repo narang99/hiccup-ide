@@ -11,8 +11,8 @@ export const createConv2dLayer = (
 ): Node[] => {
     const nodes: Node[] = [];
     const outChannels = modelNode.params.out_channels as number;
-    const childWidth = 120;
-    const childHeight = 120;
+    const childWidth = 130;
+    const childHeight = 150;
     const padding = 10;
     const layout = makeLayerLayout(outChannels, childHeight, childWidth, padding);
 
