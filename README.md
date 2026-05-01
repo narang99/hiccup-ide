@@ -8,7 +8,7 @@ Minimal features needed:
 - Visualising activations for convolution operator ✅
   - full activation of the whole 3D kernel
   - slice wise activation, input and output
-- Visualise convolution operator kernel, only slice-wise
+- Visualise convolution operator kernel, only slice-wise ✅
 - Visualise full network activations ✅
 - Visualise contribs 🏗️
   - Backend work left
