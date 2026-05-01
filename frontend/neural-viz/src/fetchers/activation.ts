@@ -7,8 +7,12 @@ export interface ActivationData {
 
 export async function loadActivationFromFile(coordinate: string): Promise<ActivationData> {
   try {
-    const headers = {'Content-Type': 'application/json'}
-    const response = await fetch(`/activations/${coordinate}.json`, {headers,});
+    const modelAlias = "example-model";
+    const inputAlias = "first-input";
+    const apiBaseUrl = "http://localhost:8000";
+
+    const headers = { 'Content-Type': 'application/json' }
+    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/activations/${coordinate}/`, { headers, });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: Failed to load activation for coordinate: ${coordinate}`);
     }

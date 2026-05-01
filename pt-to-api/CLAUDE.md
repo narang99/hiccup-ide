@@ -102,21 +102,40 @@ def test_feature_with_edge_case():
 - **Static JSON files**: Currently using individual JSON files per coordinate for frontend development
 - **Future migration**: Will be replaced with REST API endpoints later, but interface stays the same
 
+## PyTorch to JSON Conversion
+
+This component converts PyTorch models and their data to JSON format for consumption by the backend and frontend.
+
+### Purpose
+- Convert PyTorch models to standardized JSON schema
+- Extract activation data from model runs
+- Generate saliency maps and contribution data
+- Output JSON files that can be loaded into the backend database
+
+### Typical Workflow
+1. Run PyTorch model conversion scripts in `src/pt_to_api/`
+2. Generate JSON files with model definitions, activations, and saliency data
+3. Copy output JSON files to backend for manual loading
+4. Backend imports this data into Django models
+
+### Key Components
+- **model_to_json.py**: Converts PyTorch model architecture to JSON schema
+- **activation_processor.py**: Extracts and processes activation data
+- **contrib_processor.py**: Generates saliency maps and attribution data
+- **capture.py**: Hooks for capturing intermediate model outputs
+
 ### Project Structure
 ```
-hiccup-ide/
+pt-to-api/
 ├── src/
-│   └── hiccup_ide/
-│       ├── persist/
-│       │   ├── __init__.py
-│       │   └── activation_processor_outputs.py
-│       ├── capture.py
+│   └── pt_to_api/
+│       ├── model_to_json.py
 │       ├── activation_processor.py
-│       └── model_to_json.py
-├── tests/
-│   ├── test_capture.py
-│   ├── test_activation_processor.py
-│   └── conftest.py
+│       ├── contrib_processor.py
+│       ├── capture.py
+│       └── utils.py
+├── notebooks/
+│   └── test-model-load.ipynb
 ├── pyproject.toml
 ├── uv.lock
 └── CLAUDE.md

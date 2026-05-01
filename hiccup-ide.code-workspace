@@ -6,5 +6,11 @@
     {
       "path": "frontend",
     },
+    {
+      "path": "pt-to-api",
+    },
   ],
+  "settings": {
+    "python.defaultInterpreterPath": ""
+  },
 }

@@ -1,7 +1,7 @@
 import torch
 import torch.fx as fx
 import json
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 
 def model_to_json(model: torch.nn.Module, input_shape: tuple = (1, 3, 224, 224)) -> Dict[str, Any]:

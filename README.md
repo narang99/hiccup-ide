@@ -53,3 +53,33 @@ Finally we would like to see the meaning (meaning can be propagated at each step
 - Good now that the saliency map view is done, it is time to think about how i can go about creating a graph out of my contributions.  
   - This graph is important. Its not technically just contributions, its the graph of all input activations which affect an output activation (its the whole model graph actually, but instead of operations, we track each activation)
   - This might be huge in terms of size i guess, ill have to think about what i can do. but its okay. lets first try to generate the graph
+
+
+### different methods of pruning
+
+#### Alg1
+- Find the POIs in the last layer
+  - For each POI, keep the activation shares in its inputs, only consider those. 
+  - Repeat
+
+#### Alg2
+- For each layer, find the all the interesting POIs
+  - Create the graph containing all POIs connected to these POIs
+
+
+In essence, i do need to build a graph out of my contribs. So lets have claude do that first
+For now, we only do part one of this.  
+
+I would need full illumination later though i think.   
+
+
+#### Solution to pixels=0 being important and worth considering
+Problem:
+- A single activation can be simply a result of 9 input activations. Do we throw away most of the activations?
+- Also im pretty sure that having a single pixel being red is also a signal, which im ignoring right now.  
+  - or actually, it being zero is also a signal.
+  - the signal is lost due in our method, it would make more sense to also use the gradients as auxiliary contribs. Calculate both types separately, rescale them individually, then add them
+- For this, I need rescaling at each layer of raw contribs themselves. But this is fine i guess for now.   
+- Sounds simply like changing the contrib calculating algorithm, will be done later.  
+
+

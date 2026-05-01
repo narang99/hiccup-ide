@@ -150,13 +150,17 @@ export default function KernelDetailView() {
 
   useEffect(() => {
     // Load model data
-    fetch('/example-model.json')
+    const modelAlias = "example-model";
+    const apiBaseUrl = "http://localhost:8000";
+    
+    fetch(`${apiBaseUrl}/api/models/${modelAlias}/`)
       .then((response) => response.json())
-      .then((data: ModelData) => {
-        setModelData(data);
+      .then((data: any) => {
+        const modelData = data.definition;
+        setModelData(modelData);
 
         if (nodeId && kernelIndex) {
-          generateKernelDetailView(data, nodeId, parseInt(kernelIndex));
+          generateKernelDetailView(modelData, nodeId, parseInt(kernelIndex));
         }
       })
       .catch((error) => console.error('Error loading model data:', error));

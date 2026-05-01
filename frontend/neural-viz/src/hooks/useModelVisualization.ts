@@ -98,10 +98,13 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
 
   // Load model data
   useEffect(() => {
-    fetch('/example-model.json')
+    const modelAlias = "example-model";
+    const apiBaseUrl = "http://localhost:8000";
+    
+    fetch(`${apiBaseUrl}/api/models/${modelAlias}/`)
       .then((response) => response.json())
-      .then((data: ModelData) => {
-        setModelData(data);
+      .then((data: any) => {
+        setModelData(data.definition);
       })
       .catch((error) => console.error('Error loading model data:', error));
   }, []);

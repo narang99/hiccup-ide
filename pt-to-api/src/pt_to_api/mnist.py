@@ -1,4 +1,4 @@
-from hiccup_ide.capture import get_model_internals
+from pt_to_api.capture import get_model_internals
 import random
 from collections import defaultdict
 from fastai.basics import (
@@ -9,7 +9,7 @@ from fastai.basics import (
     GrandparentSplitter,
     DataBlock,
 )
-from hiccup_ide.utils import it_chain
+from pt_to_api.utils import it_chain
 from torch import nn
 from fastai.vision.all import (
     untar_data,
@@ -23,8 +23,8 @@ from fastai.vision.all import (
     ProgressCallback,
     ImageBlock,
 )
-from hiccup_ide.contribs import v1, v2
-from hiccup_ide.utils import to_device, detach_all
+from pt_to_api.contribs import v1, v2
+from pt_to_api.utils import to_device, detach_all
 
 
 # 2. Define the Model
