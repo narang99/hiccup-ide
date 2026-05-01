@@ -80,31 +80,8 @@ export default function KernelDetailView() {
       nodes.push(getNodeShowingActivation(`input-${i}`, { x: 100, y: 200 + i * 100 }, "Input", inputCoordinate, fetcherType));
 
       // Kernel slice nodes
-      nodes.push({
-        id: `kernel-slice-${i}`,
-        type: 'default',
-        position: { x: 300, y: 200 + i * 100 },
-        data: {
-          label: (
-            <div className="text-center">
-              <div className="font-bold text-sm">K{kernelIdx}:{i}</div>
-              <div className="text-xs text-gray-500">
-                {targetNode.params.kernel_size ?
-                  `${(targetNode.params.kernel_size as number[])[0]}×${(targetNode.params.kernel_size as number[])[1]}` :
-                  'Kernel'}
-              </div>
-            </div>
-          ),
-        },
-        style: {
-          background: '#8b5cf6',
-          color: '#fff',
-          border: '1px solid #374151',
-          borderRadius: '6px',
-          padding: '10px',
-          minWidth: '80px',
-        },
-      });
+      const weightCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
+      nodes.push(getNodeShowingActivation(`kernel-slice-${i}`, { x: 300, y: 200 + i * 100 }, `K${kernelIdx}:${i}`, weightCoordinate, 'weight'));
 
 
       // Slice output nodes
