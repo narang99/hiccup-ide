@@ -53,12 +53,13 @@ def generate_contrib_coordinates(
 
         # ── Slice tensors: [C_out, C_in, H, W] ──────────────────────────────
         if ndim == 4 and key.endswith(".slice"):
-            base = key[: -len(".slice")]  # e.g. "layers.2" from "layers.2.slice"
+            layer_name = key[: -len(".slice")]  # e.g. "layers.2" from "layers.2.slice"
             c_out, c_in, h, w = t.shape
             for out_ch in range(c_out):
                 for in_ch in range(c_in):
-                    coord = f"{base}.out_{out_ch}.in_{in_ch}"
+                    coord = f"{layer_name}.out_{out_ch}.in_{in_ch}"
                     coords[coord] = {
+                        "layer_name": layer_name,
                         "data": t[out_ch, in_ch].numpy().tolist(),
                         "shape": [h, w],
                         "coordinate_type": "input_output_channel",
@@ -71,7 +72,9 @@ def generate_contrib_coordinates(
             c, h, w = t.shape
             for ch in range(c):
                 coord = f"{key}.out_{ch}"
+                layer_name = key
                 coords[coord] = {
+                    "layer_name": layer_name,
                     "data": t[ch].numpy().tolist(),
                     "shape": [h, w],
                     "coordinate_type": "output_channel",
@@ -84,7 +87,9 @@ def generate_contrib_coordinates(
             d = t.shape[0]
             for neuron in range(d):
                 coord = f"{key}.out_{neuron}"
+                layer_name = key
                 coords[coord] = {
+                    "layer_name": layer_name,
                     "data": float(t[neuron].item()),
                     "shape": [],
                     "coordinate_type": "neuron",

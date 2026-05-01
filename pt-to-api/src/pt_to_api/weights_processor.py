@@ -61,6 +61,7 @@ def generate_weights_coordinates(conv_weights: Dict[str, torch.Tensor], conv_bia
                 kernel_data = weight_tensor[out_ch, in_ch]  # Shape: [kernel_h, kernel_w]
                 
                 coordinate_data[coord] = {
+                    "layer_name": layer_name,
                     "data": kernel_data.numpy().tolist(),
                     "shape": [kernel_h, kernel_w],
                     "layer_type": "Conv2d",
@@ -74,6 +75,7 @@ def generate_weights_coordinates(conv_weights: Dict[str, torch.Tensor], conv_bia
                 bias_value = conv_biases[layer_name][out_ch].item()  # Single scalar value
                 
                 coordinate_data[bias_coord] = {
+                    "layer_name": layer_name,
                     "data": bias_value,
                     "shape": [],  # Scalar has no shape
                     "layer_type": "Conv2d",

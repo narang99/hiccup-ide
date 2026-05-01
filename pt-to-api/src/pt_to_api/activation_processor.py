@@ -36,6 +36,7 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
             # This is already a coordinate like "layers.0.out_3.in_1"
             
             coordinate_data[layer_name] = {
+                "layer_name": layer_name,
                 "data": activation[0].numpy().tolist() if len(activation.shape) > 2 else activation.numpy().tolist(),
                 "shape": list(activation.shape[-2:]) if len(activation.shape) > 2 else list(activation.shape),
                 "layer_type": "Conv2d",  # Input channel coords are always from conv layers
@@ -55,6 +56,7 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
                     # Main view coordinate: individual output channel
                     out_coord = f"{layer_name}.out_{out_ch}"
                     coordinate_data[out_coord] = {
+                        "layer_name": layer_name,
                         "data": activation[out_ch].numpy().tolist(),
                         # "input": activation[input_slice_coord].numpy().tolist(),
                         "shape": [height, width],
@@ -70,6 +72,7 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
                 for neuron in range(neurons):
                     coord = f"{layer_name}.out_{neuron}"
                     coordinate_data[coord] = {
+                        "layer_name": layer_name,
                         "data": 0.0,  # Single value for linear neurons
                         "shape": [],
                         "layer_type": layer_type,
@@ -80,7 +83,7 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
             # Skip flatten layers for now as they don't have meaningful spatial structure
             continue
         else:
-            print("yaaaaaaaaaaaaaaa skip", layer_name, layer_type)
+            print("skip", layer_name, layer_type)
     
 
     return coordinate_data
