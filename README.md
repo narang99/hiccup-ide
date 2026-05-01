@@ -122,3 +122,8 @@ Problem:
 - Ohk, so the main problem is that nodes are siblings. There is literally no way for me to set a heirarchy, i can only say: put this node's position relative to this parent nodes position. This sucks.  
   - The amount of re renders on global context would be crazy
   - I would now need a global store. but i dont want re triggering happening for everyone too.  
+
+- Creating subflows is quite painful it seems. what should we do.  
+  - We could create a simple node besides the of a layer for analysing them.  
+
+- Tis shit is more complicated than i thought it would be. claude is basically doing random shit now. Its like changing 1 CSS line and having everything go to shit.   
