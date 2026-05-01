@@ -13,7 +13,6 @@ def root(request):
 
 @router.get("/models/{model_alias}/", response=ModelOut)
 def get_model(request, model_alias: str):
-    print("model aliasssssssss", model_alias)
     model = get_object_or_404(Model, alias=model_alias)
     return model
 

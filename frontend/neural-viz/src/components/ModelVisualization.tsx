@@ -10,7 +10,6 @@ export default function ModelVisualization() {
     edges,
     onNodesChange,
     onEdgesChange,
-    onConnect,
   } = useModelVisualization(fetcherType);
 
   if (!modelData) {
@@ -23,7 +22,6 @@ export default function ModelVisualization() {
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
       fitView
     />
   );

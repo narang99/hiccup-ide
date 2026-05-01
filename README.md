@@ -83,3 +83,42 @@ Problem:
 - Sounds simply like changing the contrib calculating algorithm, will be done later.  
 
 
+
+# Workflow
+
+- Generally working through this requires following a specific workflow.  
+- You cut the graph, find subgraph of interest. go through all of the points in the subgraph of interest, and annotate them
+- So the first part is cutting the graph. 
+  - Go layer by layer
+  - Find threshold for cutting
+  - Save it
+- This then requires a saliency map view specifically for cutting the graph
+  - This can be the main view right now (I dont really care a lot about seeing activations)
+- Basically graph cutting does require us to have a different view i think (or is it simply the panel changes?). Who knows. I'll think about this later
+  - For the top level, creating the graph is the same, no matter if you want a cursory view, or if you want a cutted view.  
+  - Stuff is just dimmed out. Later, we would add support to simply have a sort of swift reporting which allows me to quickly go through all POIs in the layer and assign them meaning
+- Once this is done, we would like to see the illuminated graph. This is vague in my head, each pixel has a graph illumination, which we are interested in.  
+- still, the first thing is to create a cutting workflow. for now we only do simple thresholding.  
+- The biggest problem with doing something like this is "defining" what the pattern is. The pattern can only be inferred across invocations of POIs and clustering them i think.  This is the last step.  This is the step which has given me problems until now. 
+  - The best way is to simply look at all the POIs across examples for a kernel to categorize the patterns myself. Easy.   
+- So, cut the graph. then swift report. then illuminate. It would be useful to simply swift report for a single circuit for now.  We pick the polysematic neurons which the distill team is confused about.  
+  - a single circuit is good enough.  
+- This seems like the easiest option.  
+
+## Cutting view
+
+- Add each layer to its own subflow
+- We dont need edges now
+- Show saliency maps
+- We now change the main view to simply a saliency map view for now
+
+## AI handicap
+
+- I get handicapped by token usage. I also dont understand the FE code that well, idm using AI majorly for CSS, but i do need to now understand the code better and do it in a more engineered fashion
+  - First step is to create a separate component for creating the subgraph of convolution layer
+  - The general workflow is passing a static graph to react flow, but once it is done, we can't "refresh" that easily i think
+- For now, im going to use react context only, the zustand store seems complicated lol
+  - I dont see a need for zustant right now, lets do context yes
+- Ohk, so the main problem is that nodes are siblings. There is literally no way for me to set a heirarchy, i can only say: put this node's position relative to this parent nodes position. This sucks.  
+  - The amount of re renders on global context would be crazy
+  - I would now need a global store. but i dont want re triggering happening for everyone too.  

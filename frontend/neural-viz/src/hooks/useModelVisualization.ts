@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useNodesState, useEdgesState, addEdge, type OnConnect, type Node, type Edge } from '@xyflow/react';
+import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
 import { createConvolutionNode } from '../utils/createConvolutionNode';
 import { 
@@ -91,10 +91,6 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
     return { nodes: allNodes, edges: allEdges };
   }, [fetcherType]);
 
-  const onConnect: OnConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
-  );
 
   // Load model data
   useEffect(() => {
@@ -124,6 +120,5 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
     edges,
     onNodesChange,
     onEdgesChange,
-    onConnect,
   };
 };
