@@ -10,6 +10,7 @@ interface LayerSettingsState {
   updateSliderValue: (nodeId: string, value: number) => void;
   resetLayerSettings: (nodeId: string) => void;
   clearAllSettings: () => void;
+  loadSliderValuesFromThresholds: (thresholds: Array<{ layer_id: string; slider_value: number }>) => void;
 }
 
 const DEFAULT_LAYER_SETTINGS: LayerSettings = {
@@ -47,5 +48,20 @@ export const useLayerSettingsStore = create<LayerSettingsState>((set, get) => ({
   
   clearAllSettings: () => {
     set({ layerSettings: {} });
+  },
+  
+  loadSliderValuesFromThresholds: (thresholds: Array<{ layer_id: string; slider_value: number }>) => {
+    set((state) => {
+      const newLayerSettings = { ...state.layerSettings };
+      
+      thresholds.forEach((threshold) => {
+        newLayerSettings[threshold.layer_id] = {
+          ...newLayerSettings[threshold.layer_id],
+          sliderValue: threshold.slider_value,
+        };
+      });
+      
+      return { layerSettings: newLayerSettings };
+    });
   },
 }));

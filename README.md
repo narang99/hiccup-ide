@@ -10,7 +10,7 @@ Minimal features needed:
   - slice wise activation, input and output
 - Visualise convolution operator kernel, only slice-wise ✅
 - Visualise full network activations ✅
-- Visualise contribs 🏗️
+- Visualise contribs ✅
   - Backend work left
   - Frontend work should be quite easy comparatively (almost no changes i think)
   - first generate the contribs as json, but in a format that the frontend understands

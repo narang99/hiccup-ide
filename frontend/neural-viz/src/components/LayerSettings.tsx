@@ -3,7 +3,8 @@ import { useSelectedNodeStore } from '../stores/selectedNodeStore';
 import { useSaliencyCacheStore } from '../stores/saliencyCacheStore';
 import { getTopKThreshold } from '../utils/topk';
 import { type LayerSaliencyData } from '../fetchers/saliency_map';
-import { useCallback, useEffect, useMemo } from 'react';
+import { loadWorkflowThresholds, saveWorkflowThreshold } from '../fetchers/threshold';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { DebouncedSlider } from './DebouncedSlider';
 import { useFetcherType } from '../hooks/useFetcherType';
@@ -12,6 +13,8 @@ interface LayerSettingsViewProps {
   disabled: boolean;
   sliderValue: number;
   onSliderDebouncedChange: (value: number) => void;
+  onSaveThreshold: () => void;
+  isSaving: boolean;
   nodeId?: string;
   nodeData?: {
     label: string;
@@ -20,7 +23,7 @@ interface LayerSettingsViewProps {
   };
 }
 
-const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, nodeId, nodeData }: LayerSettingsViewProps) => {
+const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, onSaveThreshold, isSaving, nodeId, nodeData }: LayerSettingsViewProps) => {
   return (
     <div style={{
       display: 'flex',
@@ -101,7 +104,7 @@ const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, nod
 
         <div style={{ position: 'relative' }}>
           <DebouncedSlider
-            key={nodeId} 
+            key={nodeId}
             initialValue={sliderValue}
             min={0}
             max={100}
@@ -146,6 +149,30 @@ const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, nod
         </div>
       </div>
 
+      {/* Save Button */}
+      <div style={{
+        marginTop: '12px',
+      }}>
+        <button
+          onClick={onSaveThreshold}
+          disabled={disabled || isSaving}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            background: disabled || isSaving ? 'rgba(255,255,255,0.1)' : 'rgba(34, 197, 94, 0.2)',
+            border: disabled || isSaving ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(34, 197, 94, 0.5)',
+            borderRadius: 6,
+            color: disabled || isSaving ? 'rgba(255,255,255,0.4)' : '#22c55e',
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: disabled || isSaving ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {isSaving ? 'Saving...' : 'Save Threshold'}
+        </button>
+      </div>
+
       {/* Layer Info */}
       {nodeData && (
         <div style={{
@@ -179,22 +206,29 @@ const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, nod
 export const LayerSettings = () => {
   const { selectedNode } = useSelectedNodeStore();
   const { fetcherType } = useFetcherType();
-  const { getLayerSettings, updateSliderValue } = useLayerSettingsStore();
+  const { getLayerSettings, updateSliderValue, loadSliderValuesFromThresholds } = useLayerSettingsStore();
   const { fetchAndCacheBatchSaliency, clearCache } = useSaliencyCacheStore();
   const { getNodes, setNodes } = useReactFlow();
-  
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Hardcoded values as mentioned in requirements
+  const modelAlias = 'example-model';
+  const inputAlias = 'first-input';
+  const workflowName = 'default-workflow';
+
   const nodeId = selectedNode?.id;
   const nodeData = selectedNode?.data;
-  
+
   // Disable slider if no node is selected OR if fetcher type is not saliency_map
   const disabled = !selectedNode || fetcherType !== 'saliency_map';
-  
+
   const sliderValue = nodeId ? getLayerSettings(nodeId).sliderValue : 100;
 
   // Get child nodes for the selected layer
   const childNodes = useMemo(() => {
     if (!nodeId) return [];
-    
+
     const allNodes = getNodes();
     return allNodes.filter(node => node.parentId === nodeId).filter(node => node.type === "ActivationFlowNode");
   }, [nodeId, getNodes]);
@@ -228,20 +262,20 @@ export const LayerSettings = () => {
   // Debounced handler for expensive operations
   const handleSliderDebouncedChange = useCallback(async (value: number) => {
     if (!nodeId || !nodeData) return;
-    
+
     // Update the store with the new value
     updateSliderValue(nodeId, value);
-    
+
     try {
       // Fetch saliency data for specific child coordinates using cache store
       // We use nodeId as the cache key
       const saliencyData = await fetchAndCacheBatchSaliency(
-        'example-model', 
-        'first-input', 
+        'example-model',
+        'first-input',
         childCoordinates,
         nodeId
       );
-      
+
       // Compute threshold
       const threshold = computeThreshold(saliencyData, value);
 
@@ -267,16 +301,49 @@ export const LayerSettings = () => {
     }
   }, [nodeId, nodeData, updateSliderValue, childCoordinates, computeThreshold, fetchAndCacheBatchSaliency, setNodes]);
 
+  // Load thresholds on component mount
+  useEffect(() => {
+    const loadThresholds = async () => {
+      try {
+        const thresholds = await loadWorkflowThresholds(modelAlias, inputAlias, workflowName);
+        loadSliderValuesFromThresholds(thresholds);
+      } catch (error) {
+        console.error('Failed to load thresholds:', error);
+      }
+    };
+
+    loadThresholds();
+  }, [loadSliderValuesFromThresholds]);
+
   // Clear cache when selected node changes
   useEffect(() => {
     clearCache();
   }, [nodeId, clearCache]);
+
+  const handleSaveThreshold = useCallback(async () => {
+    if (!nodeId) return;
+
+    setIsSaving(true);
+    try {
+      await saveWorkflowThreshold(modelAlias, inputAlias, workflowName, {
+        layer_id: nodeId,
+        slider_value: sliderValue
+      });
+      console.log(`Threshold saved for layer ${nodeId}: ${sliderValue}`);
+    } catch (error) {
+      console.error('Failed to save threshold:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [nodeId, sliderValue]);
 
   return (
     <LayerSettingsView
       disabled={disabled}
       sliderValue={sliderValue}
       onSliderDebouncedChange={handleSliderDebouncedChange}
+      onSaveThreshold={handleSaveThreshold}
+      isSaving={isSaving}
       nodeId={nodeId}
       nodeData={nodeData}
     />
