@@ -6,56 +6,57 @@ export interface LayerNodeData extends Record<string, unknown> {
   nodeCount?: number;
 }
 
+const getLayerColor = (layerType: string) => {
+  switch (layerType) {
+    case 'Conv2d':
+      return {
+        background: 'rgba(96, 165, 250, 0.1)',
+        border: '2px solid rgba(96, 165, 250, 0.3)',
+        accent: '#60a5fa'
+      };
+    case 'ReLU':
+      return {
+        background: 'rgba(251, 191, 36, 0.1)',
+        border: '2px solid rgba(251, 191, 36, 0.3)',
+        accent: '#fbbf24'
+      };
+    case 'Linear':
+      return {
+        background: 'rgba(167, 139, 250, 0.1)',
+        border: '2px solid rgba(167, 139, 250, 0.3)',
+        accent: '#a78bfa'
+      };
+    case 'Flatten':
+      return {
+        background: 'rgba(244, 114, 182, 0.1)',
+        border: '2px solid rgba(244, 114, 182, 0.3)',
+        accent: '#f472b6'
+      };
+    case 'Input':
+      return {
+        background: 'rgba(74, 222, 128, 0.1)',
+        border: '2px solid rgba(74, 222, 128, 0.3)',
+        accent: '#4ade80'
+      };
+    case 'Output':
+      return {
+        background: 'rgba(248, 113, 113, 0.1)',
+        border: '2px solid rgba(248, 113, 113, 0.3)',
+        accent: '#f87171'
+      };
+    default:
+      return {
+        background: 'rgba(156, 163, 175, 0.1)',
+        border: '2px solid rgba(156, 163, 175, 0.3)',
+        accent: '#9ca3af'
+      };
+  }
+};
+
 export type LayerNodeType = Node<LayerNodeData, 'LayerNode'>;
 
 export const LayerNode = ({ data, selected, width, height }: NodeProps) => {
   const typedData = data as LayerNodeData;
-  const getLayerColor = (layerType: string) => {
-    switch (layerType) {
-      case 'Conv2d':
-        return {
-          background: 'rgba(96, 165, 250, 0.1)',
-          border: '2px solid rgba(96, 165, 250, 0.3)',
-          accent: '#60a5fa'
-        };
-      case 'ReLU':
-        return {
-          background: 'rgba(251, 191, 36, 0.1)',
-          border: '2px solid rgba(251, 191, 36, 0.3)',
-          accent: '#fbbf24'
-        };
-      case 'Linear':
-        return {
-          background: 'rgba(167, 139, 250, 0.1)',
-          border: '2px solid rgba(167, 139, 250, 0.3)',
-          accent: '#a78bfa'
-        };
-      case 'Flatten':
-        return {
-          background: 'rgba(244, 114, 182, 0.1)',
-          border: '2px solid rgba(244, 114, 182, 0.3)',
-          accent: '#f472b6'
-        };
-      case 'Input':
-        return {
-          background: 'rgba(74, 222, 128, 0.1)',
-          border: '2px solid rgba(74, 222, 128, 0.3)',
-          accent: '#4ade80'
-        };
-      case 'Output':
-        return {
-          background: 'rgba(248, 113, 113, 0.1)',
-          border: '2px solid rgba(248, 113, 113, 0.3)',
-          accent: '#f87171'
-        };
-      default:
-        return {
-          background: 'rgba(156, 163, 175, 0.1)',
-          border: '2px solid rgba(156, 163, 175, 0.3)',
-          accent: '#9ca3af'
-        };
-    }
-  };
 
   const colors = getLayerColor(typedData.layerType);
 
@@ -88,7 +89,7 @@ export const LayerNode = ({ data, selected, width, height }: NodeProps) => {
           height: '8px',
         }}
       />
-      
+
       <div style={{
         fontSize: '12px',
         fontWeight: 700,
@@ -100,7 +101,7 @@ export const LayerNode = ({ data, selected, width, height }: NodeProps) => {
       }}>
         {typedData.layerType}
       </div>
-      
+
       {typedData.nodeCount && (
         <div style={{
           fontSize: '10px',
