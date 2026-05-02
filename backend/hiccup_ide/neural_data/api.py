@@ -102,28 +102,49 @@ def get_saliency_map(request, model_alias: str, input_alias: str, coordinate: st
     return saliency_map
 
 
+def _get_min_max_in_list_of_lists(data_lists):
+    main_min, main_max = None, None
+    for data in data_lists:
+        if not data:
+            continue
+        cur_min, cur_max = max(data), min(data)
+        print("currrrrrr", cur_min)
+        print("dataaaaaaaa", data)
+        if main_min is None or cur_min < main_min:
+            main_min = cur_min
+        if main_max is None or cur_max > main_max:
+            main_max = cur_max
+    print("mainnnnnn", main_min)
+    return main_min, main_max
+
+
 def get_min_max(data_list):
     """Helper to find min and max in a list of nested data (JSON)."""
-    curr_min = float('inf')
-    curr_max = float('-inf')
-    found = False
+    # keep going down until we find a list of elements
+    # then simply run min/max on them and return them
 
-    def process(item):
-        nonlocal curr_min, curr_max, found
-        if isinstance(item, list):
-            for i in item:
-                process(i)
-        elif isinstance(item, (int, float)):
-            if item < curr_min: curr_min = item
-            if item > curr_max: curr_max = item
-            found = True
+    def _find_min_max(items):
+        if isinstance(items, list):
+            if not items:
+                return 0.0, 0.0
+            elif isinstance(items[0], (int, float)):
+                return min(items), max(items)
+            else:
+                main_min, main_max = None, None
+                for item in items:
+                    cur_min, cur_max = _find_min_max(item)
+                    if main_min is None or cur_min < main_min:
+                        main_min = cur_min
+                    if main_max is None or cur_max > main_max:
+                        main_max = cur_max
+                return main_min, main_max
+        elif isinstance(items, (int, float)):
+            return items, items
+        else:
+            raise Exception(f"only lists or floats are allowed for finding min-max, got={type(items)} items={items}")
 
-    for data in data_list:
-        process(data)
-    
-    if not found:
-        return 0.0, 0.0
-    return float(curr_min), float(curr_max)
+
+    return _find_min_max(data_list)
 
 
 @router.post("/models/{model_alias}/inputs/{input_alias}/activations/stats/", response=NodeStatsOut)
@@ -136,10 +157,10 @@ def get_activations_stats(request, model_alias: str, input_alias: str, data: Bat
     )
     
     # Get all activations for the requested coordinates
-    activations = Activation.objects.filter(
+    activations = list(Activation.objects.filter(
         input=input_obj,
         coordinate__in=data.coordinates
-    ).values_list('data', flat=True)
+    ).values_list('data', flat=True))
     
     min_val, max_val = get_min_max(activations)
     return {"min": min_val, "max": max_val}
@@ -155,10 +176,10 @@ def get_saliency_maps_stats(request, model_alias: str, input_alias: str, data: B
     )
     
     # Get all saliency maps for the requested coordinates
-    saliency_maps = SaliencyMap.objects.filter(
+    saliency_maps = list(SaliencyMap.objects.filter(
         input=input_obj,
         coordinate__in=data.coordinates
-    ).values_list('data', flat=True)
+    ).values_list('data', flat=True))
     
     min_val, max_val = get_min_max(saliency_maps)
     return {"min": min_val, "max": max_val}
