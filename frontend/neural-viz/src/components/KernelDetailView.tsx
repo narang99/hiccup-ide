@@ -67,8 +67,8 @@ export default function KernelDetailView() {
     // Create each input→kernel→output group as a LayerNode parent
     for (let i = 0; i < inChannels; i++) {
       const sliceLayerId = `slice-${i}`;
-      const childWidth = 120;
-      const childHeight = 100;
+      const childWidth = 130;
+      const childHeight = 150;
       const padding = 10;
       const sliceLayout = makeEvenlySpacedLayout(3, childHeight, childWidth, padding, directionInsideLayerGroup);
 
