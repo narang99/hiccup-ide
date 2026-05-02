@@ -4,13 +4,14 @@ import { useFetcherType } from '../hooks/useFetcherType';
 
 export default function ModelVisualization() {
   const { fetcherType } = useFetcherType();
+  const pageDirection = "TB";
   const {
     modelData,
     nodes,
     edges,
     onNodesChange,
     onEdgesChange,
-  } = useModelVisualization(fetcherType);
+  } = useModelVisualization(fetcherType, pageDirection);
 
   if (!modelData) {
     return <div className="flex items-center justify-center h-screen">Loading model...</div>;
@@ -22,6 +23,7 @@ export default function ModelVisualization() {
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
+      pageDirection={pageDirection}
       fitView
     />
   );

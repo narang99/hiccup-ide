@@ -10,6 +10,7 @@ import { LayerNode } from './nodes/LayerNode';
 import { ActivationFlowNode } from './nodes/ActivationFlowNode';
 import { LayerSettings } from './LayerSettings';
 import dagre from '@dagrejs/dagre';
+import type { Direction } from '../types/direction';
 
 const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
 
@@ -20,6 +21,7 @@ const nodeTypes = {
 
 interface SharedCanvasProps extends ReactFlowProps {
   children?: ReactNode;
+  pageDirection?: Direction;
 }
 
 export default function SharedCanvas({ children, ...props }: SharedCanvasProps) {
@@ -175,10 +177,11 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
 }
 
 
-const getLayoutedElements = (props: ReactFlowProps): { nodes: Node[], edges: Edge[] } => {
+const getLayoutedElements = (props: SharedCanvasProps): { nodes: Node[], edges: Edge[] } => {
   const nodes = props.nodes;
   const edges = props.edges;
-  const direction = "TB";
+  const direction: Direction = (props.pageDirection === undefined) ? "LR" : props.pageDirection;
+
   if (nodes === undefined || edges === undefined) {
     return { nodes: [], edges: [] }
   }
@@ -222,7 +225,6 @@ const getLayoutedElements = (props: ReactFlowProps): { nodes: Node[], edges: Edg
         },
       };
     } else {
-      console.log("no conectttttttttttttt", node.type);
       return node;
     }
   });

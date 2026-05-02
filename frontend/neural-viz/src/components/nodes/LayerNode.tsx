@@ -1,9 +1,12 @@
-import { type NodeProps, Handle, Position, type Node } from '@xyflow/react';
+import { type NodeProps, type Node } from '@xyflow/react';
+import SingleOrNoHandle from '../SingleOrNoHandle';
+import type { Direction } from '../../types/direction';
 
 export interface LayerNodeData extends Record<string, unknown> {
   label: string;
   layerType: 'Conv2d' | 'ReLU' | 'Linear' | 'Flatten' | 'Input' | 'Output';
   nodeCount?: number;
+  handleDirection: Direction | null;
 }
 
 const getLayerColor = (layerType: string) => {
@@ -79,16 +82,7 @@ export const LayerNode = ({ data, selected, width, height }: NodeProps) => {
         transition: 'all 0.2s ease',
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{
-          background: colors.accent,
-          border: '2px solid #fff',
-          width: '8px',
-          height: '8px',
-        }}
-      />
+      <SingleOrNoHandle handleDirection={typedData.handleDirection} badgeColor={colors.accent} />
 
       <div style={{
         fontSize: '12px',
@@ -112,16 +106,6 @@ export const LayerNode = ({ data, selected, width, height }: NodeProps) => {
         </div>
       )}
 
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{
-          background: colors.accent,
-          border: '2px solid #fff',
-          width: '8px',
-          height: '8px',
-        }}
-      />
     </div>
   );
 };

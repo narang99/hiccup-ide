@@ -1,8 +1,6 @@
 import type { Node } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
 import { type NodeFetchers, type FetcherType } from '../fetchers';
-import BaseActivationNode from '../components/nodes/BaseActivationNode';
-import { Link } from 'react-router-dom';
 import { type HandleDirection } from '../components/nodes/ActivationFlowNode';
 
 export const getKernelNodeColor = (nodeType: string): string => {

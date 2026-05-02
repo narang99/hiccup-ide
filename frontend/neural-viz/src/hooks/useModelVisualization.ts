@@ -5,11 +5,17 @@ import { type FetcherType } from '../fetchers';
 import { createConv2dLayer } from '../layerCreators/conv';
 import { createReLULayer } from '../layerCreators/relu';
 import { createOtherLayer } from '../layerCreators/default';
+import { toggleDirection, type Direction } from '../types/direction';
 
-export const useModelVisualization = (fetcherType: FetcherType = "activation") => {
+export const useModelVisualization = (fetcherType: FetcherType = "activation", directionOfPage: Direction = "LR") => {
   const [modelData, setModelData] = useState<ModelData | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // if the page is vertical, we want the layer groups to be kept vertically
+  // inside layer groups then, we want horizontal directions
+  const directionInsideLayerBlock = toggleDirection(directionOfPage)
+  const layerBlockHandleDirection = directionOfPage;
 
   const generateNodesAndEdges = useCallback((
     data: ModelData
@@ -25,10 +31,10 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
       
       switch (modelNode.type) {
         case 'Conv2d':
-          layerNodes = createConv2dLayer(modelNode, basePosition, fetcherType);
+          layerNodes = createConv2dLayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock);
           break;
         case 'ReLU':
-          layerNodes = createReLULayer(modelNode, basePosition, fetcherType);
+          layerNodes = createReLULayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock);
           break;
         default:
           layerNodes = createOtherLayer(modelNode, basePosition);
@@ -50,7 +56,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation") =
 
 
     return { nodes: allNodes, edges: allEdges };
-  }, [fetcherType]);
+  }, [fetcherType, directionInsideLayerBlock, layerBlockHandleDirection]);
 
 
   // Load model data

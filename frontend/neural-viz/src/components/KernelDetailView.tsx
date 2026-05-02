@@ -5,8 +5,8 @@ import { type ModelData } from '../types/model';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useFetcherType } from '../hooks/useFetcherType';
 import SharedCanvas from './SharedCanvas';
-import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
 import { type HandleDirection } from './nodes/ActivationFlowNode';
+import { makeEvenlySpacedLayout } from '../layouts';
 
 const getNodeShowingActivation = (
   id: string, 
@@ -48,6 +48,8 @@ const getNodeShowingActivation = (
 
 export default function KernelDetailView() {
   const { fetcherType } = useFetcherType();
+  const pageDirection = "LR";
+  const directionInsideLayerGroup = pageDirection;
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
   const navigate = useNavigate();
   const [modelData, setModelData] = useState<ModelData | null>(null);
@@ -68,7 +70,7 @@ export default function KernelDetailView() {
       const childWidth = 120;
       const childHeight = 100;
       const padding = 10;
-      const sliceLayout = makeEvenlySpacedHorizontalLayout(3, childHeight, childWidth, padding);
+      const sliceLayout = makeEvenlySpacedLayout(3, childHeight, childWidth, padding, directionInsideLayerGroup);
 
       // Create parent LayerNode for this slice
       nodes.push({
@@ -81,6 +83,7 @@ export default function KernelDetailView() {
           label: `Channel ${i} Slice`,
           layerType: 'Conv2d',
           nodeCount: 3,
+          handleDirection: "LR",
         },
       });
 
@@ -94,7 +97,7 @@ export default function KernelDetailView() {
         fetcherType,
         sliceLayerId,
         childWidth,
-        childHeight
+        childHeight,
       ));
 
       // Kernel slice node
@@ -107,7 +110,7 @@ export default function KernelDetailView() {
         'weight',
         sliceLayerId,
         childWidth,
-        childHeight
+        childHeight,
       ));
 
       // Slice output node
@@ -120,7 +123,7 @@ export default function KernelDetailView() {
         fetcherType,
         sliceLayerId,
         childWidth,
-        childHeight
+        childHeight,
       ));
     }
 
@@ -129,7 +132,7 @@ export default function KernelDetailView() {
     const sumChildWidth = 120;
     const sumChildHeight = 100;
     const sumPadding = 10;
-    const sumLayout = makeEvenlySpacedHorizontalLayout(1, sumChildHeight, sumChildWidth, sumPadding);
+    const sumLayout = makeEvenlySpacedLayout(1, sumChildHeight, sumChildWidth, sumPadding, directionInsideLayerGroup);
 
     nodes.push({
       id: sumLayerId,
@@ -141,6 +144,7 @@ export default function KernelDetailView() {
         label: 'Sum',
         layerType: 'Output',
         nodeCount: 1,
+        handleDirection: "LR",
       },
     });
 
@@ -170,7 +174,7 @@ export default function KernelDetailView() {
 
     setKernelNodes(nodes);
     setKernelEdges(edges);
-  }, [fetcherType, kernelIndex]);
+  }, [fetcherType, directionInsideLayerGroup]);
 
   useEffect(() => {
     // Load model data
@@ -205,6 +209,7 @@ export default function KernelDetailView() {
       fitView
       minZoom={0.5}
       maxZoom={2}
+      pageDirection={pageDirection}
     >
       {/* ── Back button ── */}
       <Panel position="top-left">

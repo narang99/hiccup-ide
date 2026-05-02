@@ -1,8 +1,8 @@
 import type { NodeFetchers, FetcherType } from "../../fetchers";
-import { Handle, Position } from '@xyflow/react';
 import { ActivationDisplay } from "../ActivationDisplay";
 import { Link } from 'react-router-dom';
 import { type HandleDirection } from "./ActivationFlowNode";
+import SingleOrNoHandle from "../SingleOrNoHandle";
 
 interface BaseActivationNodeProps {
     coordinate: string;
@@ -31,27 +31,9 @@ export default function BaseActivationNode({
 }: BaseActivationNodeProps) {
     const fetcher = fetchers?.[fetcherType];
 
-    const handleStyle = {
-        background: badgeColor,
-        border: '2px solid #fff',
-        width: '8px',
-        height: '8px',
-    };
-
     const content = (
         <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}>
-            {handleDirection === "TB" && (
-                <>
-                    <Handle type="target" position={Position.Top} style={handleStyle} />
-                    <Handle type="source" position={Position.Bottom} style={handleStyle} />
-                </>
-            )}
-            {handleDirection === "LR" && (
-                <>
-                    <Handle type="target" position={Position.Left} style={handleStyle} />
-                    <Handle type="source" position={Position.Right} style={handleStyle} />
-                </>
-            )}
+            <SingleOrNoHandle handleDirection={handleDirection} badgeColor={badgeColor} />
             {/* ── Toolbar ── */}
             <div style={{
                 display: 'flex',

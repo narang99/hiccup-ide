@@ -1,13 +1,16 @@
 import { type Node, type XYPosition } from '@xyflow/react';
 import { DEFAULT_FETCHERS, type FetcherType } from "../fetchers";
 import type { ModelNode } from "../types/model";
-import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
 import { type HandleDirection } from '../components/nodes/ActivationFlowNode';
+import { makeEvenlySpacedLayout } from '../layouts';
+import type { Direction } from '../types/direction';
 
 export const createReLULayer = (
     modelNode: ModelNode,
     basePosition: { x: number; y: number },
-    fetcherType: FetcherType
+    fetcherType: FetcherType,
+    layerBlockHandleDirection: Direction,
+    directionInsideLayerBlock: Direction = "LR",
 ): Node[] => {
     const nodes: Node[] = [];
     // Get number of channels from the shape (assuming format [batch, channels, height, width])
@@ -15,13 +18,13 @@ export const createReLULayer = (
     const childWidth = 130;
     const childHeight = 150;
     const padding = 10;
-    const layout = makeEvenlySpacedHorizontalLayout(numChannels, childHeight, childWidth, padding);
+    const layout = makeEvenlySpacedLayout(numChannels, childHeight, childWidth, padding, directionInsideLayerBlock);
     // inside evenly spaced layout, we dont make edges so dont need handles
     const handleDirection: HandleDirection = null;
 
     // Create parent layer node
     nodes.push(
-        makeParentLayerNode(modelNode.id, basePosition, layout.parent.width, layout.parent.height, numChannels)
+        makeParentLayerNode(modelNode.id, basePosition, layout.parent.width, layout.parent.height, numChannels, layerBlockHandleDirection)
     );
 
     // Create channel sub-nodes with parentId in grid layout
@@ -36,7 +39,7 @@ export const createReLULayer = (
 };
 
 
-const makeParentLayerNode = (modelId: string, position: XYPosition, width: number, height: number, numChannels: number): Node => {
+const makeParentLayerNode = (modelId: string, position: XYPosition, width: number, height: number, numChannels: number, handleDirection: Direction): Node => {
     return {
         id: modelId,
         type: 'LayerNode',
@@ -47,6 +50,7 @@ const makeParentLayerNode = (modelId: string, position: XYPosition, width: numbe
             label: `ReLU Layer (${numChannels} channels)`,
             layerType: 'ReLU' as const,
             nodeCount: numChannels,
+            handleDirection: handleDirection,
         },
     };
 }

@@ -2,25 +2,29 @@ import { type Node, type XYPosition } from '@xyflow/react';
 import { DEFAULT_FETCHERS, type FetcherType } from "../fetchers";
 import type { ModelNode } from "../types/model";
 import { createOutputKernelNode } from '../utils/kernelNodes';
-import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
 import { type HandleDirection } from '../components/nodes/ActivationFlowNode';
 import type { LayerGroupLayout } from '../layouts/common';
+import type { Direction } from '../types/direction';
+import { makeEvenlySpacedLayout } from '../layouts';
 
 export const createConv2dLayer = (
     modelNode: ModelNode,
     basePosition: { x: number; y: number },
-    fetcherType: FetcherType
+    fetcherType: FetcherType,
+    layerBlockHandleDirection: Direction,
+    directionInsideLayerBlock: Direction = "LR",
 ): Node[] => {
     const nodes: Node[] = [];
     const outChannels = modelNode.params.out_channels as number;
     const childWidth = 130;
     const childHeight = 150;
     const padding = 10;
-    const layout = makeEvenlySpacedHorizontalLayout(outChannels, childHeight, childWidth, padding);
+    const layout = makeEvenlySpacedLayout(outChannels, childHeight, childWidth, padding, directionInsideLayerBlock);
     // inside evenly spaced layout, we dont make edges so dont need handles
     const handleDirection: HandleDirection = null;
+    // parent handle should have the same direction as the page
 
-    nodes.push(makeParentNode(modelNode.id, layout, basePosition, outChannels));
+    nodes.push(makeParentNode(modelNode.id, layout, basePosition, outChannels, layerBlockHandleDirection));
 
     for (let kernelIndex = 0; kernelIndex < outChannels; kernelIndex++) {
         const childPosition = layout.children[kernelIndex];
@@ -39,7 +43,7 @@ export const createConv2dLayer = (
 };
 
 
-const makeParentNode = (modelId: string, layout: LayerGroupLayout, basePosition: XYPosition, outChannels: number): Node => {
+const makeParentNode = (modelId: string, layout: LayerGroupLayout, basePosition: XYPosition, outChannels: number, handleDirection: null | Direction): Node => {
     const parentLayerNode: Node = {
         id: modelId,
         type: 'LayerNode',
@@ -48,6 +52,7 @@ const makeParentNode = (modelId: string, layout: LayerGroupLayout, basePosition:
             label: `Conv2d Layer (${outChannels} kernels)`,
             layerType: 'Conv2d' as const,
             nodeCount: outChannels,
+            handleDirection: handleDirection,
         },
         width: layout.parent.width,
         height: layout.parent.height,
