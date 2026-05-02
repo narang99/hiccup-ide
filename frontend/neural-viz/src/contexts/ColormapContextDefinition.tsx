@@ -13,6 +13,6 @@ interface ColormapContextValue {
 export const ColormapContext = createContext<ColormapContextValue>({
   colormap: 'rd_bk_gn',
   setColormap: () => {},
-  scalingMode: 'local',
+  scalingMode: 'global',
   setScalingMode: () => {},
 });
