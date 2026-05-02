@@ -2,11 +2,11 @@ from ninja import Router
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 
-from .models import Model, Input, Activation, SaliencyMap, Weight
+from .models import Model, Input, Activation, SaliencyMap, Weight, Work, LayerThreshold
 from .schemas import (
     ModelOut, InputOut, ActivationOut, SaliencyMapOut, 
     WeightOut, LayerSaliencyMapsOut, BatchSaliencyMapsIn,
-    NodeStatsOut
+    NodeStatsOut, LayerThresholdIn, LayerThresholdOut
 )
 
 router = Router()
@@ -162,3 +162,46 @@ def get_saliency_maps_stats(request, model_alias: str, input_alias: str, data: B
     
     min_val, max_val = get_min_max(saliency_maps)
     return {"min": min_val, "max": max_val}
+
+
+@router.get("/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/thresholds/", response=list[LayerThresholdOut])
+def get_workflow_thresholds(request, model_alias: str, input_alias: str, workflow_name: str):
+    input_obj = get_object_or_404(
+        Input, 
+        model__alias=model_alias, 
+        alias=input_alias
+    )
+    
+    # Get or create the work/workflow
+    work, _ = Work.objects.get_or_create(input=input_obj, name=workflow_name)
+    
+    # Get all thresholds for this work and model
+    thresholds = LayerThreshold.objects.filter(
+        work=work,
+        model__alias=model_alias
+    )
+    
+    return list(thresholds)
+
+
+@router.post("/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/thresholds/", response=LayerThresholdOut)
+def save_workflow_threshold(request, model_alias: str, input_alias: str, workflow_name: str, data: LayerThresholdIn):
+    input_obj = get_object_or_404(
+        Input, 
+        model__alias=model_alias, 
+        alias=input_alias
+    )
+    model_obj = get_object_or_404(Model, alias=model_alias)
+    
+    # Get or create the work/workflow
+    work, _ = Work.objects.get_or_create(input=input_obj, name=workflow_name)
+    
+    # Create or update the threshold
+    threshold, created = LayerThreshold.objects.update_or_create(
+        work=work,
+        model=model_obj,
+        layer_id=data.layer_id,
+        defaults={"slider_value": data.slider_value}
+    )
+    
+    return threshold
