@@ -7,7 +7,7 @@ import { createOtherLayer } from '../layerCreators/default';
 import { toggleDirection, type Direction } from '../types/direction';
 import { useColormap } from './useColormap';
 import { useModelData } from './useModelData';
-import { fetchActivationsStats, fetchSaliencyMapsStats } from '../fetchers/stats';
+import { useLayerStats } from './useLayerStats';
 import { type ModelData } from '../types/model';
 
 export const useModelVisualization = (fetcherType: FetcherType = "activation", directionOfPage: Direction = "LR") => {
@@ -79,45 +79,13 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
     }
   }, [modelData, generateNodesAndEdges, setNodes, setEdges, layerAbsMax, scalingMode]);
 
-  // Handle global scaling
-  useEffect(() => {
-    if (scalingMode !== 'global' || nodes.length === 0) {
-      return;
-    }
-
-    const modelAlias = "example-model";
-    const inputAlias = "first-input";
-
-    const fetchStatsForLayers = async () => {
-      const layerNodes = nodes.filter(n => n.type === 'LayerNode');
-      const updates: Record<string, number> = {};
-      
-      for (const layerNode of layerNodes) {
-        const childNodes = nodes.filter(n => n.parentId === layerNode.id && n.type === 'ActivationFlowNode');
-        if (childNodes.length === 0) continue;
-
-        const coordinates = childNodes.map(n => n.data.coordinate as string);
-        
-        try {
-          const stats = fetcherType === 'activation' 
-            ? await fetchActivationsStats(modelAlias, inputAlias, coordinates)
-            : await fetchSaliencyMapsStats(modelAlias, inputAlias, coordinates);
-          
-          const absMax = Math.max(Math.abs(stats.min), Math.abs(stats.max));
-          updates[layerNode.id] = absMax;
-        } catch (error) {
-          console.error(`Failed to fetch stats for layer ${layerNode.id}:`, error);
-        }
-      }
-
-      if (Object.keys(updates).length > 0) {
-        setLayerAbsMax(updates);
-      }
-    };
-
-    fetchStatsForLayers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scalingMode, fetcherType, nodes.length]); // We use nodes.length to trigger after initial load
+  // Handle global scaling using custom hook
+  useLayerStats({
+    nodes,
+    fetcherType,
+    scalingMode,
+    setLayerAbsMax,
+  });
 
   return {
     modelData,
