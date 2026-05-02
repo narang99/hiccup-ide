@@ -13,7 +13,7 @@ interface LayerSettingsState {
 }
 
 const DEFAULT_LAYER_SETTINGS: LayerSettings = {
-  sliderValue: 50,
+  sliderValue: 100,
 };
 
 export const useLayerSettingsStore = create<LayerSettingsState>((set, get) => ({

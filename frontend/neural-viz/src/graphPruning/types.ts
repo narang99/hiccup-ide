@@ -7,4 +7,4 @@ export interface SaliencyMapThresholdAlgorithm {
 }
 
 /// discriminated type union possible
-export type SalicenyMapPruneAlgorithm = SaliencyMapThresholdAlgorithm;
+export type ActivationPruneAlgorithm = SaliencyMapThresholdAlgorithm;
