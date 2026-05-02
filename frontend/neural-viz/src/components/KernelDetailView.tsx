@@ -6,6 +6,7 @@ import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useFetcherType } from '../hooks/useFetcherType';
 import SharedCanvas from './SharedCanvas';
 import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
+import { type HandleDirection } from './nodes/ActivationFlowNode';
 
 const getNodeShowingActivation = (
   id: string, 
@@ -16,6 +17,7 @@ const getNodeShowingActivation = (
   parentId?: string, 
   width?: number, 
   height?: number,
+  handleDirection: HandleDirection = null,
 ): Node => {
   return ({
     id: id,
@@ -27,6 +29,7 @@ const getNodeShowingActivation = (
       fetcherType: fetcherType,
       maxSize: 84,
       title: title,
+      handleDirection,
     },
     width: width,
     height: height,

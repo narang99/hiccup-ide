@@ -3,6 +3,7 @@ import { type ModelNode } from '../types/model';
 import { type NodeFetchers, type FetcherType } from '../fetchers';
 import BaseActivationNode from '../components/nodes/BaseActivationNode';
 import { Link } from 'react-router-dom';
+import { type HandleDirection } from '../components/nodes/ActivationFlowNode';
 
 export const getKernelNodeColor = (nodeType: string): string => {
   switch (nodeType) {
@@ -29,7 +30,8 @@ export const createOutputKernelNode = (
   width: number,
   position: { x: number; y: number },
   fetchers?: NodeFetchers,
-  fetcherType?: FetcherType
+  fetcherType?: FetcherType,
+  handleDirection: HandleDirection = null,
 ): Node => {
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
   const coordinate = `${parentNode.id}.out_${kernelIndex}`;
@@ -39,26 +41,19 @@ export const createOutputKernelNode = (
 
   return {
     id: kernelId,
-    type: 'default',
+    type: 'ActivationFlowNode',
     width: width,
     height: height,
     position: position,
     data: {
-      label: (
-        <Link
-          to={`/kernel/${parentNode.id}/${kernelIndex}`}
-          style={{ width: '100%', cursor: 'pointer', display: 'block', textDecoration: 'none' }}
-        >
-          <BaseActivationNode
-            fetchers={fetchers}
-            fetcherType={fetcherType}
-            coordinate={coordinate}
-            title={title}
-            badgeLabel={kernelIndex !== undefined ? `K${kernelIndex}` : undefined}
-            badgeColor="#60a5fa"
-          />
-        </Link>
-      ),
+      coordinate,
+      fetchers,
+      fetcherType,
+      title,
+      badgeLabel: kernelIndex !== undefined ? `K${kernelIndex}` : undefined,
+      badgeColor: "#60a5fa",
+      handleDirection,
+      link: `/kernel/${parentNode.id}/${kernelIndex}`,
     },
     style: {
       background: 'transparent',

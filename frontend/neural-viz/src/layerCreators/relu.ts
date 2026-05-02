@@ -2,6 +2,7 @@ import { type Node, type XYPosition } from '@xyflow/react';
 import { DEFAULT_FETCHERS, type FetcherType } from "../fetchers";
 import type { ModelNode } from "../types/model";
 import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
+import { type HandleDirection } from '../components/nodes/ActivationFlowNode';
 
 export const createReLULayer = (
     modelNode: ModelNode,
@@ -15,6 +16,8 @@ export const createReLULayer = (
     const childHeight = 150;
     const padding = 10;
     const layout = makeEvenlySpacedHorizontalLayout(numChannels, childHeight, childWidth, padding);
+    // inside evenly spaced layout, we dont make edges so dont need handles
+    const handleDirection: HandleDirection = null;
 
     // Create parent layer node
     nodes.push(
@@ -25,7 +28,7 @@ export const createReLULayer = (
     for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
         const childPosition = layout.children[channelIndex];
         nodes.push(makeReluChannelNode(
-            modelNode.id, childPosition, childHeight, childWidth, channelIndex, fetcherType
+            modelNode.id, childPosition, childHeight, childWidth, channelIndex, fetcherType, handleDirection
         ))
     }
 
@@ -50,7 +53,7 @@ const makeParentLayerNode = (modelId: string, position: XYPosition, width: numbe
 
 
 const makeReluChannelNode = (
-    modelId: string, position: XYPosition, height: number, width: number, channelIndex: number, fetcherType: FetcherType
+    modelId: string, position: XYPosition, height: number, width: number, channelIndex: number, fetcherType: FetcherType, handleDirection: HandleDirection,
 ): Node => {
     return {
         id: `${modelId}-channel-${channelIndex}`,
@@ -63,6 +66,7 @@ const makeReluChannelNode = (
             maxSize: 84,
             title: `Ch ${channelIndex}`,
             badgeLabel: 'ReLU',
+            handleDirection: handleDirection,
             badgeColor: '#fbbf24',
         },
         width: width,

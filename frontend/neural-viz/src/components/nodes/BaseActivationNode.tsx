@@ -1,6 +1,8 @@
 import type { NodeFetchers, FetcherType } from "../../fetchers";
 import { Handle, Position } from '@xyflow/react';
 import { ActivationDisplay } from "../ActivationDisplay";
+import { Link } from 'react-router-dom';
+import { type HandleDirection } from "./ActivationFlowNode";
 
 interface BaseActivationNodeProps {
     coordinate: string;
@@ -11,6 +13,8 @@ interface BaseActivationNodeProps {
     title: string;
     badgeLabel?: string;
     badgeColor?: string;
+    handleDirection?: HandleDirection;
+    link?: string;
 }
 
 export default function BaseActivationNode({
@@ -21,22 +25,33 @@ export default function BaseActivationNode({
     className = "",
     title,
     badgeLabel,
-    badgeColor = '#60a5fa'
+    badgeColor = '#60a5fa',
+    handleDirection = "TB",
+    link
 }: BaseActivationNodeProps) {
     const fetcher = fetchers?.[fetcherType];
 
-    return (
+    const handleStyle = {
+        background: badgeColor,
+        border: '2px solid #fff',
+        width: '8px',
+        height: '8px',
+    };
+
+    const content = (
         <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}>
-            <Handle
-                type="target"
-                position={Position.Top}
-                style={{
-                    background: badgeColor,
-                    border: '2px solid #fff',
-                    width: '8px',
-                    height: '8px',
-                }}
-            />
+            {handleDirection === "TB" && (
+                <>
+                    <Handle type="target" position={Position.Top} style={handleStyle} />
+                    <Handle type="source" position={Position.Bottom} style={handleStyle} />
+                </>
+            )}
+            {handleDirection === "LR" && (
+                <>
+                    <Handle type="target" position={Position.Left} style={handleStyle} />
+                    <Handle type="source" position={Position.Right} style={handleStyle} />
+                </>
+            )}
             {/* ── Toolbar ── */}
             <div style={{
                 display: 'flex',
@@ -97,16 +112,16 @@ export default function BaseActivationNode({
                     }} />
                 )}
             </div>
-            <Handle
-                type="source"
-                position={Position.Bottom}
-                style={{
-                    background: badgeColor,
-                    border: '2px solid #fff',
-                    width: '8px',
-                    height: '8px',
-                }}
-            />
         </div>
     );
+
+    if (link) {
+        return (
+            <Link to={link} style={{ textDecoration: 'none', color: 'inherit', display: 'block', width: '100%', height: '100%' }}>
+                {content}
+            </Link>
+        );
+    }
+
+    return content;
 }

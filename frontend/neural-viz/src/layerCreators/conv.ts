@@ -3,6 +3,7 @@ import { DEFAULT_FETCHERS, type FetcherType } from "../fetchers";
 import type { ModelNode } from "../types/model";
 import { createOutputKernelNode } from '../utils/kernelNodes';
 import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
+import { type HandleDirection } from '../components/nodes/ActivationFlowNode';
 import type { LayerGroupLayout } from '../layouts/common';
 
 export const createConv2dLayer = (
@@ -16,6 +17,8 @@ export const createConv2dLayer = (
     const childHeight = 150;
     const padding = 10;
     const layout = makeEvenlySpacedHorizontalLayout(outChannels, childHeight, childWidth, padding);
+    // inside evenly spaced layout, we dont make edges so dont need handles
+    const handleDirection: HandleDirection = null;
 
     nodes.push(makeParentNode(modelNode.id, layout, basePosition, outChannels));
 
@@ -28,7 +31,8 @@ export const createConv2dLayer = (
             childWidth,
             childPosition,
             DEFAULT_FETCHERS,
-            fetcherType
+            fetcherType,
+            handleDirection,
         ))
     }
     return nodes;
