@@ -5,8 +5,18 @@ import { type ModelData } from '../types/model';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useFetcherType } from '../hooks/useFetcherType';
 import SharedCanvas from './SharedCanvas';
+import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
 
-const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string, fetcherType: FetcherType = "activation") => {
+const getNodeShowingActivation = (
+  id: string, 
+  position: { x: number, y: number }, 
+  title: string, 
+  coordinate: string, 
+  fetcherType: FetcherType = "activation", 
+  parentId?: string, 
+  width?: number, 
+  height?: number,
+): Node => {
   return ({
     id: id,
     type: 'ActivationFlowNode',
@@ -18,14 +28,18 @@ const getNodeShowingActivation = (id: string, position: { x: number, y: number }
       maxSize: 84,
       title: title,
     },
+    width: width,
+    height: height,
     style: {
       background: 'transparent',
       border: '1px solid rgba(245, 158, 11, 0.35)',
       borderRadius: '6px',
       padding: 0,
-      minWidth: '96px',
+      fontSize: '10px',
       overflow: 'hidden',
     },
+    parentId: parentId,
+    extent: parentId ? 'parent' : undefined,
   });
 };
 
@@ -45,72 +59,107 @@ export default function KernelDetailView() {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
 
-    // Title node
+    // Create each input→kernel→output group as a LayerNode parent
+    for (let i = 0; i < inChannels; i++) {
+      const sliceLayerId = `slice-${i}`;
+      const childWidth = 120;
+      const childHeight = 100;
+      const padding = 10;
+      const sliceLayout = makeEvenlySpacedHorizontalLayout(3, childHeight, childWidth, padding);
+
+      // Create parent LayerNode for this slice
+      nodes.push({
+        id: sliceLayerId,
+        type: 'LayerNode',
+        position: { x: 0, y: 0 }, // dagre will position this
+        width: sliceLayout.parent.width,
+        height: sliceLayout.parent.height,
+        data: {
+          label: `Channel ${i} Slice`,
+          layerType: 'Conv2d',
+          nodeCount: 3,
+        },
+      });
+
+      // Input node
+      const inputCoordinate = `${nodeId}.out_${kernelIdx}.in_${i}.input`;
+      nodes.push(getNodeShowingActivation(
+        `input-${i}`,
+        sliceLayout.children[0],
+        "Input",
+        inputCoordinate,
+        fetcherType,
+        sliceLayerId,
+        childWidth,
+        childHeight
+      ));
+
+      // Kernel slice node
+      const weightCoordinate = `${nodeId}.out_${kernelIdx}.in_${i}`;
+      nodes.push(getNodeShowingActivation(
+        `kernel-slice-${i}`,
+        sliceLayout.children[1],
+        `K${kernelIdx}:${i}`,
+        weightCoordinate,
+        'weight',
+        sliceLayerId,
+        childWidth,
+        childHeight
+      ));
+
+      // Slice output node
+      const outputCoordinate = `${nodeId}.out_${kernelIdx}.in_${i}`;
+      nodes.push(getNodeShowingActivation(
+        `output-${i}`,
+        sliceLayout.children[2],
+        "Output",
+        outputCoordinate,
+        fetcherType,
+        sliceLayerId,
+        childWidth,
+        childHeight
+      ));
+    }
+
+    // Create sum LayerNode
+    const sumLayerId = 'sum-layer';
+    const sumChildWidth = 120;
+    const sumChildHeight = 100;
+    const sumPadding = 10;
+    const sumLayout = makeEvenlySpacedHorizontalLayout(1, sumChildHeight, sumChildWidth, sumPadding);
+
     nodes.push({
-      id: 'title',
-      type: 'default',
-      position: { x: 400, y: 50 },
+      id: sumLayerId,
+      type: 'LayerNode',
+      position: { x: 0, y: 0 }, // dagre will position this
+      width: sumLayout.parent.width,
+      height: sumLayout.parent.height,
       data: {
-        label: (
-          <div className="text-center">
-            <div className="font-bold text-lg">{targetNode.id} - Kernel {kernelIdx}</div>
-            <div className="text-sm text-gray-600">
-              {inChannels} input channels → 1 output channel
-            </div>
-          </div>
-        ),
-      },
-      style: {
-        background: '#f3f4f6',
-        border: '2px solid #374151',
-        borderRadius: '8px',
-        padding: '15px',
-        minWidth: '200px',
+        label: 'Sum',
+        layerType: 'Output',
+        nodeCount: 1,
       },
     });
 
-    // Input channel nodes
-    for (let i = 0; i < inChannels; i++) {
-      const inputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}.input`;
-      nodes.push(getNodeShowingActivation(`input-${i}`, { x: 100, y: 200 + i * 100 }, "Input", inputCoordinate, fetcherType));
+    // Sum activation node
+    const sumCoordinate = `${nodeId}.out_${kernelIdx}`;
+    nodes.push(getNodeShowingActivation(
+      'sum',
+      sumLayout.children[0],
+      "Sum",
+      sumCoordinate,
+      fetcherType,
+      sumLayerId,
+      sumChildWidth,
+      sumChildHeight
+    ));
 
-      // Kernel slice nodes
-      const weightCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
-      nodes.push(getNodeShowingActivation(`kernel-slice-${i}`, { x: 300, y: 200 + i * 100 }, `K${kernelIdx}:${i}`, weightCoordinate, 'weight'));
-
-
-      // Slice output nodes
-      const outputCoordinate = `${nodeId}.out_${kernelIndex}.in_${i}`;
-      nodes.push(getNodeShowingActivation(`output-${i}`, { x: 500, y: 200 + i * 100 }, "Output", outputCoordinate, fetcherType));
-
-      // Edges: Input -> Kernel -> Output
-      edges.push({
-        id: `input-${i}-kernel-${i}`,
-        source: `input-${i}`,
-        target: `kernel-slice-${i}`,
-        type: 'default',
-        style: { stroke: '#059669', strokeWidth: 2 },
-      });
-
-      edges.push({
-        id: `kernel-${i}-output-${i}`,
-        source: `kernel-slice-${i}`,
-        target: `output-${i}`,
-        type: 'default',
-        style: { stroke: '#7c3aed', strokeWidth: 2 },
-      });
-    }
-
-    // Sum node
-    const sumCoordinate = `${nodeId}.out_${kernelIndex}`;
-    nodes.push(getNodeShowingActivation(`sum`, { x: 700, y: 200 + (inChannels / 2) * 100 }, "sum", sumCoordinate, fetcherType));
-
-    // Edges from all outputs to sum
+    // Create edges between LayerNodes
     for (let i = 0; i < inChannels; i++) {
       edges.push({
-        id: `output-${i}-sum`,
-        source: `output-${i}`,
-        target: 'sum',
+        id: `slice-${i}-to-sum`,
+        source: `slice-${i}`,
+        target: sumLayerId,
         type: 'default',
         style: { stroke: '#dc2626', strokeWidth: 2 },
       });
@@ -124,7 +173,7 @@ export default function KernelDetailView() {
     // Load model data
     const modelAlias = "example-model";
     const apiBaseUrl = "http://localhost:8000";
-    
+
     fetch(`${apiBaseUrl}/api/models/${modelAlias}/`)
       .then((response) => response.json())
       .then((data: { definition: ModelData }) => {
