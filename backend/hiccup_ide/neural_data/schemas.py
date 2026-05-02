@@ -59,3 +59,8 @@ class WeightOut(Schema):
     layer_type: str
     coordinate_type: str
     data_type: str
+
+
+class LayerSaliencyMapsOut(Schema):
+    layer_name: str
+    saliency_maps: List[SaliencyMapOut]

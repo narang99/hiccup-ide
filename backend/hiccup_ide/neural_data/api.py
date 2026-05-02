@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 
 from .models import Model, Input, Activation, SaliencyMap, Weight
-from .schemas import ModelOut, InputOut, ActivationOut, SaliencyMapOut, WeightOut
+from .schemas import ModelOut, InputOut, ActivationOut, SaliencyMapOut, WeightOut, LayerSaliencyMapsOut
 
 router = Router()
 
@@ -53,3 +53,26 @@ def get_weight(request, model_alias: str, coordinate: str):
         coordinate=coordinate
     )
     return weight
+
+@router.get("/models/{model_alias}/inputs/{input_alias}/saliency_maps/layers/{layer_name}/", response=LayerSaliencyMapsOut)
+def get_layer_saliency_maps(request, model_alias: str, input_alias: str, layer_name: str):
+    # Verify input exists
+    input_obj = get_object_or_404(
+        Input, 
+        model__alias=model_alias, 
+        alias=input_alias
+    )
+    
+    # Get all saliency maps for coordinates that start with the layer name
+    saliency_maps = SaliencyMap.objects.filter(
+        input=input_obj,
+        coordinate__startswith=f"{layer_name}."
+    ).order_by('coordinate')
+    
+    if not saliency_maps.exists():
+        raise Http404(f"No saliency maps found for layer '{layer_name}'")
+    
+    return {
+        "layer_name": layer_name,
+        "saliency_maps": list(saliency_maps)
+    }

@@ -1,5 +1,8 @@
 import { useLayerSettingsStore } from '../stores/layerSettingsStore';
 import { useSelectedNodeStore } from '../stores/selectedNodeStore';
+import { useLayerSaliencyStore } from '../stores/layerSaliencyStore';
+import { getTopKThreshold } from '../utils/topk';
+import { useCallback, useEffect, useRef } from 'react';
 
 interface LayerSettingsViewProps {
   disabled: boolean;
@@ -170,19 +173,72 @@ const LayerSettingsView = ({ disabled, sliderValue, onSliderChange, nodeData }: 
 export const LayerSettings = () => {
   const { selectedNode } = useSelectedNodeStore();
   const { getLayerSettings, updateSliderValue } = useLayerSettingsStore();
+  const { fetchLayerSaliency, getCachedData } = useLayerSaliencyStore();
   
   const nodeId = selectedNode?.id;
   const nodeData = selectedNode?.data;
   const disabled = !selectedNode;
   
   const sliderValue = nodeId ? getLayerSettings(nodeId).sliderValue : 50;
+  
+  // Debouncing ref for threshold computation
+  const debounceTimeoutRef = useRef<number | null>(null);
 
-  const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const computeThreshold = useCallback((layerName: string, thresholdRatio: number) => {
+    const cachedData = getCachedData(layerName);
+    if (!cachedData) return;
+
+    // Flatten all saliency data into a single array
+    const allValues: number[] = [];
+    cachedData.saliency_maps.forEach(map => {
+      map.data.forEach(row => {
+        if (Array.isArray(row)) {
+          allValues.push(...row);
+        }
+      });
+    });
+
+    // Compute threshold using the utility function
+    const threshold = getTopKThreshold(allValues, thresholdRatio / 100);
+    console.log(`Computed threshold for ${layerName} at ${thresholdRatio}%:`, threshold);
+  }, [getCachedData]);
+
+  const handleSliderChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
-    if (nodeId) {
-      updateSliderValue(nodeId, value);
+    if (!nodeId || !nodeData) return;
+    
+    // Update slider value immediately
+    updateSliderValue(nodeId, value);
+    
+    // Debounce the threshold computation and fetching
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
     }
-  };
+    
+    debounceTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        // Extract layer name from node ID (e.g., "layers.2" from "layers.2.something")
+        const layerName = nodeId.split('.').slice(0, 2).join('.');
+        
+        // Fetch saliency data if not cached (this will be a no-op if already cached)
+        await fetchLayerSaliency('example-model', 'first-input', layerName);
+        
+        // Compute threshold with the slider value
+        computeThreshold(layerName, value);
+      } catch (err) {
+        console.error('Failed to fetch saliency data or compute threshold:', err);
+      }
+    }, 300); // 300ms debounce
+  }, [nodeId, nodeData, updateSliderValue, fetchLayerSaliency, computeThreshold]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <LayerSettingsView
