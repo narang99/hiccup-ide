@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
-import ConvOutActNode from './nodes/ConvOutActNode';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useFetcherType } from '../hooks/useFetcherType';
 import SharedCanvas from './SharedCanvas';
@@ -10,18 +9,14 @@ import SharedCanvas from './SharedCanvas';
 const getNodeShowingActivation = (id: string, position: { x: number, y: number }, title: string, coordinate: string, fetcherType: FetcherType = "activation") => {
   return ({
     id: id,
-    type: 'default',
+    type: 'ActivationFlowNode',
     position: position,
     data: {
-      label: (
-        <ConvOutActNode
-          fetchers={DEFAULT_FETCHERS}
-          fetcherType={fetcherType}
-          maxSize={84}
-          coordinate={coordinate}
-          title={title}
-        />
-      ),
+      coordinate: coordinate,
+      fetchers: DEFAULT_FETCHERS,
+      fetcherType: fetcherType,
+      maxSize: 84,
+      title: title,
     },
     style: {
       background: 'transparent',

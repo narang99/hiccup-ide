@@ -1,7 +1,7 @@
 import type { Node } from '@xyflow/react';
 import { type ModelNode } from '../types/model';
 import { type NodeFetchers, type FetcherType } from '../fetchers';
-import ConvOutActNode from '../components/nodes/ConvOutActNode';
+import BaseActivationNode from '../components/nodes/BaseActivationNode';
 import { Link } from 'react-router-dom';
 
 export const getKernelNodeColor = (nodeType: string): string => {
@@ -49,12 +49,13 @@ export const createOutputKernelNode = (
           to={`/kernel/${parentNode.id}/${kernelIndex}`}
           style={{ width: '100%', cursor: 'pointer', display: 'block', textDecoration: 'none' }}
         >
-          <ConvOutActNode
+          <BaseActivationNode
             fetchers={fetchers}
             fetcherType={fetcherType}
-            kernelIdx={kernelIndex}
             coordinate={coordinate}
             title={title}
+            badgeLabel={kernelIndex !== undefined ? `K${kernelIndex}` : undefined}
+            badgeColor="#60a5fa"
           />
         </Link>
       ),

@@ -1,8 +1,9 @@
 import { type Node, type XYPosition } from '@xyflow/react';
 import { DEFAULT_FETCHERS, type FetcherType } from "../fetchers";
 import type { ModelNode } from "../types/model";
-import { makeLayerLayout, type LayerGroupLayout } from "./layout";
 import { createOutputKernelNode } from '../utils/kernelNodes';
+import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
+import type { LayerGroupLayout } from '../layouts/common';
 
 export const createConv2dLayer = (
     modelNode: ModelNode,
@@ -14,7 +15,7 @@ export const createConv2dLayer = (
     const childWidth = 130;
     const childHeight = 150;
     const padding = 10;
-    const layout = makeLayerLayout(outChannels, childHeight, childWidth, padding);
+    const layout = makeEvenlySpacedHorizontalLayout(outChannels, childHeight, childWidth, padding);
 
     nodes.push(makeParentNode(modelNode.id, layout, basePosition, outChannels));
 

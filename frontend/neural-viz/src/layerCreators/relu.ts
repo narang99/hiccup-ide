@@ -1,8 +1,7 @@
 import { type Node, type XYPosition } from '@xyflow/react';
 import { DEFAULT_FETCHERS, type FetcherType } from "../fetchers";
 import type { ModelNode } from "../types/model";
-import { makeLayerLayout } from "./layout";
-import { ReluChannelNodeData } from '../components/nodes/ReluChannelNode';
+import { makeEvenlySpacedHorizontalLayout } from '../layouts/horizontal';
 
 export const createReLULayer = (
     modelNode: ModelNode,
@@ -15,7 +14,7 @@ export const createReLULayer = (
     const childWidth = 130;
     const childHeight = 150;
     const padding = 10;
-    const layout = makeLayerLayout(numChannels, childHeight, childWidth, padding);
+    const layout = makeEvenlySpacedHorizontalLayout(numChannels, childHeight, childWidth, padding);
 
     // Create parent layer node
     nodes.push(
@@ -55,10 +54,16 @@ const makeReluChannelNode = (
 ): Node => {
     return {
         id: `${modelId}-channel-${channelIndex}`,
-        type: 'default',
+        type: 'ActivationFlowNode',
         position: position,
         data: {
-            label: ReluChannelNodeData({ channelIndex, layerId: modelId, fetchers: DEFAULT_FETCHERS, fetcherType }),
+            coordinate: `${modelId}.out_${channelIndex}`,
+            fetchers: DEFAULT_FETCHERS,
+            fetcherType,
+            maxSize: 84,
+            title: `Ch ${channelIndex}`,
+            badgeLabel: 'ReLU',
+            badgeColor: '#fbbf24',
         },
         width: width,
         height: height,

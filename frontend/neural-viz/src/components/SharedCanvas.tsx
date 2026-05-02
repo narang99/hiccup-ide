@@ -7,6 +7,7 @@ import { useFetcherType } from '../hooks/useFetcherType';
 import { useColormap } from '../hooks/useColormap';
 import { useSelectedNode } from '../hooks/useSelectedNode';
 import { LayerNode } from './nodes/LayerNode';
+import { ActivationFlowNode } from './nodes/ActivationFlowNode';
 import { LayerSettings } from './LayerSettings';
 import dagre from '@dagrejs/dagre';
 
@@ -14,6 +15,7 @@ const COLORMAP_KEYS = Object.keys(COLORMAPS) as ColormapName[];
 
 const nodeTypes = {
   LayerNode,
+  ActivationFlowNode,
 };
 
 interface SharedCanvasProps extends ReactFlowProps {
@@ -220,6 +222,7 @@ const getLayoutedElements = (props: ReactFlowProps): { nodes: Node[], edges: Edg
         },
       };
     } else {
+      console.log("no conectttttttttttttt", node.type);
       return node;
     }
   });

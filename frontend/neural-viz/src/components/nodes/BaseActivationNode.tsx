@@ -1,23 +1,42 @@
 import type { NodeFetchers, FetcherType } from "../../fetchers";
+import { Handle, Position } from '@xyflow/react';
 import { ActivationDisplay } from "../ActivationDisplay";
 
-interface ConvOutActNodeProps {
+interface BaseActivationNodeProps {
     coordinate: string;
-    kernelIdx?: number;
     fetchers?: NodeFetchers;
     fetcherType?: FetcherType;
     maxSize?: number;
     className?: string;
     title: string;
+    badgeLabel?: string;
+    badgeColor?: string;
 }
 
-export default function ConvOutActNode(
-    { kernelIdx, coordinate, fetchers, fetcherType = "activation", className = "", title }: ConvOutActNodeProps
-) {
+export default function BaseActivationNode({
+    coordinate,
+    fetchers,
+    fetcherType = "activation",
+    maxSize,
+    className = "",
+    title,
+    badgeLabel,
+    badgeColor = '#60a5fa'
+}: BaseActivationNodeProps) {
     const fetcher = fetchers?.[fetcherType];
 
     return (
-        <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+        <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}>
+            <Handle
+                type="target"
+                position={Position.Top}
+                style={{
+                    background: badgeColor,
+                    border: '2px solid #fff',
+                    width: '8px',
+                    height: '8px',
+                }}
+            />
             {/* ── Toolbar ── */}
             <div style={{
                 display: 'flex',
@@ -28,17 +47,17 @@ export default function ConvOutActNode(
                 borderBottom: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '5px 5px 0 0',
             }}>
-                {kernelIdx !== undefined && (
+                {badgeLabel && (
                     <>
                         <span style={{
                             fontSize: 9,
                             fontWeight: 700,
                             letterSpacing: '0.06em',
                             textTransform: 'uppercase' as const,
-                            color: '#60a5fa',
+                            color: badgeColor,
                             lineHeight: 1,
                         }}>
-                            K{kernelIdx}
+                            {badgeLabel}
                         </span>
                         <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, lineHeight: 1 }}>·</span>
                     </>
@@ -66,17 +85,28 @@ export default function ConvOutActNode(
                     <ActivationDisplay
                         coordinate={coordinate}
                         fetcher={fetcher}
+                        maxSize={maxSize}
                     />
                 ) : (
                     <div style={{
-                        width: "100%",
-                        height: "100%",
+                        width: maxSize || "100%",
+                        height: maxSize || "100%",
                         background: '#1e1e2e',
                         borderRadius: 4,
                         border: '1px solid rgba(255,255,255,0.08)',
                     }} />
                 )}
             </div>
+            <Handle
+                type="source"
+                position={Position.Bottom}
+                style={{
+                    background: badgeColor,
+                    border: '2px solid #fff',
+                    width: '8px',
+                    height: '8px',
+                }}
+            />
         </div>
     );
 }
