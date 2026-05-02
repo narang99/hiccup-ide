@@ -7,7 +7,8 @@
       "Bash(npm run build)",
       "Bash(uv run pytest -v)",
       "Bash(npm run typecheck)",
-      "Bash(uv run pytest tests/ -v)"
+      "Bash(uv run pytest tests/ -v)",
+      "Bash(npm run lint:eslint)"
     ],
     "deny": [],
     "ask": []

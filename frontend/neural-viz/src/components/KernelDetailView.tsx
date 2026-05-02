@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge } from '@xyflow/react';
 import { type ModelData } from '../types/model';
 import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useFetcherType } from '../hooks/useFetcherType';
+import { useModelData } from '../hooks/useModelData';
 import SharedCanvas from './SharedCanvas';
 import { type HandleDirection } from './nodes/ActivationFlowNode';
 import { makeEvenlySpacedLayout } from '../layouts';
@@ -166,13 +167,11 @@ export default function KernelDetailView() {
   const pageDirection: Direction = "LR";
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
   const navigate = useNavigate();
-  const [modelData, setModelData] = useState<ModelData | null>(null);
-  const [kernelNodes, setKernelNodes] = useState<Node[]>([]);
-  const [kernelEdges, setKernelEdges] = useState<Edge[]>([]);
+  const { modelData } = useModelData("example-model");
 
-  const generateKernelDetailView = useCallback((data: ModelData, nodeId: string, kernelIdx: number) => {
+  const generateKernelDetailView = useCallback((data: ModelData, nodeId: string, kernelIdx: number): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
-    if (!targetNode || targetNode.type !== 'Conv2d') return;
+    if (!targetNode || targetNode.type !== 'Conv2d') return null;
 
     const inChannels = targetNode.params.in_channels as number;
     let nodes: Node[] = [];
@@ -203,31 +202,18 @@ export default function KernelDetailView() {
     // 3. Create edges between LayerNodes
     const edges = createSliceToSumEdges(inChannels, 'sum-layer');
 
-    setKernelNodes(nodes);
-    setKernelEdges(edges);
+    return { nodes, edges };
   }, [fetcherType, pageDirection]);
 
-  useEffect(() => {
-    const modelAlias = "example-model";
-    const apiBaseUrl = "http://localhost:8000";
-
-    const loadData = async () => {
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/`);
-        const data = await response.json();
-        const modelData = data.definition;
-        setModelData(modelData);
-
-        if (nodeId && kernelIndex) {
-          generateKernelDetailView(modelData, nodeId, parseInt(kernelIndex));
-        }
-      } catch (error) {
-        console.error('Error loading model data:', error);
+  const { kernelNodes, kernelEdges } = useMemo(() => {
+    if (modelData && nodeId && kernelIndex) {
+      const result = generateKernelDetailView(modelData, nodeId, parseInt(kernelIndex));
+      if (result) {
+        return { kernelNodes: result.nodes, kernelEdges: result.edges };
       }
-    };
-
-    loadData();
-  }, [nodeId, kernelIndex, generateKernelDetailView]);
+    }
+    return { kernelNodes: [], kernelEdges: [] };
+  }, [modelData, nodeId, kernelIndex, generateKernelDetailView]);
 
   const handleBackClick = () => {
     navigate('/');

@@ -15,17 +15,26 @@ Minimal features needed:
   - Frontend work should be quite easy comparatively (almost no changes i think)
   - first generate the contribs as json, but in a format that the frontend understands
 - Contrib minimisation with strategies at each step
-  - We basically want a graph pruning strategy
-  - Basically user picks the highest contribs, the frontend notes them down in the backend
-  - Each prune operation results in a new graph of usefulness
+  - Basically user picks the highest contribs, the frontend notes them down in the backend ✅
+  - Each prune operation results in a new graph of usefulness 
   - We keep pruning by each layer to find the final pruned graph
 - Analysis of each POI
+  - Each poi in a view opens up another which digs a bit deeper. and allows for thresholding too
   - Clicking on a POI shows the input patch along with the whole data
   - We 'note down' what the POI means locally
   - This noting down associates the analysis to the POI and to the kernel itself (the kernel meaning is attached to the network)
   - I would also want other images from other activations for this
 
 Finally we would like to see the meaning (meaning can be propagated at each step).   
+
+
+## POI analysis workflow
+- We select the POI from the main graph layer view. 
+- opens a new view with slice wise contribs, we threshold again, save them
+- Then select individual slice
+
+
+- next step: open slice contribs view only
 
 
 

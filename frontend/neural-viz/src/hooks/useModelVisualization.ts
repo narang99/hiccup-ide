@@ -1,16 +1,17 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react';
-import { type ModelData } from '../types/model';
 import { type FetcherType } from '../fetchers';
 import { createConv2dLayer } from '../layerCreators/conv';
 import { createReLULayer } from '../layerCreators/relu';
 import { createOtherLayer } from '../layerCreators/default';
 import { toggleDirection, type Direction } from '../types/direction';
 import { useColormap } from './useColormap';
+import { useModelData } from './useModelData';
 import { fetchActivationsStats, fetchSaliencyMapsStats } from '../fetchers/stats';
+import { type ModelData } from '../types/model';
 
 export const useModelVisualization = (fetcherType: FetcherType = "activation", directionOfPage: Direction = "LR") => {
-  const [modelData, setModelData] = useState<ModelData | null>(null);
+  const { modelData } = useModelData("example-model");
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [layerAbsMax, setLayerAbsMax] = useState<Record<string, number>>({});
@@ -65,18 +66,6 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
   }, [fetcherType, directionInsideLayerBlock, layerBlockHandleDirection]);
 
 
-  // Load model data
-  useEffect(() => {
-    const modelAlias = "example-model";
-    const apiBaseUrl = "http://localhost:8000";
-
-    fetch(`${apiBaseUrl}/api/models/${modelAlias}/`)
-      .then((response) => response.json())
-      .then((data) => {
-        setModelData(data.definition);
-      })
-      .catch((error) => console.error('Error loading model data:', error));
-  }, []);
 
   // Update nodes and edges when model data or kernel expanded state changes
   useEffect(() => {
