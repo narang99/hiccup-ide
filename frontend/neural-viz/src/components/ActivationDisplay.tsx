@@ -3,6 +3,8 @@ import chroma from 'chroma-js';
 import { type ActivationData } from '../fetchers/activation';
 import { COLORMAPS, COLORMAP_META, normalizeSymmetric, type ColormapName } from '../utils/colormaps';
 import { useColormap } from '../hooks/useColormap';
+import type { ActivationFilterAlgorithm } from '../activationFiltering/types';
+import { filterActivation } from '../activationFiltering';
 
 interface ActivationDisplayProps {
   coordinate: string;
@@ -11,6 +13,7 @@ interface ActivationDisplayProps {
   maxSize?: number;
   /** Explicit override. If omitted, the global colormap from context is used. */
   colormap?: ColormapName;
+  filterAlgorithm?: ActivationFilterAlgorithm;
 }
 
 export const ActivationDisplay = ({
@@ -18,6 +21,7 @@ export const ActivationDisplay = ({
   fetcher,
   className = '',
   colormap,
+  filterAlgorithm = { type: 'Id' },
 }: ActivationDisplayProps) => {
   const [activationData, setActivationData] = useState<ActivationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,13 +93,14 @@ export const ActivationDisplay = ({
     // ── 2-D activation map ──────────────────────────────────────────────────
     if (Array.isArray(activationData.data) && activationData.shape.length === 2) {
       const [height, width] = activationData.shape;
-      const data = activationData.data as number[][];
+      const rawData = activationData.data as number[][];
+      const data = filterActivation(rawData, filterAlgorithm);
 
       const flatData = data.flat();
-      const absMax = Math.max(
+      const absMax = flatData.length > 0 ? Math.max(
         Math.abs(Math.min(...flatData)),
         Math.abs(Math.max(...flatData)),
-      );
+      ) : 1;
 
       return (
         <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: 'hidden' }}>

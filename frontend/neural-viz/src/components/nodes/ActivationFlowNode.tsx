@@ -1,6 +1,7 @@
 import { type NodeProps, type Node } from '@xyflow/react';
 import type { NodeFetchers, FetcherType } from "../../fetchers";
 import BaseActivationNode from "./BaseActivationNode";
+import type { ActivationFilterAlgorithm } from '../../activationFiltering/types';
 
 export type HandleDirection = "TB" | "LR" | null;
 
@@ -14,6 +15,7 @@ export interface ActivationNodeData extends Record<string, unknown> {
     badgeColor?: string;
     handleDirection?: HandleDirection;
     link?: string;
+    filterAlgorithm?: ActivationFilterAlgorithm;
 }
 
 export type ActivationNodeType = Node<ActivationNodeData, 'ActivationNode'>;
@@ -22,6 +24,11 @@ export const ActivationFlowNode = ({ data }: NodeProps) => {
     const typedData = data as ActivationNodeData;
     
     return (
-        <BaseActivationNode {...typedData} handleDirection={typedData.handleDirection} link={typedData.link} />
+        <BaseActivationNode 
+            {...typedData} 
+            handleDirection={typedData.handleDirection} 
+            link={typedData.link} 
+            filterAlgorithm={typedData.filterAlgorithm}
+        />
     );
 };

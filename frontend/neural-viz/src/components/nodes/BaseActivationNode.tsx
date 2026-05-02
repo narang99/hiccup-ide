@@ -3,6 +3,7 @@ import { ActivationDisplay } from "../ActivationDisplay";
 import { Link } from 'react-router-dom';
 import { type HandleDirection } from "./ActivationFlowNode";
 import SingleOrNoHandle from "../SingleOrNoHandle";
+import type { ActivationFilterAlgorithm } from "../../activationFiltering/types";
 
 interface BaseActivationNodeProps {
     coordinate: string;
@@ -15,6 +16,7 @@ interface BaseActivationNodeProps {
     badgeColor?: string;
     handleDirection?: HandleDirection;
     link?: string;
+    filterAlgorithm?: ActivationFilterAlgorithm;
 }
 
 export default function BaseActivationNode({
@@ -27,7 +29,8 @@ export default function BaseActivationNode({
     badgeLabel,
     badgeColor = '#60a5fa',
     handleDirection = "TB",
-    link
+    link,
+    filterAlgorithm
 }: BaseActivationNodeProps) {
     const fetcher = fetchers?.[fetcherType];
 
@@ -83,6 +86,7 @@ export default function BaseActivationNode({
                         coordinate={coordinate}
                         fetcher={fetcher}
                         maxSize={maxSize}
+                        filterAlgorithm={filterAlgorithm}
                     />
                 ) : (
                     <div style={{
