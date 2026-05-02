@@ -7,7 +7,7 @@ export async function loadSaliencyMapFromFile(coordinate: string): Promise<Activ
     const apiBaseUrl = "http://localhost:8000";
     
     const headers = {'Content-Type': 'application/json'};
-    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/${coordinate}/`, {headers,});
+    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/single/${coordinate}/`, {headers,});
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: Failed to load saliency map for coordinate: ${coordinate}`);
     }
@@ -57,6 +57,37 @@ export async function loadLayerSaliencyMaps(modelAlias: string, inputAlias: stri
     return data;
   } catch (error) {
     console.error(`Error loading layer saliency maps for ${layerName}:`, error);
+    throw error;
+  }
+}
+
+export async function loadBatchSaliencyMaps(modelAlias: string, inputAlias: string, coordinates: string[]): Promise<LayerSaliencyData> {
+  try {
+    const apiBaseUrl = "http://localhost:8000";
+    const headers = {'Content-Type': 'application/json'};
+    
+    const response = await fetch(
+      `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/batch/`,
+      { 
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ coordinates })
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to load batch saliency maps`);
+    }
+    
+    const data = await response.json();
+    console.log(`Loaded batch saliency maps:`, { 
+      mapCount: data.saliency_maps?.length,
+      requestedCount: coordinates.length
+    });
+    
+    return data;
+  } catch (error) {
+    console.error(`Error loading batch saliency maps:`, error);
     throw error;
   }
 }

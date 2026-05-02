@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { loadLayerSaliencyMaps, type LayerSaliencyData } from '../fetchers/saliency_map';
+import { loadLayerSaliencyMaps, loadBatchSaliencyMaps, type LayerSaliencyData } from '../fetchers/saliency_map';
 
 interface SaliencyCacheState {
   cachedLayer: string | null;
@@ -8,6 +8,7 @@ interface SaliencyCacheState {
   error: string | null;
   
   fetchAndCacheLayerSaliency: (modelAlias: string, inputAlias: string, layerName: string) => Promise<LayerSaliencyData>;
+  fetchAndCacheBatchSaliency: (modelAlias: string, inputAlias: string, coordinates: string[], cacheKey: string) => Promise<LayerSaliencyData>;
   getCachedData: (layerName: string) => LayerSaliencyData | null;
   clearCache: () => void;
 }
@@ -44,6 +45,37 @@ export const useSaliencyCacheStore = create<SaliencyCacheState>((set, get) => ({
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch saliency data',
+      });
+      throw error;
+    }
+  },
+  
+  fetchAndCacheBatchSaliency: async (modelAlias: string, inputAlias: string, coordinates: string[], cacheKey: string) => {
+    const { cachedLayer, saliencyData } = get();
+    
+    // Return cached data if we already have it for this cacheKey
+    if (cachedLayer === cacheKey && saliencyData) {
+      return saliencyData;
+    }
+    
+    set({ isLoading: true, error: null });
+    
+    try {
+      console.log(`Fetching batch saliency data for: ${cacheKey}`);
+      const data = await loadBatchSaliencyMaps(modelAlias, inputAlias, coordinates);
+      
+      set({
+        cachedLayer: cacheKey,
+        saliencyData: data,
+        isLoading: false,
+        error: null,
+      });
+      
+      return data;
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch batch saliency data',
       });
       throw error;
     }

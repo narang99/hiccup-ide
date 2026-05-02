@@ -6,6 +6,7 @@ import { type LayerSaliencyData } from '../fetchers/saliency_map';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { DebouncedSlider } from './DebouncedSlider';
+import { useFetcherType } from '../hooks/useFetcherType';
 
 interface LayerSettingsViewProps {
   disabled: boolean;
@@ -177,13 +178,16 @@ const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, nod
 
 export const LayerSettings = () => {
   const { selectedNode } = useSelectedNodeStore();
+  const { fetcherType } = useFetcherType();
   const { getLayerSettings, updateSliderValue } = useLayerSettingsStore();
-  const { fetchAndCacheLayerSaliency, clearCache } = useSaliencyCacheStore();
+  const { fetchAndCacheBatchSaliency, clearCache } = useSaliencyCacheStore();
   const { getNodes, setNodes } = useReactFlow();
   
   const nodeId = selectedNode?.id;
   const nodeData = selectedNode?.data;
-  const disabled = !selectedNode;
+  
+  // Disable slider if no node is selected OR if fetcher type is not saliency_map
+  const disabled = !selectedNode || fetcherType !== 'saliency_map';
   
   const sliderValue = nodeId ? getLayerSettings(nodeId).sliderValue : 100;
 
@@ -198,21 +202,6 @@ export const LayerSettings = () => {
   const childCoordinates = useMemo(() => {
     return childNodes.map(node => node.data.coordinate as string);
   }, [childNodes]);
-
-  // Filter saliency data to only include child coordinates
-  const filterSaliencyData = useCallback((data: LayerSaliencyData, coordinates: string[]): LayerSaliencyData => {
-    const coordinateSet = new Set(coordinates);
-    const filteredMaps = data.saliency_maps.filter(map => coordinateSet.has(map.coordinate));
-    
-    console.log(`Filtered saliency maps: ${data.saliency_maps.length} → ${filteredMaps.length}`);
-    console.log('Child coordinates:', coordinates);
-    console.log('Keeping coordinates:', filteredMaps.map(m => m.coordinate));
-    
-    return {
-      ...data,
-      saliency_maps: filteredMaps
-    };
-  }, []);
 
   const computeThreshold = useCallback((filteredData: LayerSaliencyData, thresholdRatio: number): number | undefined => {
     // Flatten all filtered saliency data into a single array
@@ -244,15 +233,17 @@ export const LayerSettings = () => {
     updateSliderValue(nodeId, value);
     
     try {
-      // Extract layer name from node ID (e.g., "layers.2" from "layers.2.something")
-      const layerName = nodeId.split('.').slice(0, 2).join('.');
+      // Fetch saliency data for specific child coordinates using cache store
+      // We use nodeId as the cache key
+      const saliencyData = await fetchAndCacheBatchSaliency(
+        'example-model', 
+        'first-input', 
+        childCoordinates,
+        nodeId
+      );
       
-      // Fetch saliency data using cache store
-      const saliencyData = await fetchAndCacheLayerSaliency('example-model', 'first-input', layerName);
-      
-      // Filter data by child coordinates and compute threshold
-      const filteredData = filterSaliencyData(saliencyData, childCoordinates);
-      const threshold = computeThreshold(filteredData, value);
+      // Compute threshold
+      const threshold = computeThreshold(saliencyData, value);
 
       if (threshold !== undefined) {
         setNodes((nodes) => nodes.map((node) => {
@@ -274,7 +265,7 @@ export const LayerSettings = () => {
     } catch (err) {
       console.error('Failed to fetch saliency data or compute threshold:', err);
     }
-  }, [nodeId, nodeData, updateSliderValue, childCoordinates, filterSaliencyData, computeThreshold, fetchAndCacheLayerSaliency, setNodes]);
+  }, [nodeId, nodeData, updateSliderValue, childCoordinates, computeThreshold, fetchAndCacheBatchSaliency, setNodes]);
 
   // Clear cache when selected node changes
   useEffect(() => {

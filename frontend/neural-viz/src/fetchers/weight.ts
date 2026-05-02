@@ -12,7 +12,7 @@ export async function loadWeightFromFile(coordinate: string): Promise<WeightData
     const apiBaseUrl = "http://localhost:8000";
 
     const headers = { 'Content-Type': 'application/json' };
-    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/weights/${coordinate}/`, { headers });
+    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/weights/single/${coordinate}/`, { headers });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: Failed to load weight for coordinate: ${coordinate}`);
     }

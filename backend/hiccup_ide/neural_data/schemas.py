@@ -64,3 +64,7 @@ class WeightOut(Schema):
 class LayerSaliencyMapsOut(Schema):
     layer_name: str
     saliency_maps: List[SaliencyMapOut]
+
+
+class BatchSaliencyMapsIn(Schema):
+    coordinates: List[str]

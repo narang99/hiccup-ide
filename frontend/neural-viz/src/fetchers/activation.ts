@@ -12,7 +12,7 @@ export async function loadActivationFromFile(coordinate: string): Promise<Activa
     const apiBaseUrl = "http://localhost:8000";
 
     const headers = { 'Content-Type': 'application/json' }
-    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/activations/${coordinate}/`, { headers, });
+    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/activations/single/${coordinate}/`, { headers, });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: Failed to load activation for coordinate: ${coordinate}`);
     }
