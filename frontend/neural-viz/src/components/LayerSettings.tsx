@@ -179,7 +179,7 @@ export const LayerSettings = () => {
   const { selectedNode } = useSelectedNodeStore();
   const { getLayerSettings, updateSliderValue } = useLayerSettingsStore();
   const { fetchAndCacheLayerSaliency, clearCache } = useSaliencyCacheStore();
-  const { getNodes } = useReactFlow();
+  const { getNodes, setNodes } = useReactFlow();
   
   const nodeId = selectedNode?.id;
   const nodeData = selectedNode?.data;
@@ -187,14 +187,17 @@ export const LayerSettings = () => {
   
   const sliderValue = nodeId ? getLayerSettings(nodeId).sliderValue : 100;
 
-  // Get child nodes coordinates for the selected layer
-  const childCoordinates = useMemo(() => {
+  // Get child nodes for the selected layer
+  const childNodes = useMemo(() => {
     if (!nodeId) return [];
     
     const allNodes = getNodes();
-    const childNodes = allNodes.filter(node => node.parentId === nodeId).filter(node => node.type === "ActivationFlowNode");
-  return childNodes.map(node => node.data.coordinate as string);
+    return allNodes.filter(node => node.parentId === nodeId).filter(node => node.type === "ActivationFlowNode");
   }, [nodeId, getNodes]);
+
+  const childCoordinates = useMemo(() => {
+    return childNodes.map(node => node.data.coordinate as string);
+  }, [childNodes]);
 
   // Filter saliency data to only include child coordinates
   const filterSaliencyData = useCallback((data: LayerSaliencyData, coordinates: string[]): LayerSaliencyData => {
@@ -211,7 +214,7 @@ export const LayerSettings = () => {
     };
   }, []);
 
-  const computeThreshold = useCallback((filteredData: LayerSaliencyData, thresholdRatio: number) => {
+  const computeThreshold = useCallback((filteredData: LayerSaliencyData, thresholdRatio: number): number | undefined => {
     // Flatten all filtered saliency data into a single array
     const allValues: number[] = [];
     filteredData.saliency_maps.forEach(map => {
@@ -224,12 +227,13 @@ export const LayerSettings = () => {
 
     if (allValues.length === 0) {
       console.log('No saliency data to compute threshold');
-      return;
+      return undefined;
     }
 
     // Compute threshold using the utility function
     const threshold = getTopKThreshold(allValues, thresholdRatio / 100);
     console.log(`Computed threshold for ${filteredData.layer_name} at ${thresholdRatio}% (${allValues.length} values):`, threshold);
+    return threshold;
   }, []);
 
   // Debounced handler for expensive operations
@@ -248,11 +252,29 @@ export const LayerSettings = () => {
       
       // Filter data by child coordinates and compute threshold
       const filteredData = filterSaliencyData(saliencyData, childCoordinates);
-      computeThreshold(filteredData, value);
+      const threshold = computeThreshold(filteredData, value);
+
+      if (threshold !== undefined) {
+        setNodes((nodes) => nodes.map((node) => {
+          if (node.parentId === nodeId && node.type === "ActivationFlowNode") {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                filterAlgorithm: {
+                  type: "ThresholdAlgorithm",
+                  threshold: threshold
+                }
+              }
+            };
+          }
+          return node;
+        }));
+      }
     } catch (err) {
       console.error('Failed to fetch saliency data or compute threshold:', err);
     }
-  }, [nodeId, nodeData, updateSliderValue, childCoordinates, filterSaliencyData, computeThreshold, fetchAndCacheLayerSaliency]);
+  }, [nodeId, nodeData, updateSliderValue, childCoordinates, filterSaliencyData, computeThreshold, fetchAndCacheLayerSaliency, setNodes]);
 
   // Clear cache when selected node changes
   useEffect(() => {
