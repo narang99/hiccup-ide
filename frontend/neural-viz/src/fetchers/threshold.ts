@@ -1,12 +1,16 @@
+import type { ActivationFilterAlgorithm } from '../activationFiltering/types';
+
 export interface LayerThreshold {
   id: number;
   layer_id: string;
   slider_value: number;
+  algorithm: ActivationFilterAlgorithm;
 }
 
 export interface SaveThresholdRequest {
   layer_id: string;
   slider_value: number;
+  algorithm: ActivationFilterAlgorithm;
 }
 
 const API_BASE_URL = "http://localhost:8000";
@@ -61,7 +65,7 @@ export async function saveWorkflowThreshold(
     }
     
     const data = await response.json();
-    console.log(`Saved threshold for layer ${threshold.layer_id}:`, data);
+    console.log(`Saved algorithm for layer ${threshold.layer_id}:`, data);
     
     return data;
   } catch (error) {

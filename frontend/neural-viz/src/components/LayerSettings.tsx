@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { DebouncedSlider } from './DebouncedSlider';
 import { useFetcherType } from '../hooks/useFetcherType';
+import { type ActivationFilterAlgorithm } from '../activationFiltering/types';
 
 interface LayerSettingsViewProps {
   disabled: boolean;
@@ -232,7 +233,7 @@ export const LayerSettings = () => {
     const allNodes = getNodes();
     return allNodes.filter(node => node.parentId === nodeId).filter(node => node.type === "ActivationFlowNode");
   }, [nodeId, getNodes]);
-  
+
 
   const childCoordinates = useMemo(() => {
     return childNodes.map(node => node.data.coordinate as string);
@@ -307,14 +308,37 @@ export const LayerSettings = () => {
     const loadThresholds = async () => {
       try {
         const thresholds = await loadWorkflowThresholds(modelAlias, inputAlias, workflowName);
+
+        // Update slider values in store
         loadSliderValuesFromThresholds(thresholds);
+
+        // Apply saved algorithms to nodes
+        setNodes((nodes) => nodes.map((node) => {
+          if (node.type === "ActivationFlowNode" && node.parentId) {
+            // Find the threshold for this node's parent layer
+            const threshold = thresholds.find(t => t.layer_id === node.parentId);
+            if (threshold && threshold.algorithm && typeof threshold.algorithm === 'object' && 'type' in threshold.algorithm) {
+              console.log(`Applying saved algorithm to node ${node.id} (parent: ${node.parentId}):`, threshold.algorithm);
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  filterAlgorithm: threshold.algorithm
+                }
+              };
+            }
+          }
+          return node;
+        }));
+
+        console.log(`Loaded ${thresholds.length} thresholds and applied algorithms to nodes`);
       } catch (error) {
         console.error('Failed to load thresholds:', error);
       }
     };
 
     loadThresholds();
-  }, [loadSliderValuesFromThresholds]);
+  }, [loadSliderValuesFromThresholds, getNodes, setNodes]);
 
   // Clear cache when selected node changes
   useEffect(() => {
@@ -326,17 +350,31 @@ export const LayerSettings = () => {
 
     setIsSaving(true);
     try {
+      console.log(`Saving threshold for layer ${nodeId}, current sliderValue: ${sliderValue}`);
+
+      // Get the current algorithm from the nodes to save it
+      const allNodes = getNodes();
+      const currentNode = allNodes.find(node =>
+        node.parentId === nodeId && node.type === "ActivationFlowNode"
+      );
+
+      const filterAlgorithm = currentNode?.data?.filterAlgorithm;
+      const algorithm: ActivationFilterAlgorithm = (
+        filterAlgorithm && typeof filterAlgorithm === 'object' && 'type' in filterAlgorithm
+      ) ? filterAlgorithm as ActivationFilterAlgorithm : { type: "Id" };
+
       await saveWorkflowThreshold(modelAlias, inputAlias, workflowName, {
         layer_id: nodeId,
-        slider_value: sliderValue
+        slider_value: sliderValue,
+        algorithm: algorithm
       });
-      console.log(`Threshold saved for layer ${nodeId}: ${sliderValue}`);
+      console.log(`Algorithm saved for layer ${nodeId}, slider_value: ${sliderValue}, algorithm:`, algorithm);
     } catch (error) {
-      console.error('Failed to save threshold:', error);
+      console.error('Failed to save algorithm:', error);
     } finally {
       setIsSaving(false);
     }
-  }, [nodeId, sliderValue]);
+  }, [nodeId, sliderValue, getNodes]);
 
   return (
     <LayerSettingsView

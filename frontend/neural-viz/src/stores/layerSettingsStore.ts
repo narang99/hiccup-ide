@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ActivationFilterAlgorithm } from '../activationFiltering/types';
 
 interface LayerSettings {
   sliderValue: number;
@@ -10,7 +11,7 @@ interface LayerSettingsState {
   updateSliderValue: (nodeId: string, value: number) => void;
   resetLayerSettings: (nodeId: string) => void;
   clearAllSettings: () => void;
-  loadSliderValuesFromThresholds: (thresholds: Array<{ layer_id: string; slider_value: number }>) => void;
+  loadSliderValuesFromThresholds: (thresholds: Array<{ layer_id: string; slider_value: number; algorithm: ActivationFilterAlgorithm }>) => void;
 }
 
 const DEFAULT_LAYER_SETTINGS: LayerSettings = {
@@ -50,7 +51,7 @@ export const useLayerSettingsStore = create<LayerSettingsState>((set, get) => ({
     set({ layerSettings: {} });
   },
   
-  loadSliderValuesFromThresholds: (thresholds: Array<{ layer_id: string; slider_value: number }>) => {
+  loadSliderValuesFromThresholds: (thresholds: Array<{ layer_id: string; slider_value: number; algorithm: ActivationFilterAlgorithm }>) => {
     set((state) => {
       const newLayerSettings = { ...state.layerSettings };
       

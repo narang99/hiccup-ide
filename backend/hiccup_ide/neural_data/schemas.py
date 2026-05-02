@@ -78,9 +78,11 @@ class NodeStatsOut(Schema):
 class LayerThresholdIn(Schema):
     layer_id: str
     slider_value: float
+    algorithm: Any
 
 
 class LayerThresholdOut(Schema):
     id: int
     layer_id: str
     slider_value: float
+    algorithm: Any

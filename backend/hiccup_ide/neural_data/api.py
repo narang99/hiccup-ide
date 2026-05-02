@@ -222,7 +222,10 @@ def save_workflow_threshold(request, model_alias: str, input_alias: str, workflo
         work=work,
         model=model_obj,
         layer_id=data.layer_id,
-        defaults={"slider_value": data.slider_value}
+        defaults={
+            "slider_value": data.slider_value,
+            "algorithm": data.algorithm
+        }
     )
     
     return threshold

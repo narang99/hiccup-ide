@@ -94,12 +94,13 @@ class LayerThreshold(models.Model):
     work = models.ForeignKey(Work, on_delete=models.CASCADE, related_name='thresholds')
     model = models.ForeignKey(Model, on_delete=models.CASCADE, related_name='thresholds')
     layer_id = models.CharField(max_length=200, db_index=True)
-    slider_value = models.FloatField()
+    slider_value = models.FloatField(default=100.0)
+    algorithm = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.work} - {self.layer_id} ({self.slider_value})"
+        return f"{self.work} - {self.layer_id} (slider: {self.slider_value}, algorithm: {self.algorithm})"
 
     class Meta:
         db_table = "layer_thresholds"
