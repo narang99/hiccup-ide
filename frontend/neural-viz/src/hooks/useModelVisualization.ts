@@ -37,7 +37,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
           layerNodes = createReLULayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock);
           break;
         default:
-          layerNodes = createOtherLayer(modelNode, basePosition);
+          layerNodes = createOtherLayer(modelNode, basePosition, layerBlockHandleDirection);
           break;
       }
       

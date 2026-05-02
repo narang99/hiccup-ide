@@ -5,7 +5,7 @@ import { type FetcherType } from '../fetchers';
 import { COLORMAPS, COLORMAP_META, type ColormapName } from '../utils/colormaps';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useColormap } from '../hooks/useColormap';
-import { useSelectedNode } from '../hooks/useSelectedNode';
+import { useSelectedNodeStore } from '../stores/selectedNodeStore';
 import { LayerNode } from './nodes/LayerNode';
 import { ActivationFlowNode } from './nodes/ActivationFlowNode';
 import { LayerSettings } from './LayerSettings';
@@ -24,11 +24,11 @@ interface SharedCanvasProps extends ReactFlowProps {
   pageDirection?: Direction;
 }
 
-export default function SharedCanvas({ children, ...props }: SharedCanvasProps) {
+export default function SharedCanvas({ children, pageDirection, ...props }: SharedCanvasProps) {
   const { colormap: activeColormap, setColormap } = useColormap();
   const { fetcherType, setFetcherType } = useFetcherType();
-  const { handleNodeClick, handlePaneClick } = useSelectedNode();
-  const { nodes, edges } = getLayoutedElements(props);
+  const { handleNodeClick, handlePaneClick } = useSelectedNodeStore();
+  const { nodes, edges } = getLayoutedElements(props, pageDirection);
   const layoutedProps: ReactFlowProps = { ...props, nodes, edges }
 
   return (
@@ -177,10 +177,10 @@ export default function SharedCanvas({ children, ...props }: SharedCanvasProps) 
 }
 
 
-const getLayoutedElements = (props: SharedCanvasProps): { nodes: Node[], edges: Edge[] } => {
+const getLayoutedElements = (props: SharedCanvasProps, pageDirection?: Direction): { nodes: Node[], edges: Edge[] } => {
   const nodes = props.nodes;
   const edges = props.edges;
-  const direction: Direction = (props.pageDirection === undefined) ? "LR" : props.pageDirection;
+  const direction: Direction = (pageDirection === undefined) ? "LR" : pageDirection;
 
   if (nodes === undefined || edges === undefined) {
     return { nodes: [], edges: [] }

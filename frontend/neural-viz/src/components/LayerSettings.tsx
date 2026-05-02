@@ -1,23 +1,18 @@
 import { useLayerSettingsStore } from '../stores/layerSettingsStore';
-import { useSelectedNode } from '../hooks/useSelectedNode';
+import { useSelectedNodeStore } from '../stores/selectedNodeStore';
 
-export const LayerSettings = () => {
-  const { selectedNode } = useSelectedNode();
-  const { getLayerSettings, updateSliderValue } = useLayerSettingsStore();
-  
-  const nodeId = selectedNode?.id;
-  const nodeData = selectedNode?.data;
-  const disabled = !selectedNode;
-  
-  const sliderValue = nodeId ? getLayerSettings(nodeId).sliderValue : 50;
-
-  const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(event.target.value);
-    if (nodeId) {
-      updateSliderValue(nodeId, value);
-    }
+interface LayerSettingsViewProps {
+  disabled: boolean;
+  sliderValue: number;
+  onSliderChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  nodeData?: {
+    label: string;
+    layerType: string;
+    nodeCount?: number;
   };
+}
 
+const LayerSettingsView = ({ disabled, sliderValue, onSliderChange, nodeData }: LayerSettingsViewProps) => {
   return (
     <div style={{
       display: 'flex',
@@ -102,7 +97,7 @@ export const LayerSettings = () => {
             min="0"
             max="100"
             value={sliderValue}
-            onChange={handleSliderChange}
+            onChange={onSliderChange}
             style={{
               width: '100%',
               height: '4px',
@@ -169,5 +164,32 @@ export const LayerSettings = () => {
         </div>
       )}
     </div>
+  );
+};
+
+export const LayerSettings = () => {
+  const { selectedNode } = useSelectedNodeStore();
+  const { getLayerSettings, updateSliderValue } = useLayerSettingsStore();
+  
+  const nodeId = selectedNode?.id;
+  const nodeData = selectedNode?.data;
+  const disabled = !selectedNode;
+  
+  const sliderValue = nodeId ? getLayerSettings(nodeId).sliderValue : 50;
+
+  const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(event.target.value);
+    if (nodeId) {
+      updateSliderValue(nodeId, value);
+    }
+  };
+
+  return (
+    <LayerSettingsView
+      disabled={disabled}
+      sliderValue={sliderValue}
+      onSliderChange={handleSliderChange}
+      nodeData={nodeData}
+    />
   );
 };
