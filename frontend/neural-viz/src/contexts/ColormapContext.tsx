@@ -4,7 +4,7 @@ import { ColormapContext, type ScalingMode } from './ColormapContextDefinition';
 
 export const ColormapProvider = ({ children }: { children: ReactNode }) => {
   const [colormap, setColormap] = useState<ColormapName>('rd_bk_gn');
-  const [scalingMode, setScalingMode] = useState<ScalingMode>('local');
+  const [scalingMode, setScalingMode] = useState<ScalingMode>('global');
   
   return (
     <ColormapContext.Provider value={{ colormap, setColormap, scalingMode, setScalingMode }}>

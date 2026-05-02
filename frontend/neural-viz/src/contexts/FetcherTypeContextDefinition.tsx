@@ -7,6 +7,6 @@ interface FetcherTypeContextValue {
 }
 
 export const FetcherTypeContext = createContext<FetcherTypeContextValue>({
-  fetcherType: 'activation',
+  fetcherType: 'saliency_map',
   setFetcherType: () => {},
 });
