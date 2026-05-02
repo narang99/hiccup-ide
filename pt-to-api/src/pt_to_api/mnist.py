@@ -98,42 +98,61 @@ def get_mnist_dataloader(fraction=1.0, **kwargs):
     return DataLoaders.from_dblock(dblock, path, path=path, **kwargs)
 
 
-def get_contribs_for_inp_vectorized(batch_inp_tens, model, batch_input_ratios, device):
+def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, last_layer_key, device):
     acts, parameters = get_model_internals(model, batch_inp_tens)
     acts["inputs"] = batch_inp_tens
 
     acts = to_device(acts, device)
 
     total_contribs = {}
-    total_contribs["layers.5"] = batch_input_ratios
+    
+    # Set contributions for all layers after last_layer_key to 0
+    all_layer_keys = ["layers.0", "layers.1", "layers.2", "layers.3", "layers.4", "layers.5"]
+    last_layer_index = all_layer_keys.index(last_layer_key)
+    
+    for i in range(last_layer_index + 1, len(all_layer_keys)):
+        if all_layer_keys[i] in acts:
+            total_contribs[all_layer_keys[i]] = 0
+    
+    # Set the last layer contributions
+    total_contribs[last_layer_key] = last_layer_contribs
 
-    total_contribs["layers.4"] = v2.linear_calculate_contribs_for_all(
-        model.get_submodule("layers.5"),
-        acts["layers.4"],
-        total_contribs["layers.5"],
-        device,
-    )
-    # flatten
-    total_contribs["layers.3"] = total_contribs["layers.4"].view(acts["layers.3"].shape)
-
-    total_contribs["layers.2"] = v1.relu_calculate_contribs(total_contribs["layers.3"])
-
-    total_contribs["layers.1"], total_contribs["layers.2.slice"] = (
-        v2.conv_calculate_contribs_for_all(
-            acts["layers.1"],
-            model.get_submodule("layers.2"),
-            total_contribs["layers.2"],
+    # Propagate backwards from last_layer_key
+    if last_layer_index >= 5:  # layers.5
+        total_contribs["layers.4"] = v2.linear_calculate_contribs_for_all(
+            model.get_submodule("layers.5"),
+            acts["layers.4"],
+            total_contribs["layers.5"],
+            device,
         )
-    )
-    total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
+    
+    if last_layer_index >= 4:  # layers.4
+        # flatten
+        total_contribs["layers.3"] = total_contribs["layers.4"].view(acts["layers.3"].shape)
 
-    total_contribs["inputs"], total_contribs["layers.0.slice"] = (
-        v2.conv_calculate_contribs_for_all(
-            acts["inputs"],
-            model.get_submodule("layers.0"),
-            total_contribs["layers.0"],
+    if last_layer_index >= 3:  # layers.3
+        total_contribs["layers.2"] = v1.relu_calculate_contribs(total_contribs["layers.3"])
+
+    if last_layer_index >= 2:  # layers.2
+        total_contribs["layers.1"], total_contribs["layers.2.slice"] = (
+            v2.conv_calculate_contribs_for_all(
+                acts["layers.1"],
+                model.get_submodule("layers.2"),
+                total_contribs["layers.2"],
+            )
         )
-    )
+    
+    if last_layer_index >= 1:  # layers.1
+        total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
+
+    if last_layer_index >= 0:  # layers.0
+        total_contribs["inputs"], total_contribs["layers.0.slice"] = (
+            v2.conv_calculate_contribs_for_all(
+                acts["inputs"],
+                model.get_submodule("layers.0"),
+                total_contribs["layers.0"],
+            )
+        )
     total_contribs = detach_all(to_device(total_contribs, "cpu"))
     acts = detach_all(to_device(acts, "cpu"))
     parameters = detach_all(to_device(parameters, "cpu"))

@@ -27,6 +27,16 @@ Minimal features needed:
 
 Finally we would like to see the meaning (meaning can be propagated at each step).   
 
+- Now we want to re calculate the contribs given an older layers contribs.  
+  - This requires me to add the package to the backend
+  - i now need to come up with a good workflow for this.  
+- Contrib calculation requires the model, requires the definition of the model too i think
+  - model definition json calc requires actual model definition for torch.fx i think (i might be wrong)
+- but we do need to run the model for calculation of contribs.  
+- in the most basic thing, i want to call the contrib calc with the inputs and a new contrib vector
+  - this is the easiest workflow
+
+
 
 ## POI analysis workflow
 - We select the POI from the main graph layer view. 

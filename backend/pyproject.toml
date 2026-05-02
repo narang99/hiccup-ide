@@ -9,6 +9,10 @@ dependencies = [
     "django-cors-headers>=4.9.0",
     "django-ninja>=1.6.2",
     "django-stubs>=6.0.3",
+    "pt-to-api",
     "pytest>=9.0.3",
     "pytest-django>=4.12.0",
 ]
+
+[tool.uv.sources]
+pt-to-api = { path = "../pt-to-api" }
