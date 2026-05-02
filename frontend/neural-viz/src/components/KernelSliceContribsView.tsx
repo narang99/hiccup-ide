@@ -7,6 +7,7 @@ import { useFetcherType } from '../hooks/useFetcherType';
 import { useModelData } from '../hooks/useModelData';
 import { useColormap } from '../hooks/useColormap';
 import { useLayerStats } from '../hooks/useLayerStats';
+import { updateNodeAbsMax } from '../utils/nodeUpdates';
 import SharedCanvas from './SharedCanvas';
 import { type HandleDirection } from './nodes/ActivationFlowNode';
 import { makeEvenlySpacedLayout } from '../layouts';
@@ -181,12 +182,19 @@ export default function KernelSliceContribsView() {
                 modelData,
                 nodeId,
                 parseInt(kernelIndex),
-                scalingMode === 'global' ? layerAbsMax : {}
+                {} // absMax will be applied separately to preserve selection state
             );
             setNodes(newNodes);
             setEdges(newEdges);
         }
-    }, [modelData, nodeId, kernelIndex, generateNodesAndEdges, setNodes, setEdges, layerAbsMax, scalingMode]);
+    }, [modelData, nodeId, kernelIndex, generateNodesAndEdges, setNodes, setEdges, scalingMode]);
+
+    // Separate effect for updating absMax to preserve selection state
+    useEffect(() => {
+        if (scalingMode === 'global' && Object.keys(layerAbsMax).length > 0) {
+            setNodes((currentNodes) => updateNodeAbsMax(currentNodes, layerAbsMax));
+        }
+    }, [layerAbsMax, scalingMode, setNodes]);
 
     // Handle global scaling using custom hook
     useLayerStats({

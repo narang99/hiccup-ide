@@ -53,5 +53,6 @@ export const useLayerStats = ({
     };
 
     fetchStatsForLayers();
-  }, [inputAlias, modelAlias, scalingMode, fetcherType, nodes, setLayerAbsMax]); // We use nodes.length to trigger after initial load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputAlias, modelAlias, scalingMode, fetcherType, nodes.length, setLayerAbsMax]); // Use nodes.length to prevent infinite loops from node object recreation
 };

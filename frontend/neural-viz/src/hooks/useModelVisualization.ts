@@ -8,6 +8,7 @@ import { toggleDirection, type Direction } from '../types/direction';
 import { useColormap } from './useColormap';
 import { useModelData } from './useModelData';
 import { useLayerStats } from './useLayerStats';
+import { updateNodeAbsMax } from '../utils/nodeUpdates';
 import { type ModelData } from '../types/model';
 
 export const useModelVisualization = (fetcherType: FetcherType = "activation", directionOfPage: Direction = "LR") => {
@@ -67,17 +68,24 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
 
 
 
-  // Update nodes and edges when model data or kernel expanded state changes
+  // Update nodes and edges when model data changes
   useEffect(() => {
     if (modelData) {
       const { nodes: newNodes, edges: newEdges } = generateNodesAndEdges(
         modelData, 
-        scalingMode === 'global' ? layerAbsMax : {}
+        {} // absMax will be applied separately to preserve selection state
       );
       setNodes(newNodes);
       setEdges(newEdges);
     }
-  }, [modelData, generateNodesAndEdges, setNodes, setEdges, layerAbsMax, scalingMode]);
+  }, [modelData, generateNodesAndEdges, setNodes, setEdges, scalingMode]);
+
+  // Separate effect for updating absMax to preserve selection state
+  useEffect(() => {
+    if (scalingMode === 'global' && Object.keys(layerAbsMax).length > 0) {
+      setNodes((currentNodes) => updateNodeAbsMax(currentNodes, layerAbsMax));
+    }
+  }, [layerAbsMax, scalingMode, setNodes]);
 
   // Handle global scaling using custom hook
   useLayerStats({
