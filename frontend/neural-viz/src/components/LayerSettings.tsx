@@ -232,6 +232,7 @@ export const LayerSettings = () => {
     const allNodes = getNodes();
     return allNodes.filter(node => node.parentId === nodeId).filter(node => node.type === "ActivationFlowNode");
   }, [nodeId, getNodes]);
+  
 
   const childCoordinates = useMemo(() => {
     return childNodes.map(node => node.data.coordinate as string);
