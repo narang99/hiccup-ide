@@ -7,6 +7,7 @@ import { useFetcherType } from '../hooks/useFetcherType';
 import SharedCanvas from './SharedCanvas';
 import { type HandleDirection } from './nodes/ActivationFlowNode';
 import { makeEvenlySpacedLayout } from '../layouts';
+import type { Direction } from '../types/direction';
 
 const getNodeShowingActivation = (
   id: string, 
@@ -46,10 +47,123 @@ const getNodeShowingActivation = (
   });
 };
 
+interface LayoutConfig {
+  childWidth: number;
+  childHeight: number;
+  padding: number;
+  direction: Direction;
+}
+
+const createChannelSlice = (
+  i: number,
+  nodeId: string,
+  kernelIdx: number,
+  fetcherType: FetcherType,
+  config: LayoutConfig,
+): Node[] => {
+  const sliceLayerId = `slice-${i}`;
+  const sliceLayout = makeEvenlySpacedLayout(3, config.childHeight, config.childWidth, config.padding, config.direction);
+
+  return [
+    {
+      id: sliceLayerId,
+      type: 'LayerNode',
+      position: { x: 0, y: 0 },
+      width: sliceLayout.parent.width,
+      height: sliceLayout.parent.height,
+      data: {
+        label: `Channel ${i} Slice`,
+        layerType: 'Conv2d',
+        nodeCount: 3,
+        handleDirection: config.direction,
+      },
+    },
+    getNodeShowingActivation(
+      `input-${i}`,
+      sliceLayout.children[0],
+      "Input",
+      `${nodeId}.out_${kernelIdx}.in_${i}.input`,
+      fetcherType,
+      sliceLayerId,
+      config.childWidth,
+      config.childHeight,
+    ),
+    getNodeShowingActivation(
+      `kernel-slice-${i}`,
+      sliceLayout.children[1],
+      `K${kernelIdx}:${i}`,
+      `${nodeId}.out_${kernelIdx}.in_${i}`,
+      'weight',
+      sliceLayerId,
+      config.childWidth,
+      config.childHeight,
+    ),
+    getNodeShowingActivation(
+      `output-${i}`,
+      sliceLayout.children[2],
+      "Output",
+      `${nodeId}.out_${kernelIdx}.in_${i}`,
+      fetcherType,
+      sliceLayerId,
+      config.childWidth,
+      config.childHeight,
+    ),
+  ];
+};
+
+const createSumGroup = (
+  nodeId: string,
+  kernelIdx: number,
+  fetcherType: FetcherType,
+  config: LayoutConfig,
+): Node[] => {
+  const sumLayerId = 'sum-layer';
+  const sumLayout = makeEvenlySpacedLayout(1, config.childHeight, config.childWidth, config.padding, config.direction);
+
+  return [
+    {
+      id: sumLayerId,
+      type: 'LayerNode',
+      position: { x: 0, y: 0 },
+      width: sumLayout.parent.width,
+      height: sumLayout.parent.height,
+      data: {
+        label: 'Sum',
+        layerType: 'Output',
+        nodeCount: 1,
+        handleDirection: config.direction,
+      },
+    },
+    getNodeShowingActivation(
+      'sum',
+      sumLayout.children[0],
+      "Sum",
+      `${nodeId}.out_${kernelIdx}`,
+      fetcherType,
+      sumLayerId,
+      config.childWidth,
+      config.childHeight
+    ),
+  ];
+};
+
+const createSliceToSumEdges = (inChannels: number, sumLayerId: string): Edge[] => {
+  const edges: Edge[] = [];
+  for (let i = 0; i < inChannels; i++) {
+    edges.push({
+      id: `slice-${i}-to-sum`,
+      source: `slice-${i}`,
+      target: sumLayerId,
+      type: 'default',
+      style: { stroke: '#dc2626', strokeWidth: 2 },
+    });
+  }
+  return edges;
+};
+
 export default function KernelDetailView() {
   const { fetcherType } = useFetcherType();
-  const pageDirection = "LR";
-  const directionInsideLayerGroup = pageDirection;
+  const pageDirection: Direction = "LR";
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
   const navigate = useNavigate();
   const [modelData, setModelData] = useState<ModelData | null>(null);
@@ -61,137 +175,58 @@ export default function KernelDetailView() {
     if (!targetNode || targetNode.type !== 'Conv2d') return;
 
     const inChannels = targetNode.params.in_channels as number;
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
+    let nodes: Node[] = [];
 
-    // Create each input→kernel→output group as a LayerNode parent
+    const sliceConfig: LayoutConfig = {
+      childWidth: 130,
+      childHeight: 150,
+      padding: 10,
+      direction: pageDirection,
+    };
+
+    // 1. Create each input→kernel→output group
     for (let i = 0; i < inChannels; i++) {
-      const sliceLayerId = `slice-${i}`;
-      const childWidth = 130;
-      const childHeight = 150;
-      const padding = 10;
-      const sliceLayout = makeEvenlySpacedLayout(3, childHeight, childWidth, padding, directionInsideLayerGroup);
-
-      // Create parent LayerNode for this slice
-      nodes.push({
-        id: sliceLayerId,
-        type: 'LayerNode',
-        position: { x: 0, y: 0 }, // dagre will position this
-        width: sliceLayout.parent.width,
-        height: sliceLayout.parent.height,
-        data: {
-          label: `Channel ${i} Slice`,
-          layerType: 'Conv2d',
-          nodeCount: 3,
-          handleDirection: "LR",
-        },
-      });
-
-      // Input node
-      const inputCoordinate = `${nodeId}.out_${kernelIdx}.in_${i}.input`;
-      nodes.push(getNodeShowingActivation(
-        `input-${i}`,
-        sliceLayout.children[0],
-        "Input",
-        inputCoordinate,
-        fetcherType,
-        sliceLayerId,
-        childWidth,
-        childHeight,
-      ));
-
-      // Kernel slice node
-      const weightCoordinate = `${nodeId}.out_${kernelIdx}.in_${i}`;
-      nodes.push(getNodeShowingActivation(
-        `kernel-slice-${i}`,
-        sliceLayout.children[1],
-        `K${kernelIdx}:${i}`,
-        weightCoordinate,
-        'weight',
-        sliceLayerId,
-        childWidth,
-        childHeight,
-      ));
-
-      // Slice output node
-      const outputCoordinate = `${nodeId}.out_${kernelIdx}.in_${i}`;
-      nodes.push(getNodeShowingActivation(
-        `output-${i}`,
-        sliceLayout.children[2],
-        "Output",
-        outputCoordinate,
-        fetcherType,
-        sliceLayerId,
-        childWidth,
-        childHeight,
-      ));
+      nodes = nodes.concat(createChannelSlice(i, nodeId, kernelIdx, fetcherType, sliceConfig));
     }
 
-    // Create sum LayerNode
-    const sumLayerId = 'sum-layer';
-    const sumChildWidth = 120;
-    const sumChildHeight = 100;
-    const sumPadding = 10;
-    const sumLayout = makeEvenlySpacedLayout(1, sumChildHeight, sumChildWidth, sumPadding, directionInsideLayerGroup);
+    const sumConfig: LayoutConfig = {
+      childWidth: 120,
+      childHeight: 100,
+      padding: 10,
+      direction: pageDirection,
+    };
 
-    nodes.push({
-      id: sumLayerId,
-      type: 'LayerNode',
-      position: { x: 0, y: 0 }, // dagre will position this
-      width: sumLayout.parent.width,
-      height: sumLayout.parent.height,
-      data: {
-        label: 'Sum',
-        layerType: 'Output',
-        nodeCount: 1,
-        handleDirection: "LR",
-      },
-    });
+    // 2. Create sum group
+    nodes = nodes.concat(createSumGroup(nodeId, kernelIdx, fetcherType, sumConfig));
 
-    // Sum activation node
-    const sumCoordinate = `${nodeId}.out_${kernelIdx}`;
-    nodes.push(getNodeShowingActivation(
-      'sum',
-      sumLayout.children[0],
-      "Sum",
-      sumCoordinate,
-      fetcherType,
-      sumLayerId,
-      sumChildWidth,
-      sumChildHeight
-    ));
 
-    // Create edges between LayerNodes
-    for (let i = 0; i < inChannels; i++) {
-      edges.push({
-        id: `slice-${i}-to-sum`,
-        source: `slice-${i}`,
-        target: sumLayerId,
-        type: 'default',
-        style: { stroke: '#dc2626', strokeWidth: 2 },
-      });
-    }
+    // 3. Create edges between LayerNodes
+    const edges = createSliceToSumEdges(inChannels, 'sum-layer');
 
     setKernelNodes(nodes);
     setKernelEdges(edges);
-  }, [fetcherType, directionInsideLayerGroup]);
+  }, [fetcherType, pageDirection]);
 
   useEffect(() => {
-    // Load model data
     const modelAlias = "example-model";
     const apiBaseUrl = "http://localhost:8000";
 
-    fetch(`${apiBaseUrl}/api/models/${modelAlias}/`)
-      .then((response) => response.json())
-      .then((data: { definition: ModelData }) => {
+    const loadData = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/`);
+        const data = await response.json();
         const modelData = data.definition;
         setModelData(modelData);
 
         if (nodeId && kernelIndex) {
           generateKernelDetailView(modelData, nodeId, parseInt(kernelIndex));
         }
-      })
-      .catch((error) => console.error('Error loading model data:', error));
+      } catch (error) {
+        console.error('Error loading model data:', error);
+      }
+    };
+
+    loadData();
   }, [nodeId, kernelIndex, generateKernelDetailView]);
 
   const handleBackClick = () => {
