@@ -5,7 +5,8 @@ from django.http import Http404
 from .models import Model, Input, Activation, SaliencyMap, Weight
 from .schemas import (
     ModelOut, InputOut, ActivationOut, SaliencyMapOut, 
-    WeightOut, LayerSaliencyMapsOut, BatchSaliencyMapsIn
+    WeightOut, LayerSaliencyMapsOut, BatchSaliencyMapsIn,
+    NodeStatsOut
 )
 
 router = Router()
@@ -99,3 +100,65 @@ def get_saliency_map(request, model_alias: str, input_alias: str, coordinate: st
         coordinate=coordinate
     )
     return saliency_map
+
+
+def get_min_max(data_list):
+    """Helper to find min and max in a list of nested data (JSON)."""
+    curr_min = float('inf')
+    curr_max = float('-inf')
+    found = False
+
+    def process(item):
+        nonlocal curr_min, curr_max, found
+        if isinstance(item, list):
+            for i in item:
+                process(i)
+        elif isinstance(item, (int, float)):
+            if item < curr_min: curr_min = item
+            if item > curr_max: curr_max = item
+            found = True
+
+    for data in data_list:
+        process(data)
+    
+    if not found:
+        return 0.0, 0.0
+    return float(curr_min), float(curr_max)
+
+
+@router.post("/models/{model_alias}/inputs/{input_alias}/activations/stats/", response=NodeStatsOut)
+def get_activations_stats(request, model_alias: str, input_alias: str, data: BatchSaliencyMapsIn):
+    # Verify input exists
+    input_obj = get_object_or_404(
+        Input, 
+        model__alias=model_alias, 
+        alias=input_alias
+    )
+    
+    # Get all activations for the requested coordinates
+    activations = Activation.objects.filter(
+        input=input_obj,
+        coordinate__in=data.coordinates
+    ).values_list('data', flat=True)
+    
+    min_val, max_val = get_min_max(activations)
+    return {"min": min_val, "max": max_val}
+
+
+@router.post("/models/{model_alias}/inputs/{input_alias}/saliency_maps/stats/", response=NodeStatsOut)
+def get_saliency_maps_stats(request, model_alias: str, input_alias: str, data: BatchSaliencyMapsIn):
+    # Verify input exists
+    input_obj = get_object_or_404(
+        Input, 
+        model__alias=model_alias, 
+        alias=input_alias
+    )
+    
+    # Get all saliency maps for the requested coordinates
+    saliency_maps = SaliencyMap.objects.filter(
+        input=input_obj,
+        coordinate__in=data.coordinates
+    ).values_list('data', flat=True)
+    
+    min_val, max_val = get_min_max(saliency_maps)
+    return {"min": min_val, "max": max_val}

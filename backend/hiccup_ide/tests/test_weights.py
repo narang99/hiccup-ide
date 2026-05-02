@@ -170,7 +170,7 @@ def test_get_kernel_weight_via_api(sample_model, sample_weight_data):
         data_type=weight_data["data_type"]
     )
     
-    response = client.get(f"/api/models/{sample_model.alias}/weights/{weight.coordinate}/")
+    response = client.get(f"/api/models/{sample_model.alias}/weights/single/{weight.coordinate}/")
     
     assert response.status_code == 200
     data = response.json()
@@ -199,7 +199,7 @@ def test_get_bias_weight_via_api(sample_model, sample_weight_data):
         data_type=bias_data["data_type"]
     )
     
-    response = client.get(f"/api/models/{sample_model.alias}/weights/{weight.coordinate}/")
+    response = client.get(f"/api/models/{sample_model.alias}/weights/single/{weight.coordinate}/")
     
     assert response.status_code == 200
     data = response.json()
@@ -254,7 +254,7 @@ def test_coordinates_with_special_characters(sample_model, sample_weight_data):
             data_type=weight_data["data_type"]
         )
         
-        response = client.get(f"/api/models/{sample_model.alias}/weights/{coord}/")
+        response = client.get(f"/api/models/{sample_model.alias}/weights/single/{coord}/")
         assert response.status_code == 200
         assert response.json()["coordinate"] == coord
 

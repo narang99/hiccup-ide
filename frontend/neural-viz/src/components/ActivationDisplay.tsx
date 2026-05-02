@@ -14,6 +14,8 @@ interface ActivationDisplayProps {
   /** Explicit override. If omitted, the global colormap from context is used. */
   colormap?: ColormapName;
   filterAlgorithm?: ActivationFilterAlgorithm;
+  // color map, maximum value for opacity scaling
+  absMax?: number;
 }
 
 export const ActivationDisplay = ({
@@ -22,6 +24,7 @@ export const ActivationDisplay = ({
   className = '',
   colormap,
   filterAlgorithm = { type: 'Id' },
+  absMax,
 }: ActivationDisplayProps) => {
   const [activationData, setActivationData] = useState<ActivationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +59,7 @@ export const ActivationDisplay = ({
     return () => { cancelled = true; };
   }, [coordinate, fetcher]);
 
-  const renderActivation = () => {
+  const renderActivation = (absMax?: number) => {
     if (isLoading) {
       return (
         <div
@@ -97,10 +100,13 @@ export const ActivationDisplay = ({
       const data = filterActivation(rawData, filterAlgorithm);
 
       const flatData = data.flat();
-      const absMax = flatData.length > 0 ? Math.max(
-        Math.abs(Math.min(...flatData)),
-        Math.abs(Math.max(...flatData)),
-      ) : 1;
+      const computeAbsMax = (data: number[]) => (Math.max(Math.abs(Math.min(...data)),Math.abs(Math.max(...data))) );
+
+      const actualAbsMax = (
+        (absMax !== undefined) 
+        ? absMax : 
+        (flatData.length > 0 ? computeAbsMax(flatData) : 1)
+      );
 
       return (
         <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: 'hidden' }}>
@@ -113,7 +119,7 @@ export const ActivationDisplay = ({
                   y={y}
                   width={1}
                   height={1}
-                  fill={scale(normalizeSymmetric(value, absMax)).hex()}
+                  fill={scale(normalizeSymmetric(value, actualAbsMax)).hex()}
                 />
               ))
             )}
@@ -172,7 +178,7 @@ export const ActivationDisplay = ({
 
   return (
     <div className={`inline-block ${className}`}>
-      {renderActivation()}
+      {renderActivation(absMax)}
     </div>
   );
 };

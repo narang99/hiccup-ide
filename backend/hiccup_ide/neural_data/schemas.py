@@ -68,3 +68,8 @@ class LayerSaliencyMapsOut(Schema):
 
 class BatchSaliencyMapsIn(Schema):
     coordinates: List[str]
+
+
+class NodeStatsOut(Schema):
+    min: float
+    max: float
