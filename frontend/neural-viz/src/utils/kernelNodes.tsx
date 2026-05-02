@@ -30,6 +30,7 @@ export const createOutputKernelNode = (
   fetchers?: NodeFetchers,
   fetcherType?: FetcherType,
   handleDirection: HandleDirection = null,
+  absMax?: number,
 ): Node => {
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
   const coordinate = `${parentNode.id}.out_${kernelIndex}`;
@@ -52,6 +53,7 @@ export const createOutputKernelNode = (
       badgeColor: "#60a5fa",
       handleDirection,
       link: `/kernel/${parentNode.id}/${kernelIndex}`,
+      absMax,
     },
     style: {
       background: 'transparent',

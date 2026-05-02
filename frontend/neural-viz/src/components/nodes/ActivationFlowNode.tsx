@@ -16,6 +16,7 @@ export interface ActivationNodeData extends Record<string, unknown> {
     handleDirection?: HandleDirection;
     link?: string;
     filterAlgorithm?: ActivationFilterAlgorithm;
+    absMax?: number;
 }
 
 export type ActivationNodeType = Node<ActivationNodeData, 'ActivationNode'>;
@@ -29,6 +30,7 @@ export const ActivationFlowNode = ({ data }: NodeProps) => {
             handleDirection={typedData.handleDirection} 
             link={typedData.link} 
             filterAlgorithm={typedData.filterAlgorithm}
+            absMax={typedData.absMax}
         />
     );
 };

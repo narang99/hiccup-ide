@@ -11,6 +11,7 @@ export const createReLULayer = (
     fetcherType: FetcherType,
     layerBlockHandleDirection: Direction,
     directionInsideLayerBlock: Direction = "LR",
+    absMax?: number,
 ): Node[] => {
     const nodes: Node[] = [];
     // Get number of channels from the shape (assuming format [batch, channels, height, width])
@@ -31,7 +32,7 @@ export const createReLULayer = (
     for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
         const childPosition = layout.children[channelIndex];
         nodes.push(makeReluChannelNode(
-            modelNode.id, childPosition, childHeight, childWidth, channelIndex, fetcherType, handleDirection
+            modelNode.id, childPosition, childHeight, childWidth, channelIndex, fetcherType, handleDirection, absMax
         ))
     }
 
@@ -57,7 +58,7 @@ const makeParentLayerNode = (modelId: string, position: XYPosition, width: numbe
 
 
 const makeReluChannelNode = (
-    modelId: string, position: XYPosition, height: number, width: number, channelIndex: number, fetcherType: FetcherType, handleDirection: HandleDirection,
+    modelId: string, position: XYPosition, height: number, width: number, channelIndex: number, fetcherType: FetcherType, handleDirection: HandleDirection, absMax?: number,
 ): Node => {
     return {
         id: `${modelId}-channel-${channelIndex}`,
@@ -72,6 +73,7 @@ const makeReluChannelNode = (
             badgeLabel: 'ReLU',
             handleDirection: handleDirection,
             badgeColor: '#fbbf24',
+            absMax,
         },
         width: width,
         height: height,

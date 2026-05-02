@@ -13,6 +13,7 @@ export const createConv2dLayer = (
     fetcherType: FetcherType,
     layerBlockHandleDirection: Direction,
     directionInsideLayerBlock: Direction = "LR",
+    absMax?: number,
 ): Node[] => {
     const nodes: Node[] = [];
     const outChannels = modelNode.params.out_channels as number;
@@ -37,6 +38,7 @@ export const createConv2dLayer = (
             DEFAULT_FETCHERS,
             fetcherType,
             handleDirection,
+            absMax
         ))
     }
     return nodes;

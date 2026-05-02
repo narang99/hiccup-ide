@@ -17,6 +17,7 @@ interface BaseActivationNodeProps {
     handleDirection?: HandleDirection;
     link?: string;
     filterAlgorithm?: ActivationFilterAlgorithm;
+    absMax?: number;
 }
 
 export default function BaseActivationNode({
@@ -30,7 +31,8 @@ export default function BaseActivationNode({
     badgeColor = '#60a5fa',
     handleDirection = "TB",
     link,
-    filterAlgorithm
+    filterAlgorithm,
+    absMax
 }: BaseActivationNodeProps) {
     const fetcher = fetchers?.[fetcherType];
 
@@ -87,6 +89,7 @@ export default function BaseActivationNode({
                         fetcher={fetcher}
                         maxSize={maxSize}
                         filterAlgorithm={filterAlgorithm}
+                        absMax={absMax}
                     />
                 ) : (
                     <div style={{
