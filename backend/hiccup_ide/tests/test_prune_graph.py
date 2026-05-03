@@ -78,7 +78,7 @@ def test_get_workflow_pruning_status_sequential(sample_data):
     response = client.get(url)
     assert response.status_code == 200
     assert response.json()["layers"]["done"] == []
-    assert response.json()["layers"]["total"] == ["layers.3", "layers.2", "layers.1", "layers.0", "inputs"]
+    assert response.json()["layers"]["total"] == ["layers.3", "layers.2", "layers.1", "layers.0", "x"]
     
     # Case 2: Only the first layer done
     from neural_data.models import WorkSaliencyMap
