@@ -10,7 +10,7 @@ from ..models import (
 )
 from ..schemas import (
     SaliencyMapOut,
-    LayerSaliencyMapsOut,
+    SaliencyMapListOut,
     BatchSaliencyMapsIn,
     NodeStatsOut,
     BatchWorkSaliencyMapIn,
@@ -21,7 +21,7 @@ router = Router()
 
 @router.get(
     "/models/{model_alias}/inputs/{input_alias}/saliency_maps/layers/{layer_name}/",
-    response=LayerSaliencyMapsOut,
+    response=SaliencyMapListOut,
 )
 def get_layer_saliency_maps(
     request, model_alias: str, input_alias: str, layer_name: str
@@ -37,12 +37,12 @@ def get_layer_saliency_maps(
     if not saliency_maps.exists():
         raise Http404(f"No saliency maps found for layer '{layer_name}'")
 
-    return {"layer_name": layer_name, "saliency_maps": list(saliency_maps)}
+    return {"items": list(saliency_maps)}
 
 
 @router.post(
     "/models/{model_alias}/inputs/{input_alias}/saliency_maps/batch/",
-    response=LayerSaliencyMapsOut,
+    response=SaliencyMapListOut,
 )
 def get_batch_saliency_maps(
     request, model_alias: str, input_alias: str, data: BatchSaliencyMapsIn
@@ -55,7 +55,7 @@ def get_batch_saliency_maps(
         input=input_obj, coordinate__in=data.coordinates
     ).order_by("coordinate")
 
-    return {"layer_name": "batch", "saliency_maps": list(saliency_maps)}
+    return {"items": list(saliency_maps)}
 
 
 @router.get(

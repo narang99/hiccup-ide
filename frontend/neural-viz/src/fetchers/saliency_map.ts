@@ -23,6 +23,7 @@ export async function loadSaliencyMapFromFile(coordinate: string): Promise<Activ
 export interface LayerSaliencyMap {
   id: number;
   coordinate: string;
+  layer_name: string;
   data: number[][];
   shape: number[];
   coordinate_type: string;
@@ -30,8 +31,7 @@ export interface LayerSaliencyMap {
 }
 
 export interface LayerSaliencyData {
-  layer_name: string;
-  saliency_maps: LayerSaliencyMap[];
+  items: LayerSaliencyMap[];
 }
 
 export async function loadLayerSaliencyMaps(modelAlias: string, inputAlias: string, layerName: string): Promise<LayerSaliencyData> {
@@ -50,8 +50,7 @@ export async function loadLayerSaliencyMaps(modelAlias: string, inputAlias: stri
     
     const data = await response.json();
     console.log(`Loaded layer saliency maps for ${layerName}:`, { 
-      mapCount: data.saliency_maps?.length,
-      layerName: data.layer_name 
+      mapCount: data.items?.length,
     });
     
     return data;
@@ -81,7 +80,7 @@ export async function loadBatchSaliencyMaps(modelAlias: string, inputAlias: stri
     
     const data = await response.json();
     console.log(`Loaded batch saliency maps:`, { 
-      mapCount: data.saliency_maps?.length,
+      mapCount: data.items?.length,
       requestedCount: coordinates.length
     });
     

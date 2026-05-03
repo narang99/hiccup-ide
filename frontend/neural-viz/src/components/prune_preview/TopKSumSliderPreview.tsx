@@ -215,7 +215,7 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
     const computeThreshold = useCallback((filteredData: LayerSaliencyData, thresholdRatio: number): number | undefined => {
         // Flatten all filtered saliency data into a single array
         const allValues: number[] = [];
-        filteredData.saliency_maps.forEach(map => {
+        filteredData.items.forEach(map => {
             map.data.forEach(row => {
                 if (Array.isArray(row)) {
                     allValues.push(...row);
@@ -230,7 +230,8 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
 
         // Compute threshold using the utility function
         const threshold = getTopKThreshold(allValues, thresholdRatio / 100);
-        console.log(`Computed threshold for ${filteredData.layer_name} at ${thresholdRatio}% (${allValues.length} values):`, threshold);
+        const layerName = filteredData.items[0]?.layer_name || 'unknown';
+        console.log(`Computed threshold for ${layerName} at ${thresholdRatio}% (${allValues.length} values):`, threshold);
         return threshold;
     }, []);
 

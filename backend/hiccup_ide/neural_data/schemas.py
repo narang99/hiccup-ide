@@ -45,10 +45,15 @@ class ActivationOut(Schema):
 class SaliencyMapOut(Schema):
     id: int
     coordinate: str
+    layer_name: str
     data: Any
     shape: List[int]
     coordinate_type: str
     data_type: str
+
+
+class SaliencyMapListOut(Schema):
+    items: List[SaliencyMapOut]
 
 
 class WeightOut(Schema):
@@ -59,11 +64,6 @@ class WeightOut(Schema):
     layer_type: str
     coordinate_type: str
     data_type: str
-
-
-class LayerSaliencyMapsOut(Schema):
-    layer_name: str
-    saliency_maps: List[SaliencyMapOut]
 
 
 class BatchSaliencyMapsIn(Schema):
