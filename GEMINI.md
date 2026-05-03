@@ -29,7 +29,8 @@ React application that visualizes neural network models and their activations.
 3. **Backend Loading**: Manually load JSON data into Django database using management commands
 4. **Frontend Consumption**: Frontend fetches data from backend REST API endpoints
 
-## Development Environment
+### 4. Backend Conventions (Django)
+- **Primary Key Access**: Always use the `.pk` attribute to access a model's primary key instead of `.id`. The linter is configured to prefer `.pk` for consistency and to avoid potential issues with custom primary key fields.
 
 All Python components use `uv` for package management:
 

@@ -66,10 +66,13 @@ class Command(BaseCommand):
                         with open(activation_file, "r") as f:
                             activation_data = json.load(f)
 
+                        layer_name = activation_data.get("layer_name")
+
                         activation, created = Activation.objects.get_or_create(
                             input=input_obj,
                             coordinate=coordinate,
                             defaults={
+                                "layer_name": layer_name,
                                 "data": activation_data["data"],
                                 "shape": activation_data["shape"],
                                 "layer_type": activation_data["layer_type"],
@@ -79,6 +82,7 @@ class Command(BaseCommand):
 
                         if not created:
                             # Update existing activation
+                            activation.layer_name = layer_name
                             activation.data = activation_data["data"]
                             activation.shape = activation_data["shape"]
                             activation.layer_type = activation_data["layer_type"]
@@ -97,7 +101,7 @@ class Command(BaseCommand):
                         )
 
             # Load saliency maps
-            saliency_folder = public_folder / "saliency_maps"
+            saliency_folder = public_folder / "saliency_map"
             saliency_count = 0
             if saliency_folder.exists():
                 for saliency_file in saliency_folder.glob("*.json"):
@@ -106,10 +110,14 @@ class Command(BaseCommand):
                         with open(saliency_file, "r") as f:
                             saliency_data = json.load(f)
 
+                        # Extract layer_name from data as requested
+                        layer_name = saliency_data.get("layer_name")
+
                         saliency_map, created = SaliencyMap.objects.get_or_create(
                             input=input_obj,
                             coordinate=coordinate,
                             defaults={
+                                "layer_name": layer_name,
                                 "data": saliency_data["data"],
                                 "shape": saliency_data["shape"],
                                 "coordinate_type": saliency_data["coordinate_type"],
@@ -119,6 +127,7 @@ class Command(BaseCommand):
 
                         if not created:
                             # Update existing saliency map
+                            saliency_map.layer_name = layer_name
                             saliency_map.data = saliency_data["data"]
                             saliency_map.shape = saliency_data["shape"]
                             saliency_map.coordinate_type = saliency_data[
@@ -148,10 +157,13 @@ class Command(BaseCommand):
                         with open(weights_file, "r") as f:
                             weights_data = json.load(f)
 
+                        layer_name = weights_data.get("layer_name")
+
                         weight, created = Weight.objects.get_or_create(
                             model=model,
                             coordinate=coordinate,
                             defaults={
+                                "layer_name": layer_name,
                                 "data": weights_data["data"],
                                 "shape": weights_data["shape"],
                                 "layer_type": weights_data["layer_type"],
@@ -162,6 +174,7 @@ class Command(BaseCommand):
 
                         if not created:
                             # Update existing weight
+                            weight.layer_name = layer_name
                             weight.data = weights_data["data"]
                             weight.shape = weights_data["shape"]
                             weight.layer_type = weights_data["layer_type"]

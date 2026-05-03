@@ -31,6 +31,7 @@ class Input(models.Model):
 class Activation(models.Model):
     input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='activations')
     coordinate = models.CharField(max_length=200, db_index=True)
+    layer_name = models.CharField(max_length=200, db_index=True, null=True, blank=True)
     data = models.JSONField()
     shape = models.JSONField()
     layer_type = models.CharField(max_length=100)
@@ -46,6 +47,7 @@ class Activation(models.Model):
 
 
 class SaliencyMapData(models.Model):
+    layer_name = models.CharField(max_length=200, db_index=True, null=True, blank=True)
     data = models.JSONField()
     shape = models.JSONField()
     coordinate_type = models.CharField(max_length=100)
@@ -77,6 +79,7 @@ class SaliencyMap(SaliencyMapData):
 class Weight(models.Model):
     model = models.ForeignKey(Model, on_delete=models.CASCADE, related_name='weights')
     coordinate = models.CharField(max_length=200, db_index=True)
+    layer_name = models.CharField(max_length=200, db_index=True, null=True, blank=True)
     data = models.JSONField()
     shape = models.JSONField()
     layer_type = models.CharField(max_length=100)
