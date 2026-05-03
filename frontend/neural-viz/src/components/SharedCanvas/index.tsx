@@ -1,14 +1,11 @@
 import { type ReactNode } from 'react';
-import { ReactFlow, Background, Controls, Panel, Position, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
+import { ReactFlow, Background, Controls, Position, type ReactFlowProps, type Node, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useSelectedNodeStore } from '../../stores/selectedNodeStore';
 import { LayerNode } from '../nodes/LayerNode';
 import { ActivationFlowNode } from '../nodes/ActivationFlowNode';
-import { LayerSettings } from '../LayerSettings';
 import dagre from '@dagrejs/dagre';
 import type { Direction } from '../../types/direction';
-import { DataTypeSelector } from './Controls/DataTypeSelector';
-import { ColormapSelector } from './Controls/ColormapSelector';
 
 const nodeTypes = {
   LayerNode,
@@ -31,11 +28,6 @@ export default function SharedCanvas({ children, pageDirection, ...props }: Shar
         <Controls />
         <Background />
 
-        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-          <DataTypeSelector />
-          <ColormapSelector />
-          <LayerSettings />
-        </Panel>
 
         {children}
       </ReactFlow>

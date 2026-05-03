@@ -10,7 +10,9 @@
       "Bash(uv run pytest tests/ -v)",
       "Bash(npm run lint:eslint)",
       "Bash(uv run python manage.py makemigrations)",
-      "Bash(uv run python manage.py migrate)"
+      "Bash(uv run python manage.py migrate)",
+      "Bash(uv run python manage.py check)",
+      "Bash(mkdir -p \"/Users/hariomnarang/Desktop/personal/hiccup-ide/frontend/neural-viz/docs\")"
     ],
     "deny": [],
     "ask": []

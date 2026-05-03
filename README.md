@@ -46,6 +46,16 @@ Finally we would like to see the meaning (meaning can be propagated at each step
 
 - next step: open slice contribs view only
 
+## Easy cutting
+- Cut in the last layer, then go to next.
+- We keep a pruning session, simple
+- You prune and then fix the graph.  
+- After a graph is pruned, the user can poll the pruned session itself
+
+- While cutting you cant go back, you can only go forward.  
+  - I can later add esa ke if you go back, the progress in the mids is lost
+- We need a table to manage a Pruned Graph. 
+  - One table for all saliency maps
 
 
 ## Cutting the graph
@@ -146,3 +156,13 @@ Problem:
   - We could create a simple node besides the of a layer for analysing them.  
 
 - Tis shit is more complicated than i thought it would be. claude is basically doing random shit now. Its like changing 1 CSS line and having everything go to shit.   
+
+# Pruning
+
+- Ive got a good idea of what pruning should look like now.  
+- You first prune the last layer, recalculate with new contribs
+- The next point is slightly complicated, you threshold the slices now (this sets the pixels allowed for slices). This in turn should technically fix the pixels allowed for input, we need to add that. 
+  - This pruning is done at slice level.
+  - In the older algorithm, we used to start by slice level only i thiink (do slice, then do input)
+  - This algorithm fits better with this workflow. Ill simply implement that, we have the code anyways.  
+- I need to think this through better, time for some actual system design lol

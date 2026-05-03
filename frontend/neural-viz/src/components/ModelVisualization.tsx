@@ -1,6 +1,10 @@
 import { useModelVisualization } from '../hooks/useModelVisualization';
 import SharedCanvas from './SharedCanvas';
 import { useFetcherType } from '../hooks/useFetcherType';
+import { Panel } from '@xyflow/react';
+import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
+import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
+import { LayerSettings } from './LayerSettings';
 
 export default function ModelVisualization() {
   const { fetcherType } = useFetcherType();
@@ -25,6 +29,12 @@ export default function ModelVisualization() {
       onEdgesChange={onEdgesChange}
       pageDirection={pageDirection}
       fitView
-    />
+    >
+        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+          <DataTypeSelector />
+          <ColormapSelector />
+          <LayerSettings />
+        </Panel>
+    </SharedCanvas>
   );
 }

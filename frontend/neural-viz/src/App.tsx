@@ -4,6 +4,7 @@ import { FetcherTypeProvider } from './contexts/FetcherTypeContext';
 import ModelVisualization from './components/ModelVisualization';
 // import KernelDetailView from './components/KernelDetailView';
 import KernelSliceContribsView from './components/KernelSliceContribsView';
+import SingleLayerVisualization from './components/SingleLayerVisualization';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
             <Route path="/" element={<ModelVisualization />} />
             {/* <Route path="/kernel/:nodeId/:kernelIndex" element={<KernelDetailView />} /> */}
             <Route path="/kernel/:nodeId/:kernelIndex" element={<KernelSliceContribsView />} />
+            <Route path="/single-layer" element={<SingleLayerVisualization />} />
           </Routes>
         </Router>
       </ColormapProvider>

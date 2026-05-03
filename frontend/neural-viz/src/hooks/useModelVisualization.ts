@@ -1,27 +1,30 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react';
 import { type FetcherType } from '../fetchers';
 import { createConv2dLayer } from '../layerCreators/conv';
 import { createReLULayer } from '../layerCreators/relu';
 import { createOtherLayer } from '../layerCreators/default';
 import { toggleDirection, type Direction } from '../types/direction';
-import { useColormap } from './useColormap';
 import { useModelData } from './useModelData';
-import { useLayerStats } from './useLayerStats';
-import { updateNodeAbsMax } from '../utils/nodeUpdates';
 import { type ModelData } from '../types/model';
+import { useGlobalStateControl } from './useGlobalStateControl';
 
 export const useModelVisualization = (fetcherType: FetcherType = "activation", directionOfPage: Direction = "LR") => {
   const { modelData } = useModelData("example-model");
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [layerAbsMax, setLayerAbsMax] = useState<Record<string, number>>({});
-  const { scalingMode } = useColormap();
+  // const [layerAbsMax, setLayerAbsMax] = useState<Record<string, number>>({});
 
   // if the page is vertical, we want the layer groups to be kept vertically
   // inside layer groups then, we want horizontal directions
   const directionInsideLayerBlock = toggleDirection(directionOfPage)
   const layerBlockHandleDirection = directionOfPage;
+
+  const { scalingMode } = useGlobalStateControl({
+    nodes,
+    fetcherType,
+    setNodes,
+  });
 
   const generateNodesAndEdges = useCallback((
     data: ModelData,
@@ -67,7 +70,6 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
   }, [fetcherType, directionInsideLayerBlock, layerBlockHandleDirection]);
 
 
-
   // Update nodes and edges when model data changes
   useEffect(() => {
     if (modelData) {
@@ -79,21 +81,6 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
       setEdges(newEdges);
     }
   }, [modelData, generateNodesAndEdges, setNodes, setEdges, scalingMode]);
-
-  // Separate effect for updating absMax to preserve selection state
-  useEffect(() => {
-    if (scalingMode === 'global' && Object.keys(layerAbsMax).length > 0) {
-      setNodes((currentNodes) => updateNodeAbsMax(currentNodes, layerAbsMax));
-    }
-  }, [layerAbsMax, scalingMode, setNodes]);
-
-  // Handle global scaling using custom hook
-  useLayerStats({
-    nodes,
-    fetcherType,
-    scalingMode,
-    setLayerAbsMax,
-  });
 
   return {
     modelData,
