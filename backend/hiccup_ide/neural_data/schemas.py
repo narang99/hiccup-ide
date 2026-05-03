@@ -73,16 +73,3 @@ class BatchSaliencyMapsIn(Schema):
 class NodeStatsOut(Schema):
     min: float
     max: float
-
-
-class LayerThresholdIn(Schema):
-    layer_id: str
-    slider_value: float
-    algorithm: Any
-
-
-class LayerThresholdOut(Schema):
-    id: int
-    layer_id: str
-    slider_value: float
-    algorithm: Any

@@ -8,7 +8,6 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 import type { SelectedNode } from '../types/node';
 import { LayerSettings } from './prune_preview/TopKSumSliderPreview';
-import { loadWorkflowThresholds } from '../fetchers/threshold';
 
 interface SingleLayerViewProps {
   modelAlias: string;
@@ -46,10 +45,6 @@ export default function SingleLayerView({
   const maybeParentNode = nodes.find(n => n.type === "LayerNode");
   const parentNode = (maybeParentNode === undefined) ? null : maybeParentNode as unknown as SelectedNode;
 
-  const onLoadInitialThresholds = useCallback(() => {
-    return loadWorkflowThresholds(modelAlias, inputAlias, 'default-workflow');
-  }, [modelAlias, inputAlias]);
-
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading layer data...</div>;
   }
@@ -79,10 +74,7 @@ export default function SingleLayerView({
           <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
             <DataTypeSelector />
             <ColormapSelector />
-            <LayerSettings 
-              selectedNode={parentNode} 
-              onLoadInitialThresholds={onLoadInitialThresholds}
-            />
+            <LayerSettings selectedNode={parentNode} />
           </Panel>
         </SharedCanvas>
   );

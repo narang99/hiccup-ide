@@ -107,24 +107,6 @@ class Work(models.Model):
         db_table = "works"
         unique_together = ['input', 'name']
 
-class LayerThreshold(models.Model):
-    work = models.ForeignKey(Work, on_delete=models.CASCADE, related_name='thresholds')
-    model = models.ForeignKey(Model, on_delete=models.CASCADE, related_name='thresholds')
-    layer_id = models.CharField(max_length=200, db_index=True)
-    slider_value = models.FloatField(default=100.0)
-    algorithm = models.JSONField(default=dict)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.work} - {self.layer_id} (slider: {self.slider_value}, algorithm: {self.algorithm})"
-
-    class Meta:
-        db_table = "layer_thresholds"
-        unique_together = ['work', 'model', 'layer_id']
-
-
-
 class WorkGraph(models.Model):
     alias = models.CharField(max_length=200)
     work = models.ForeignKey(Work, on_delete=models.CASCADE)
