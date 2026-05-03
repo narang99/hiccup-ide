@@ -32,6 +32,11 @@ class InputOut(Schema):
     name: str
     data_path: str
 
+class WorkGraphMeta(Schema):
+    work_alias: str
+    graph_alias: str
+
+
 
 class ActivationOut(Schema):
     id: int
@@ -40,11 +45,7 @@ class ActivationOut(Schema):
     shape: List[int]
     layer_type: str
     coordinate_type: str
-
-
-class WorkGraphMeta(Schema):
-    work_alias: str
-    graph_alias: str
+    work_graph: Optional[WorkGraphMeta] = None
 
 
 class SaliencyMapOut(Schema):
@@ -70,6 +71,7 @@ class WeightOut(Schema):
     layer_type: str
     coordinate_type: str
     data_type: str
+    work_graph: Optional[WorkGraphMeta] = None
 
 
 class BatchSaliencyMapsIn(Schema):

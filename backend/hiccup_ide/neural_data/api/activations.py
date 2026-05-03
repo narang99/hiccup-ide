@@ -1,5 +1,6 @@
 from ninja import Router
 from django.shortcuts import get_object_or_404
+from typing import Optional
 from ..models import Activation, Input
 from ..schemas import ActivationOut, BatchSaliencyMapsIn, NodeStatsOut
 from .helpers import get_min_max
@@ -10,7 +11,15 @@ router = Router()
     "/models/{model_alias}/inputs/{input_alias}/activations/single/{coordinate}/",
     response=ActivationOut,
 )
-def get_activation(request, model_alias: str, input_alias: str, coordinate: str):
+def get_activation(
+    request, 
+    model_alias: str, 
+    input_alias: str, 
+    coordinate: str,
+    # Standard query parameters for all data types, not currently used for activations
+    work_alias: Optional[str] = None,
+    graph_alias: Optional[str] = None,
+):
     activation = get_object_or_404(
         Activation,
         input__model__alias=model_alias,

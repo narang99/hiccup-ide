@@ -204,7 +204,8 @@ def get_workflow_pruning_status(
     work_graph = get_object_or_404(WorkGraph, work=work, alias=graph_alias)
 
     # Hardcoded total layers in specific order as requested
-    TOTAL_LAYERS = ["layers.3", "layers.2", "layers.1", "layers.0", "inputs"]
+    # TOTAL_LAYERS = ["layers.3", "layers.2", "layers.1", "layers.0", "inputs"]
+    TOTAL_LAYERS = ["layers.3", "layers.2", "layers.1", "layers.0"]
 
     # Get all unique layer_names present in WorkSaliencyMap for this graph
     done_layers_set = set(
