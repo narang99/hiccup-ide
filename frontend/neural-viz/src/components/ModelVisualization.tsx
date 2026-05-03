@@ -5,6 +5,7 @@ import { Panel } from '@xyflow/react';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { PruneGraphButton } from './PruneGraphButton';
+import { PrunedGraphToggle } from './PrunedGraphToggle';
 import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
 
 export default function ModelVisualization() {
@@ -36,6 +37,7 @@ export default function ModelVisualization() {
           <DataTypeSelector />
           <ColormapSelector />
           <AttachedToSelectedNodeLayerSettings />
+          <PrunedGraphToggle />
           <PruneGraphButton />
         </Panel>
     </SharedCanvas>
