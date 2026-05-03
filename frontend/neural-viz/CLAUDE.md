@@ -42,3 +42,13 @@ The frontend consumes model data via REST API calls to the Django backend:
 - Model definitions and architecture
 - Activation data for specific coordinates
 - Saliency maps and contribution data
+
+## Architecture Documentation
+
+### React Flow Implementation
+
+Refer these docs for your specific tasks
+
+- `docs/react-flow-architecture.md` - React Flow data model. You should read it, its generally useful
+- `docs/creating-layers.md` - How layers are created and structured
+- `docs/node-layouting.md` - Dagre-js automatic layout for layers and manual positioning for activations
