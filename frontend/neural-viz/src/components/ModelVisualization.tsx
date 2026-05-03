@@ -5,7 +5,7 @@ import { Panel } from '@xyflow/react';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { PruneGraphButton } from './PruneGraphButton';
-import { AttachedToSelectedNodeLayerSettings } from './layer_settings/AttachedToSelectedNodeLayerSettings';
+import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
 import { useCallback } from 'react';
 import { loadWorkflowThresholds } from '../fetchers/threshold';
 

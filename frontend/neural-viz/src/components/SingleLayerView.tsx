@@ -7,7 +7,7 @@ import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 import type { SelectedNode } from '../types/node';
-import { LayerSettings } from './layer_settings/LayerSettings';
+import { LayerSettings } from './prune_preview/TopKSumSliderPreview';
 import { loadWorkflowThresholds } from '../fetchers/threshold';
 
 interface SingleLayerViewProps {
