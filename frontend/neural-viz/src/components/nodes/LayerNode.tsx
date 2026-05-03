@@ -1,13 +1,6 @@
 import { type NodeProps, type Node } from '@xyflow/react';
 import SingleOrNoHandle from '../SingleOrNoHandle';
-import type { Direction } from '../../types/direction';
-
-export interface LayerNodeData extends Record<string, unknown> {
-  label: string;
-  layerType: 'Conv2d' | 'ReLU' | 'Linear' | 'Flatten' | 'Input' | 'Output';
-  nodeCount?: number;
-  handleDirection: Direction | null;
-}
+import type { LayerNodeData } from '../../types/node';
 
 const getLayerColor = (layerType: string) => {
   switch (layerType) {

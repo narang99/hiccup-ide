@@ -65,7 +65,7 @@ export default function PruneGraphView() {
         pageDirection={pageDirection}
       />
       {/* Status Overlay */}
-      <div style={{
+      {/* <div style={{
         position: 'absolute',
         bottom: '20px',
         left: '20px',
@@ -87,7 +87,7 @@ export default function PruneGraphView() {
         <div style={{ fontSize: '11px', marginTop: '4px', color: 'rgba(255,255,255,0.6)' }}>
           {status.layers.done.length} / {status.layers.total.length} layers complete
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

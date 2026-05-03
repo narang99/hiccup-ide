@@ -1,11 +1,6 @@
 import { create } from 'zustand';
 import { type Node } from '@xyflow/react';
-import { type LayerNodeData } from '../components/nodes/LayerNode';
-
-interface SelectedNode {
-  id: string;
-  data: LayerNodeData;
-}
+import type { LayerNodeData, SelectedNode } from '../types/node';
 
 interface SelectedNodeState {
   selectedNode: SelectedNode | null;

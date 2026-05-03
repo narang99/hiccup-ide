@@ -171,3 +171,18 @@ I need to create this iteratively, the model strugglees a lot
 - Create a Start pruning button which creates a new view with the graph alias
 - This now creates a new graph
 - Now in this, we want to show the first not done layer
+  - it is quite useful to see what the layers have i think, but im not sure
+  - the easiest thing is to actually use a graph with all the values and allow the user to preview them
+  - this previewing however, if i dont do back and forth with backend, then it is useful see how the contribs are changing
+  - for that usecase, i would need to implement this logic in frontend AND backend, which is painful
+  - lets first only implement an algorithm in the backend. What are our options for previewing
+  - do i need previewing in the first place? Yes
+  - Technically, we can push the preview to backend, and backend then can create a new WorkSaliencyMap for all the ones associated with that layer, and then we good. We would need to send the coordinates too though
+  - This is because we have different views of the coordinates of the same thing
+  - Now we mark a layer as done when we are done with one of the coordinates, thats not very nice though. Because our next step is to do it input slice wise. 
+  - Or i could simply prune the coordinates in the next layer, and only see slices when interested
+  - doing slice wise might be a problem, i would need to see what all is happening.  
+  - no no, lets only do layer wise, no slice wise. that fixes a problem for us.  
+  - jhula time
+- i ll use layersettings right now to do this threhsolding right now. Although im not sure if there is a better way
+  - gemini is going full wonky

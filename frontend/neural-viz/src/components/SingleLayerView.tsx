@@ -6,6 +6,8 @@ import { useSingleLayer } from '../hooks/useSingleLayer';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
+import type { SelectedNode } from '../types/node';
+import { LayerSettings } from './layer_settings/LayerSettings';
 
 interface SingleLayerViewProps {
   modelAlias: string;
@@ -40,6 +42,9 @@ export default function SingleLayerView({
     setEdges(initialEdges);
   }, [initialNodes, initialEdges, setNodes, setEdges, scalingMode]);
 
+  const maybeParentNode = nodes.find(n => n.type === "LayerNode");
+  const parentNode = (maybeParentNode === undefined) ? null : maybeParentNode as unknown as SelectedNode;
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading layer data...</div>;
   }
@@ -58,7 +63,6 @@ export default function SingleLayerView({
 
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
         <SharedCanvas
             nodes={nodes}
             edges={edges}
@@ -66,11 +70,12 @@ export default function SingleLayerView({
             onEdgesChange={onEdgesChange}
             pageDirection={pageDirection}
             fitView
-        />
+        >
           <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
             <DataTypeSelector />
             <ColormapSelector />
+            <LayerSettings selectedNode={parentNode} />
           </Panel>
-    </div>
+        </SharedCanvas>
   );
 }
