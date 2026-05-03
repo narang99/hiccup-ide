@@ -169,3 +169,5 @@ Problem:
 
 I need to create this iteratively, the model strugglees a lot
 - Create a Start pruning button which creates a new view with the graph alias
+- This now creates a new graph
+- Now in this, we want to show the first not done layer

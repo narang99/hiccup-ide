@@ -28,3 +28,32 @@ export async function createOrUpdateWorkGraph(
 
   return response.json();
 }
+
+export interface PruningStatusResponse {
+  layers: {
+    done: string[];
+    total: string[];
+  };
+}
+
+export async function getPruningStatus(
+  modelAlias: string,
+  inputAlias: string,
+  workflowName: string,
+  graphAlias: string
+): Promise<PruningStatusResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/status/`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch pruning status');
+  }
+
+  return response.json();
+}
