@@ -1,4 +1,4 @@
-import type { ActivationFilterAlgorithm } from "./types"
+import type { ActivationFilterAlgorithm } from "../types/activationFiltering";
 
 export const filterActivation = (data: number[][], algorithm: ActivationFilterAlgorithm): number[][] => {
     switch (algorithm.type) {

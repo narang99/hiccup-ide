@@ -1,7 +1,7 @@
 import { useSelectedNodeStore } from "../../stores/selectedNodeStore"
-import { type ActivationFilterAlgorithm } from "../../activationFiltering/types";
-import { type LayerThreshold } from "../../fetchers/threshold";
-import { LayerSettings } from "./TopKSumSliderPreview"
+import type { ActivationFilterAlgorithm } from "../../types/activationFiltering";
+import { type LayerThreshold } from "../../types/threshold"
+import { TopKSumSliderPreview } from "./TopKSumSliderPreview";
 
 interface AttachedToSelectedNodeLayerSettingsProps {
     onChangeThreshold?: (layerId: string, sliderValue: number, algorithm: ActivationFilterAlgorithm) => void;
@@ -11,7 +11,7 @@ interface AttachedToSelectedNodeLayerSettingsProps {
 export const AttachedToSelectedNodeLayerSettings = ({ onChangeThreshold, onLoadInitialThresholds }: AttachedToSelectedNodeLayerSettingsProps) => {
     const { selectedNode } = useSelectedNodeStore()
     return (
-        <LayerSettings 
+        <TopKSumSliderPreview 
             selectedNode={selectedNode} 
             onChangeThreshold={onChangeThreshold}
             onLoadInitialThresholds={onLoadInitialThresholds}

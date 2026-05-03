@@ -1,7 +1,7 @@
 import { type NodeProps, type Node } from '@xyflow/react';
 import type { NodeFetchers, FetcherType } from "../../fetchers";
 import BaseActivationNode from "./BaseActivationNode";
-import type { ActivationFilterAlgorithm } from '../../activationFiltering/types';
+import type { ActivationFilterAlgorithm } from '../../types/activationFiltering';
 
 export type HandleDirection = "TB" | "LR" | null;
 

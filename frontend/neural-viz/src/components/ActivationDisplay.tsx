@@ -3,8 +3,8 @@ import chroma from 'chroma-js';
 import { type ActivationData } from '../fetchers/activation';
 import { COLORMAPS, COLORMAP_META, normalizeSymmetric, type ColormapName } from '../utils/colormaps';
 import { useColormap } from '../hooks/useColormap';
-import type { ActivationFilterAlgorithm } from '../activationFiltering/types';
 import { filterActivation } from '../activationFiltering';
+import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
 
 interface ActivationDisplayProps {
   coordinate: string;

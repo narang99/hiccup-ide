@@ -2,13 +2,13 @@ import { useLayerSettingsStore } from '../../stores/layerSettingsStore';
 import { useSaliencyCacheStore } from '../../stores/saliencyCacheStore';
 import { getTopKThreshold } from '../../utils/topk';
 import { type LayerSaliencyData } from '../../fetchers/saliency_map';
-import { type LayerThreshold } from '../../fetchers/threshold';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { DebouncedSlider } from '../DebouncedSlider';
 import { useFetcherType } from '../../hooks/useFetcherType';
-import { type ActivationFilterAlgorithm } from '../../activationFiltering/types';
 import type { SelectedNode } from '../../types/node';
+import type { ActivationFilterAlgorithm } from '../../types/activationFiltering';
+import type { LayerThreshold } from '../../types/threshold';
 
 interface LayerSettingsViewProps {
     disabled: boolean;
@@ -185,7 +185,7 @@ export interface LayerSettingsProps {
     onLoadInitialThresholds?: () => Promise<LayerThreshold[]>;
 }
 
-export const LayerSettings = ({ selectedNode, onChangeThreshold, onLoadInitialThresholds }: LayerSettingsProps) => {
+export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadInitialThresholds }: LayerSettingsProps) => {
     const { fetcherType } = useFetcherType();
     const { getLayerSettings, updateSliderValue, loadSliderValuesFromThresholds } = useLayerSettingsStore();
     const { fetchAndCacheBatchSaliency, clearCache } = useSaliencyCacheStore();

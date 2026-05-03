@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ActivationFilterAlgorithm } from '../activationFiltering/types';
+import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
 
 interface LayerSettings {
   sliderValue: number;

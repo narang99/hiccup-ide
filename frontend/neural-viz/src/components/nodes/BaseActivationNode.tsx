@@ -3,7 +3,7 @@ import { ActivationDisplay } from "../ActivationDisplay";
 import { Link } from 'react-router-dom';
 import { type HandleDirection } from "./ActivationFlowNode";
 import SingleOrNoHandle from "../SingleOrNoHandle";
-import type { ActivationFilterAlgorithm } from "../../activationFiltering/types";
+import type { ActivationFilterAlgorithm } from "../../types/activationFiltering";
 
 interface BaseActivationNodeProps {
     coordinate: string;

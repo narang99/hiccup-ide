@@ -1,5 +1,5 @@
 import { useNodesState, useEdgesState, Panel } from '@xyflow/react';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import SharedCanvas from './SharedCanvas';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useSingleLayer } from '../hooks/useSingleLayer';
@@ -7,7 +7,7 @@ import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 import type { SelectedNode } from '../types/node';
-import { LayerSettings } from './prune_preview/TopKSumSliderPreview';
+import { TopKSumSliderPreview } from './prune_preview/TopKSumSliderPreview';
 
 interface SingleLayerViewProps {
   modelAlias: string;
@@ -74,7 +74,7 @@ export default function SingleLayerView({
           <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
             <DataTypeSelector />
             <ColormapSelector />
-            <LayerSettings selectedNode={parentNode} />
+            <TopKSumSliderPreview selectedNode={parentNode} />
           </Panel>
         </SharedCanvas>
   );
