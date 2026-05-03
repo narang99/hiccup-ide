@@ -1,5 +1,5 @@
 from ninja import Schema
-from typing import List, Any
+from typing import List, Any, Optional
 
 
 class ModelNode(Schema):
@@ -42,6 +42,11 @@ class ActivationOut(Schema):
     coordinate_type: str
 
 
+class WorkGraphMeta(Schema):
+    work_alias: str
+    graph_alias: str
+
+
 class SaliencyMapOut(Schema):
     id: int
     coordinate: str
@@ -50,6 +55,7 @@ class SaliencyMapOut(Schema):
     shape: List[int]
     coordinate_type: str
     data_type: str
+    work_graph: Optional[WorkGraphMeta] = None
 
 
 class SaliencyMapListOut(Schema):

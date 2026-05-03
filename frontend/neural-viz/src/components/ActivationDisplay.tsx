@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import chroma from 'chroma-js';
 import { type ActivationData } from '../fetchers/activation';
+import { type LayerSaliencyMap } from '../fetchers/saliency_map';
 import { COLORMAPS, COLORMAP_META, normalizeSymmetric, type ColormapName } from '../utils/colormaps';
 import { useColormap } from '../hooks/useColormap';
 import { filterActivation } from '../activationFiltering';
 import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
 
+type BaseData = ActivationData | LayerSaliencyMap;
+
 interface ActivationDisplayProps {
   coordinate: string;
-  fetcher: (coordinate: string) => Promise<ActivationData>;
+  fetcher: (coordinate: string) => Promise<BaseData>;
   className?: string;
   maxSize?: number;
   /** Explicit override. If omitted, the global colormap from context is used. */
@@ -26,7 +29,7 @@ export const ActivationDisplay = ({
   filterAlgorithm = { type: 'Id' },
   absMax,
 }: ActivationDisplayProps) => {
-  const [activationData, setActivationData] = useState<ActivationData | null>(null);
+  const [activationData, setActivationData] = useState<BaseData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

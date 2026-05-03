@@ -3,43 +3,49 @@ import { loadLayerSaliencyMaps, loadBatchSaliencyMaps, type LayerSaliencyData } 
 
 interface SaliencyCacheState {
   cachedLayer: string | null;
+  cachedWorkAlias: string | null;
+  cachedGraphAlias: string | null;
   saliencyData: LayerSaliencyData | null;
   isLoading: boolean;
   error: string | null;
-  
-  fetchAndCacheLayerSaliency: (modelAlias: string, inputAlias: string, layerName: string) => Promise<LayerSaliencyData>;
-  fetchAndCacheBatchSaliency: (modelAlias: string, inputAlias: string, coordinates: string[], cacheKey: string) => Promise<LayerSaliencyData>;
-  getCachedData: (layerName: string) => LayerSaliencyData | null;
+
+  fetchAndCacheLayerSaliency: (modelAlias: string, inputAlias: string, layerName: string, workAlias?: string, graphAlias?: string) => Promise<LayerSaliencyData>;
+  fetchAndCacheBatchSaliency: (modelAlias: string, inputAlias: string, coordinates: string[], cacheKey: string, workAlias?: string, graphAlias?: string) => Promise<LayerSaliencyData>;
+  getCachedData: (layerName: string, workAlias?: string, graphAlias?: string) => LayerSaliencyData | null;
   clearCache: () => void;
 }
 
 export const useSaliencyCacheStore = create<SaliencyCacheState>((set, get) => ({
   cachedLayer: null,
+  cachedWorkAlias: null,
+  cachedGraphAlias: null,
   saliencyData: null,
   isLoading: false,
   error: null,
-  
-  fetchAndCacheLayerSaliency: async (modelAlias: string, inputAlias: string, layerName: string) => {
-    const { cachedLayer, saliencyData } = get();
-    
-    // Return cached data if we already have it for this layer
-    if (cachedLayer === layerName && saliencyData) {
+
+  fetchAndCacheLayerSaliency: async (modelAlias: string, inputAlias: string, layerName: string, workAlias?: string, graphAlias?: string) => {
+    const { cachedLayer, cachedWorkAlias, cachedGraphAlias, saliencyData } = get();
+
+    // Return cached data if we already have it for this layer and work graph
+    if (cachedLayer === layerName && cachedWorkAlias === (workAlias || null) && cachedGraphAlias === (graphAlias || null) && saliencyData) {
       return saliencyData;
     }
-    
+
     set({ isLoading: true, error: null });
-    
+
     try {
-      console.log(`Fetching saliency data for layer: ${layerName}`);
-      const data = await loadLayerSaliencyMaps(modelAlias, inputAlias, layerName);
-      
+      console.log(`Fetching saliency data for layer: ${layerName} (work: ${workAlias}, graph: ${graphAlias})`);
+      const data = await loadLayerSaliencyMaps(modelAlias, inputAlias, layerName, workAlias, graphAlias);
+
       set({
         cachedLayer: layerName,
+        cachedWorkAlias: workAlias || null,
+        cachedGraphAlias: graphAlias || null,
         saliencyData: data,
         isLoading: false,
         error: null,
       });
-      
+
       return data;
     } catch (error) {
       set({
@@ -49,28 +55,30 @@ export const useSaliencyCacheStore = create<SaliencyCacheState>((set, get) => ({
       throw error;
     }
   },
-  
-  fetchAndCacheBatchSaliency: async (modelAlias: string, inputAlias: string, coordinates: string[], cacheKey: string) => {
-    const { cachedLayer, saliencyData } = get();
-    
-    // Return cached data if we already have it for this cacheKey
-    if (cachedLayer === cacheKey && saliencyData) {
+
+  fetchAndCacheBatchSaliency: async (modelAlias: string, inputAlias: string, coordinates: string[], cacheKey: string, workAlias?: string, graphAlias?: string) => {
+    const { cachedLayer, cachedWorkAlias, cachedGraphAlias, saliencyData } = get();
+
+    // Return cached data if we already have it for this cacheKey and work graph
+    if (cachedLayer === cacheKey && cachedWorkAlias === (workAlias || null) && cachedGraphAlias === (graphAlias || null) && saliencyData) {
       return saliencyData;
     }
-    
+
     set({ isLoading: true, error: null });
-    
+
     try {
-      console.log(`Fetching batch saliency data for: ${cacheKey}`);
-      const data = await loadBatchSaliencyMaps(modelAlias, inputAlias, coordinates);
-      
+      console.log(`Fetching batch saliency data for: ${cacheKey} (work: ${workAlias}, graph: ${graphAlias})`);
+      const data = await loadBatchSaliencyMaps(modelAlias, inputAlias, coordinates, workAlias, graphAlias);
+
       set({
         cachedLayer: cacheKey,
+        cachedWorkAlias: workAlias || null,
+        cachedGraphAlias: graphAlias || null,
         saliencyData: data,
         isLoading: false,
         error: null,
       });
-      
+
       return data;
     } catch (error) {
       set({
@@ -80,15 +88,20 @@ export const useSaliencyCacheStore = create<SaliencyCacheState>((set, get) => ({
       throw error;
     }
   },
-  
-  getCachedData: (layerName: string) => {
-    const { cachedLayer, saliencyData } = get();
-    return cachedLayer === layerName ? saliencyData : null;
+
+  getCachedData: (layerName: string, workAlias?: string, graphAlias?: string) => {
+    const { cachedLayer, cachedWorkAlias, cachedGraphAlias, saliencyData } = get();
+    if (cachedLayer === layerName && cachedWorkAlias === (workAlias || null) && cachedGraphAlias === (graphAlias || null)) {
+      return saliencyData;
+    }
+    return null;
   },
-  
+
   clearCache: () => {
     set({
       cachedLayer: null,
+      cachedWorkAlias: null,
+      cachedGraphAlias: null,
       saliencyData: null,
       isLoading: false,
       error: null,

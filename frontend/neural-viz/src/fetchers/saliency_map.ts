@@ -1,23 +1,7 @@
-import { type ActivationData } from './activation';
 
-export async function loadSaliencyMapFromFile(coordinate: string): Promise<ActivationData> {
-  try {
-    const modelAlias = "example-model";
-    const inputAlias = "first-input";
-    const apiBaseUrl = "http://localhost:8000";
-    
-    const headers = {'Content-Type': 'application/json'};
-    const response = await fetch(`${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/single/${coordinate}/`, {headers,});
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: Failed to load saliency map for coordinate: ${coordinate}`);
-    }
-    const data = await response.json();
-    console.log(`Loaded saliency map for ${coordinate}:`, { shape: data.shape, dataType: typeof data.data });
-    return data;
-  } catch (error) {
-    console.error(`Error loading saliency map for ${coordinate}:`, error);
-    throw error;
-  }
+export interface WorkGraphMeta {
+  work_alias: string;
+  graph_alias: string;
 }
 
 export interface LayerSaliencyMap {
@@ -28,21 +12,31 @@ export interface LayerSaliencyMap {
   shape: number[];
   coordinate_type: string;
   data_type: string;
+  work_graph?: WorkGraphMeta | null;
 }
 
 export interface LayerSaliencyData {
   items: LayerSaliencyMap[];
 }
 
-export async function loadLayerSaliencyMaps(modelAlias: string, inputAlias: string, layerName: string): Promise<LayerSaliencyData> {
+export async function loadLayerSaliencyMaps(
+  modelAlias: string, 
+  inputAlias: string, 
+  layerName: string,
+  workAlias?: string,
+  graphAlias?: string
+): Promise<LayerSaliencyData> {
   try {
     const apiBaseUrl = "http://localhost:8000";
     const headers = {'Content-Type': 'application/json'};
     
-    const response = await fetch(
-      `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/layers/${layerName}/`,
-      { headers }
-    );
+    let url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/layers/${layerName}/`;
+    const params = new URLSearchParams();
+    if (workAlias) params.append('work_alias', workAlias);
+    if (graphAlias) params.append('graph_alias', graphAlias);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    const response = await fetch(url, { headers });
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: Failed to load layer saliency maps for layer: ${layerName}`);
@@ -60,19 +54,28 @@ export async function loadLayerSaliencyMaps(modelAlias: string, inputAlias: stri
   }
 }
 
-export async function loadBatchSaliencyMaps(modelAlias: string, inputAlias: string, coordinates: string[]): Promise<LayerSaliencyData> {
+export async function loadBatchSaliencyMaps(
+  modelAlias: string, 
+  inputAlias: string, 
+  coordinates: string[],
+  workAlias?: string,
+  graphAlias?: string
+): Promise<LayerSaliencyData> {
   try {
     const apiBaseUrl = "http://localhost:8000";
     const headers = {'Content-Type': 'application/json'};
     
-    const response = await fetch(
-      `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/batch/`,
-      { 
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ coordinates })
-      }
-    );
+    let url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/batch/`;
+    const params = new URLSearchParams();
+    if (workAlias) params.append('work_alias', workAlias);
+    if (graphAlias) params.append('graph_alias', graphAlias);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    const response = await fetch(url, { 
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ coordinates })
+    });
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: Failed to load batch saliency maps`);
@@ -87,6 +90,36 @@ export async function loadBatchSaliencyMaps(modelAlias: string, inputAlias: stri
     return data;
   } catch (error) {
     console.error(`Error loading batch saliency maps:`, error);
+    throw error;
+  }
+}
+
+export async function loadSaliencyMapFromFile(
+  coordinate: string,
+  workAlias?: string,
+  graphAlias?: string
+): Promise<LayerSaliencyMap> {
+  try {
+    const modelAlias = "example-model";
+    const inputAlias = "first-input";
+    const apiBaseUrl = "http://localhost:8000";
+    
+    const headers = {'Content-Type': 'application/json'};
+    let url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/single/${coordinate}/`;
+    const params = new URLSearchParams();
+    if (workAlias) params.append('work_alias', workAlias);
+    if (graphAlias) params.append('graph_alias', graphAlias);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    const response = await fetch(url, {headers,});
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to load saliency map for coordinate: ${coordinate}`);
+    }
+    const data = await response.json();
+    console.log(`Loaded saliency map for ${coordinate}:`, { shape: data.shape, dataType: typeof data.data });
+    return data;
+  } catch (error) {
+    console.error(`Error loading saliency map for ${coordinate}:`, error);
     throw error;
   }
 }

@@ -1,5 +1,5 @@
 import { loadActivationFromFile } from './activation';
-import { loadSaliencyMapFromFile } from './saliency_map';
+import { loadSaliencyMapFromFile, type LayerSaliencyMap } from './saliency_map';
 import { loadWeightFromFile } from './weight';
 
 export * from './activation';
@@ -11,7 +11,7 @@ export type FetcherType = "activation" | "saliency_map" | "weight";
 // Define the main fetchers interface here since it combines multiple fetcher types
 export interface NodeFetchers {
   activation?: (coordinate: string) => Promise<import('./activation').ActivationData>;
-  saliency_map?: (coordinate: string) => Promise<import('./activation').ActivationData>;
+  saliency_map?: (coordinate: string, workAlias?: string, graphAlias?: string) => Promise<LayerSaliencyMap>;
   weight?: (coordinate: string) => Promise<import('./weight').WeightData>;
 }
 

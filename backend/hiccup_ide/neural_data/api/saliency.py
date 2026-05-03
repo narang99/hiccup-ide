@@ -1,6 +1,7 @@
 from ninja import Router
 from django.shortcuts import get_object_or_404
 from django.http import Http404
+from typing import Optional, List as ListType
 from ..models import (
     Input,
     SaliencyMap,
@@ -14,30 +15,115 @@ from ..schemas import (
     BatchSaliencyMapsIn,
     NodeStatsOut,
     BatchWorkSaliencyMapIn,
+    WorkGraphMeta,
 )
 from .helpers import get_min_max, apply_algorithm
 
 router = Router()
+
+
+def get_work_graph_context(
+    input_obj: Input, work_alias: Optional[str], graph_alias: Optional[str]
+):
+    if not (work_alias and graph_alias):
+        return None, None
+
+    work_graph = WorkGraph.objects.filter(
+        work__input=input_obj, work__name=work_alias, alias=graph_alias
+    ).first()
+
+    if not work_graph:
+        return None, None
+
+    return work_graph, WorkGraphMeta(work_alias=work_alias, graph_alias=graph_alias)
+
+
+def get_saliency_maps_by_coordinates(
+    input_obj: Input,
+    coordinates: ListType[str],
+    work_alias: Optional[str] = None,
+    graph_alias: Optional[str] = None,
+    allow_missing: bool = False,
+) -> ListType[SaliencyMapOut]:
+    # 1. Resolve work context
+    work_graph, work_meta = get_work_graph_context(input_obj, work_alias, graph_alias)
+
+    results_dict = {}
+
+    # 2. Query WorkSaliencyMap if context exists
+    if work_graph:
+        work_maps = WorkSaliencyMap.objects.filter(
+            graph=work_graph, coordinate__in=coordinates
+        )
+        for wm in work_maps:
+            results_dict[wm.coordinate] = SaliencyMapOut(
+                id=wm.pk,
+                coordinate=wm.coordinate,
+                layer_name=wm.layer_name,
+                data=wm.data,
+                shape=wm.shape,
+                coordinate_type=wm.coordinate_type,
+                data_type=wm.data_type,
+                work_graph=work_meta,
+            )
+
+    # 3. Find missing coordinates and query base SaliencyMap
+    remaining_coords = [c for c in coordinates if c not in results_dict]
+    if remaining_coords:
+        base_maps = SaliencyMap.objects.filter(
+            input=input_obj, coordinate__in=remaining_coords
+        )
+        for bm in base_maps:
+            results_dict[bm.coordinate] = SaliencyMapOut(
+                id=bm.pk,
+                coordinate=bm.coordinate,
+                layer_name=bm.layer_name,
+                data=bm.data,
+                shape=bm.shape,
+                coordinate_type=bm.coordinate_type,
+                data_type=bm.data_type,
+                work_graph=None,
+            )
+
+    # 4. Verify all coordinates are found
+    if not allow_missing and len(results_dict) != len(set(coordinates)):
+        missing = set(coordinates) - set(results_dict.keys())
+        raise Http404(f"Saliency maps not found for coordinates: {list(missing)}")
+
+    # Return in the original order requested (filter out missing if allowed)
+    return [results_dict[c] for c in coordinates if c in results_dict]
+
 
 @router.get(
     "/models/{model_alias}/inputs/{input_alias}/saliency_maps/layers/{layer_name}/",
     response=SaliencyMapListOut,
 )
 def get_layer_saliency_maps(
-    request, model_alias: str, input_alias: str, layer_name: str
+    request,
+    model_alias: str,
+    input_alias: str,
+    layer_name: str,
+    work_alias: Optional[str] = None,
+    graph_alias: Optional[str] = None,
 ):
-    # Verify input exists
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
 
-    # Get all saliency maps for coordinates that start with the layer name
-    saliency_maps = SaliencyMap.objects.filter(
-        input=input_obj, coordinate__startswith=f"{layer_name}."
-    ).order_by("coordinate")
+    # First, get all coordinate names for this layer from base saliency maps
+    coordinates = list(
+        SaliencyMap.objects.filter(
+            input=input_obj, coordinate__startswith=f"{layer_name}."
+        )
+        .order_by("coordinate")
+        .values_list("coordinate", flat=True)
+    )
 
-    if not saliency_maps.exists():
+    if not coordinates:
         raise Http404(f"No saliency maps found for layer '{layer_name}'")
 
-    return {"items": list(saliency_maps)}
+    items = get_saliency_maps_by_coordinates(
+        input_obj, coordinates, work_alias, graph_alias
+    )
+    return {"items": items}
 
 
 @router.post(
@@ -45,31 +131,37 @@ def get_layer_saliency_maps(
     response=SaliencyMapListOut,
 )
 def get_batch_saliency_maps(
-    request, model_alias: str, input_alias: str, data: BatchSaliencyMapsIn
+    request,
+    model_alias: str,
+    input_alias: str,
+    data: BatchSaliencyMapsIn,
+    work_alias: Optional[str] = None,
+    graph_alias: Optional[str] = None,
 ):
-    # Verify input exists
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
-
-    # Get all saliency maps for the requested coordinates
-    saliency_maps = SaliencyMap.objects.filter(
-        input=input_obj, coordinate__in=data.coordinates
-    ).order_by("coordinate")
-
-    return {"items": list(saliency_maps)}
+    items = get_saliency_maps_by_coordinates(
+        input_obj, data.coordinates, work_alias, graph_alias
+    )
+    return {"items": items}
 
 
 @router.get(
     "/models/{model_alias}/inputs/{input_alias}/saliency_maps/single/{coordinate}/",
     response=SaliencyMapOut,
 )
-def get_saliency_map(request, model_alias: str, input_alias: str, coordinate: str):
-    saliency_map = get_object_or_404(
-        SaliencyMap,
-        input__model__alias=model_alias,
-        input__alias=input_alias,
-        coordinate=coordinate,
+def get_saliency_map(
+    request,
+    model_alias: str,
+    input_alias: str,
+    coordinate: str,
+    work_alias: Optional[str] = None,
+    graph_alias: Optional[str] = None,
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    items = get_saliency_maps_by_coordinates(
+        input_obj, [coordinate], work_alias, graph_alias
     )
-    return saliency_map
+    return items[0]
 
 
 @router.post(
@@ -77,18 +169,22 @@ def get_saliency_map(request, model_alias: str, input_alias: str, coordinate: st
     response=NodeStatsOut,
 )
 def get_saliency_maps_stats(
-    request, model_alias: str, input_alias: str, data: BatchSaliencyMapsIn
+    request,
+    model_alias: str,
+    input_alias: str,
+    data: BatchSaliencyMapsIn,
+    work_alias: Optional[str] = None,
+    graph_alias: Optional[str] = None,
 ):
     # Verify input exists
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
 
-    # Get all saliency maps for the requested coordinates
-    saliency_maps = list(
-        SaliencyMap.objects.filter(
-            input=input_obj, coordinate__in=data.coordinates
-        ).values_list("data", flat=True)
+    # Get all saliency maps for the requested coordinates using the helper
+    items = get_saliency_maps_by_coordinates(
+        input_obj, data.coordinates, work_alias, graph_alias, allow_missing=True
     )
 
+    saliency_maps = [item.data for item in items]
     min_val, max_val = get_min_max(saliency_maps)
     return {"min": min_val, "max": max_val}
 
