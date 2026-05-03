@@ -13,11 +13,13 @@ def test_get_layer_type(model_snapshot):
     conv_type = get_layer_type("layers.0", model)
     relu_type = get_layer_type("layers.1", model)
     linear_type = get_layer_type("layers.5", model)
+    input_type = get_layer_type("x", model)
     
     # Assert
     assert conv_type == "Conv2d"
     assert relu_type == "ReLU"
     assert linear_type == "Linear"
+    assert input_type == "Input"
 
 
 def test_activation_capture_includes_input_channels(model_snapshot):
@@ -56,6 +58,7 @@ def test_process_activations_to_coordinates(model_snapshot):
     assert "layers.0.out_0" in coordinate_data
     assert "layers.1.out_0" in coordinate_data
     assert "layers.2.out_0" in coordinate_data
+    assert "x.out_0" in coordinate_data
     
     # Test input channel coordinates exist
     assert "layers.0.out_0.in_0" in coordinate_data
@@ -79,6 +82,7 @@ def test_coordinate_data_structure(model_snapshot):
     conv_output_coord = coordinate_data["layers.0.out_0"]
     conv_input_coord = coordinate_data["layers.0.out_0.in_0"]
     linear_coord = coordinate_data["layers.5.out_0"]
+    input_coord = coordinate_data["x.out_0"]
     
     # Assert
     # Conv output channel structure
@@ -89,6 +93,11 @@ def test_coordinate_data_structure(model_snapshot):
     assert conv_output_coord["layer_type"] == "Conv2d"
     assert conv_output_coord["coordinate_type"] == "output_channel"
     assert conv_output_coord["shape"] == [14, 14]
+
+    # Input channel structure
+    assert input_coord["layer_type"] == "Input"
+    assert input_coord["coordinate_type"] == "output_channel"
+    assert input_coord["shape"] == [28, 28]
     
     # Conv input channel structure
     assert conv_input_coord["layer_type"] == "Conv2d"
@@ -132,4 +141,5 @@ def test_coordinate_count_matches_expected(model_snapshot):
     
     # Assert
     # Expected breakdown:
-    assert len(coordinate_data) == 330
+    # 330 original + 1 (x.out_0) = 331
+    assert len(coordinate_data) == 331

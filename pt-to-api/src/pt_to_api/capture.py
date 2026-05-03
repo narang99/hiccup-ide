@@ -116,13 +116,15 @@ def get_model_internals(model, input_tensor):
     snapshot = ModelSnapshot(model)
     model.eval()
 
+    if len(input_tensor.shape) == 3:
+        input_tensor = input_tensor.unsqueeze(0)
+
     with torch.no_grad():
-        if len(input_tensor.shape) == 3:
-            input_tensor = input_tensor.unsqueeze(0)
         _ = model(input_tensor)
 
     # Clean up hooks but keep the data
     activations = snapshot.activations
+    activations["x"] = input_tensor
     parameters = snapshot.parameters
     snapshot.remove()
     

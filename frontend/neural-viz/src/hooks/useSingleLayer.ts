@@ -3,6 +3,7 @@ import { type Node, type Edge } from '@xyflow/react';
 import { useModelData } from './useModelData';
 import { createConv2dLayer } from '../layerCreators/conv';
 import { createReLULayer } from '../layerCreators/relu';
+import { createInputLayer } from '../layerCreators/input';
 import { createOtherLayer } from '../layerCreators/default';
 import { type FetcherType } from '../fetchers';
 import { type Direction } from '../types/direction';
@@ -44,6 +45,15 @@ export const useSingleLayer = (
         break;
       case 'ReLU':
         layerNodes = createReLULayer(
+          modelNode, 
+          basePosition, 
+          fetcherType, 
+          layerBlockHandleDirection, 
+          directionInsideLayerBlock
+        );
+        break;
+      case 'Input':
+        layerNodes = createInputLayer(
           modelNode, 
           basePosition, 
           fetcherType, 

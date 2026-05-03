@@ -3,6 +3,7 @@ import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/reac
 import { type FetcherType } from '../fetchers';
 import { createConv2dLayer } from '../layerCreators/conv';
 import { createReLULayer } from '../layerCreators/relu';
+import { createInputLayer } from '../layerCreators/input';
 import { createOtherLayer } from '../layerCreators/default';
 import { toggleDirection, type Direction } from '../types/direction';
 import { useModelData } from './useModelData';
@@ -46,6 +47,9 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
           break;
         case 'ReLU':
           layerNodes = createReLULayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock, absMax);
+          break;
+        case 'Input':
+          layerNodes = createInputLayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock, absMax);
           break;
         default:
           layerNodes = createOtherLayer(modelNode, basePosition, layerBlockHandleDirection);

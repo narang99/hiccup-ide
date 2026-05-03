@@ -17,6 +17,8 @@ def test_get_model_internals_returns_activations_and_parameters(test_model, test
     assert isinstance(parameters, dict)
     assert len(activations) > 0
     assert len(parameters) > 0
+    assert "x" in activations
+    assert activations["x"].shape == (1, 1, 28, 28)
 
 
 def test_model_snapshot_captures_layer_outputs(test_model, test_input):

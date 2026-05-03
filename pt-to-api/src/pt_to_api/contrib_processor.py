@@ -2,9 +2,22 @@ import torch
 from typing import Any, Optional
 
 
+def get_layer_type(layer_name: str, model=None) -> str:
+    """Determine the layer type from the model structure."""
+    if layer_name == "x":
+        return "Input"
+    if model is None:
+        return "Unknown"
+    for name, module in model.named_modules():
+        if name == layer_name:
+            return module.__class__.__name__
+    return "Unknown"
+
+
 def generate_contrib_coordinates(
     total_contribs: dict[str, torch.Tensor],
     sample_idx: int = 0,
+    model=None,
 ) -> dict[str, dict]:
     """
     Convert the total_contribs dict returned by get_contribs_for_inp_vectorized
@@ -32,7 +45,7 @@ def generate_contrib_coordinates(
             shape : []
 
     Input saliency               →  shape [N, 1, H, W]  (treated as C=1 channel)
-        "inputs.out_0"
+        "x.out_0"
             data  : 2-D list [H, W]
             shape : [H, W]
     """
@@ -50,6 +63,7 @@ def generate_contrib_coordinates(
         t = tensor[sample_idx]  # drop the batch dim
 
         ndim = t.ndim
+        layer_type = get_layer_type(key, model)
 
         # ── Slice tensors: [C_out, C_in, H, W] ──────────────────────────────
         if ndim == 4 and key.endswith(".slice"):
@@ -64,6 +78,7 @@ def generate_contrib_coordinates(
                         "shape": [h, w],
                         "coordinate_type": "input_output_channel",
                         "data_type": "contrib",
+                        "layer_type": "Conv2d",
                     }
             continue
 
@@ -79,6 +94,7 @@ def generate_contrib_coordinates(
                     "shape": [h, w],
                     "coordinate_type": "output_channel",
                     "data_type": "contrib",
+                    "layer_type": layer_type,
                 }
             continue
 
@@ -94,6 +110,7 @@ def generate_contrib_coordinates(
                     "shape": [],
                     "coordinate_type": "neuron",
                     "data_type": "contrib",
+                    "layer_type": layer_type,
                 }
             continue
 
@@ -107,6 +124,7 @@ def generate_contrib_coordinates(
 def process_contribs_to_coordinates(
     total_contribs: dict[str, torch.Tensor],
     sample_idx: int = 0,
+    model=None,
 ) -> dict[str, dict]:
     """
     Public entry point. Converts total_contribs (from
@@ -118,6 +136,8 @@ def process_contribs_to_coordinates(
         The dict returned by get_contribs_for_inp_vectorized.
     sample_idx : int
         Which sample in the batch to extract (default: 0).
+    model : torch.nn.Module, optional
+        The model to extract layer types from.
 
     Returns
     -------
@@ -125,8 +145,7 @@ def process_contribs_to_coordinates(
         Keys are coordinate strings, values are dicts with
         {"data", "shape", "coordinate_type", "data_type"}.
     """
-    return generate_contrib_coordinates(total_contribs, sample_idx)
-
+    return generate_contrib_coordinates(total_contribs, sample_idx, model)
 
 
 def get_contrib_coordinate_data(

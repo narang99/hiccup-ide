@@ -6,6 +6,8 @@ from typing import Dict, Any, Tuple, Optional
 
 def get_layer_type(layer_name: str, model) -> str:
     """Determine the layer type from the model structure."""
+    if layer_name == "x":
+        return "Input"
     for name, module in model.named_modules():
         if name == layer_name:
             return module.__class__.__name__
@@ -21,6 +23,7 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
     - Conv layers: {layer_name}.out_{out_channel}.in_{in_channel} and {layer_name}.out_{out_channel}
     - ReLU layers: {layer_name}.out_{out_channel}
     - Linear layers: {layer_name}.out_{out_neuron} (returns zeros for now)
+    - Input: {layer_name}.out_{channel}
     """
     coordinate_data = {}
     
@@ -47,7 +50,7 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
         layer_type = get_layer_type(layer_name, model)
 
         
-        if layer_type in ["Conv2d", "ReLU"]:
+        if layer_type in ["Conv2d", "ReLU", "Input"]:
             if len(activation.shape) >= 3:  # [channels, height, width]
                 channels, height, width = activation.shape[0], activation.shape[1], activation.shape[2]
                 

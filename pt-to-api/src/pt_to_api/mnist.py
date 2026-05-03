@@ -100,7 +100,7 @@ def get_mnist_dataloader(fraction=1.0, **kwargs):
 
 def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, last_layer_key, device):
     acts, parameters = get_model_internals(model, batch_inp_tens)
-    acts["inputs"] = batch_inp_tens
+    acts["x"] = batch_inp_tens
 
     acts = to_device(acts, device)
 
@@ -146,9 +146,9 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
         total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
 
     if last_layer_index >= 0:  # layers.0
-        total_contribs["inputs"], total_contribs["layers.0.slice"] = (
+        total_contribs["x"], total_contribs["layers.0.slice"] = (
             v2.conv_calculate_contribs_for_all(
-                acts["inputs"],
+                acts["x"],
                 model.get_submodule("layers.0"),
                 total_contribs["layers.0"],
             )
