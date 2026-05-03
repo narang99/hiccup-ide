@@ -1,6 +1,7 @@
 import torch
 import json
 import numpy as np
+import re
 from typing import Dict, Any, Tuple, Optional
 
 
@@ -37,23 +38,40 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
         # Check if this is an input channel coordinate (already computed by hooks)
         if ".out_" in layer_name and ".in_" in layer_name:
             # This is already a coordinate like "layers.0.out_3.in_1"
-            
+            out_ch = None
+            in_ch = None
+            out_match = re.search(r"\.out_(\d+)", layer_name)
+            if out_match:
+                out_ch = int(out_match.group(1))
+            in_match = re.search(r"\.in_(\d+)", layer_name)
+            if in_match:
+                in_ch = int(in_match.group(1))
+
             coordinate_data[layer_name] = {
                 "layer_name": layer_name,
-                "data": activation[0].numpy().tolist() if len(activation.shape) > 2 else activation.numpy().tolist(),
-                "shape": list(activation.shape[-2:]) if len(activation.shape) > 2 else list(activation.shape),
+                "data": activation[0].numpy().tolist()
+                if len(activation.shape) > 2
+                else activation.numpy().tolist(),
+                "shape": list(activation.shape[-2:])
+                if len(activation.shape) > 2
+                else list(activation.shape),
                 "layer_type": "Conv2d",  # Input channel coords are always from conv layers
-                "coordinate_type": "input_output_channel"
+                "coordinate_type": "input_output_channel",
+                "output_channel": out_ch,
+                "input_channel": in_ch,
             }
             continue
-            
+
         layer_type = get_layer_type(layer_name, model)
 
-        
         if layer_type in ["Conv2d", "ReLU", "Input"]:
             if len(activation.shape) >= 3:  # [channels, height, width]
-                channels, height, width = activation.shape[0], activation.shape[1], activation.shape[2]
-                
+                channels, height, width = (
+                    activation.shape[0],
+                    activation.shape[1],
+                    activation.shape[2],
+                )
+
                 # For each output channel
                 for out_ch in range(channels):
                     # Main view coordinate: individual output channel
@@ -64,13 +82,14 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
                         # "input": activation[input_slice_coord].numpy().tolist(),
                         "shape": [height, width],
                         "layer_type": layer_type,
-                        "coordinate_type": "output_channel"
+                        "coordinate_type": "output_channel",
+                        "output_channel": out_ch,
                     }
-            
+
         elif layer_type == "Linear":
             if len(activation.shape) >= 1:  # [neurons]
                 neurons = activation.shape[0]
-                
+
                 # For now, return zeros for linear layers
                 for neuron in range(neurons):
                     coord = f"{layer_name}.out_{neuron}"
@@ -79,7 +98,8 @@ def generate_coordinates(activations: Dict[str, torch.Tensor], parameters: Dict[
                         "data": 0.0,  # Single value for linear neurons
                         "shape": [],
                         "layer_type": layer_type,
-                        "coordinate_type": "neuron"
+                        "coordinate_type": "neuron",
+                        "output_channel": neuron,
                     }
             
         elif layer_type == "Flatten":

@@ -77,6 +77,8 @@ class Command(BaseCommand):
                                 "shape": activation_data["shape"],
                                 "layer_type": activation_data["layer_type"],
                                 "coordinate_type": activation_data["coordinate_type"],
+                                "output_channel": activation_data.get("output_channel"),
+                                "input_channel": activation_data.get("input_channel"),
                             },
                         )
 
@@ -89,6 +91,12 @@ class Command(BaseCommand):
                             activation.coordinate_type = activation_data[
                                 "coordinate_type"
                             ]
+                            activation.output_channel = activation_data.get(
+                                "output_channel"
+                            )
+                            activation.input_channel = activation_data.get(
+                                "input_channel"
+                            )
                             activation.save()
 
                         activation_count += 1
@@ -122,6 +130,8 @@ class Command(BaseCommand):
                                 "shape": saliency_data["shape"],
                                 "coordinate_type": saliency_data["coordinate_type"],
                                 "data_type": saliency_data.get("data_type", "contrib"),
+                                "output_channel": saliency_data.get("output_channel"),
+                                "input_channel": saliency_data.get("input_channel"),
                             },
                         )
 
@@ -135,6 +145,12 @@ class Command(BaseCommand):
                             ]
                             saliency_map.data_type = saliency_data.get(
                                 "data_type", "contrib"
+                            )
+                            saliency_map.output_channel = saliency_data.get(
+                                "output_channel"
+                            )
+                            saliency_map.input_channel = saliency_data.get(
+                                "input_channel"
                             )
                             saliency_map.save()
 
@@ -169,6 +185,8 @@ class Command(BaseCommand):
                                 "layer_type": weights_data["layer_type"],
                                 "coordinate_type": weights_data["coordinate_type"],
                                 "data_type": weights_data["data_type"],
+                                "output_channel": weights_data.get("output_channel"),
+                                "input_channel": weights_data.get("input_channel"),
                             },
                         )
 
@@ -180,6 +198,8 @@ class Command(BaseCommand):
                             weight.layer_type = weights_data["layer_type"]
                             weight.coordinate_type = weights_data["coordinate_type"]
                             weight.data_type = weights_data["data_type"]
+                            weight.output_channel = weights_data.get("output_channel")
+                            weight.input_channel = weights_data.get("input_channel")
                             weight.save()
 
                         weights_count += 1

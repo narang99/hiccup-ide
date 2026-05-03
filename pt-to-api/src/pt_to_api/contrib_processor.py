@@ -79,6 +79,8 @@ def generate_contrib_coordinates(
                         "coordinate_type": "input_output_channel",
                         "data_type": "contrib",
                         "layer_type": "Conv2d",
+                        "output_channel": out_ch,
+                        "input_channel": in_ch,
                     }
             continue
 
@@ -95,6 +97,7 @@ def generate_contrib_coordinates(
                     "coordinate_type": "output_channel",
                     "data_type": "contrib",
                     "layer_type": layer_type,
+                    "output_channel": ch,
                 }
             continue
 
@@ -111,6 +114,7 @@ def generate_contrib_coordinates(
                     "coordinate_type": "neuron",
                     "data_type": "contrib",
                     "layer_type": layer_type,
+                    "output_channel": neuron,
                 }
             continue
 

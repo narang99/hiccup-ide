@@ -45,6 +45,8 @@ class ActivationOut(Schema):
     shape: List[int]
     layer_type: str
     coordinate_type: str
+    output_channel: Optional[int] = None
+    input_channel: Optional[int] = None
     work_graph: Optional[WorkGraphMeta] = None
 
 
@@ -56,6 +58,8 @@ class SaliencyMapOut(Schema):
     shape: List[int]
     coordinate_type: str
     data_type: str
+    output_channel: Optional[int] = None
+    input_channel: Optional[int] = None
     work_graph: Optional[WorkGraphMeta] = None
 
 
@@ -71,6 +75,8 @@ class WeightOut(Schema):
     layer_type: str
     coordinate_type: str
     data_type: str
+    output_channel: Optional[int] = None
+    input_channel: Optional[int] = None
     work_graph: Optional[WorkGraphMeta] = None
 
 

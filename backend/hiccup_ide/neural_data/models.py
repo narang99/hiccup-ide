@@ -36,6 +36,8 @@ class Activation(models.Model):
     shape = models.JSONField()
     layer_type = models.CharField(max_length=100)
     coordinate_type = models.CharField(max_length=100)
+    output_channel = models.IntegerField(null=True, blank=True)
+    input_channel = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -52,6 +54,8 @@ class SaliencyMapData(models.Model):
     shape = models.JSONField()
     coordinate_type = models.CharField(max_length=100)
     data_type = models.CharField(max_length=100)
+    output_channel = models.IntegerField(null=True, blank=True)
+    input_channel = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -80,6 +84,8 @@ class Weight(models.Model):
     layer_type = models.CharField(max_length=100)
     coordinate_type = models.CharField(max_length=100)
     data_type = models.CharField(max_length=100)  # "weights" or "bias"
+    output_channel = models.IntegerField(null=True, blank=True)
+    input_channel = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

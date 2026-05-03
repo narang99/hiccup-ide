@@ -66,7 +66,9 @@ def generate_weights_coordinates(conv_weights: Dict[str, torch.Tensor], conv_bia
                     "shape": [kernel_h, kernel_w],
                     "layer_type": "Conv2d",
                     "coordinate_type": "input_output_channel",
-                    "data_type": "weights"
+                    "data_type": "weights",
+                    "output_channel": out_ch,
+                    "input_channel": in_ch,
                 }
             
             # Create coordinate for bias (if exists)
@@ -80,7 +82,8 @@ def generate_weights_coordinates(conv_weights: Dict[str, torch.Tensor], conv_bia
                     "shape": [],  # Scalar has no shape
                     "layer_type": "Conv2d",
                     "coordinate_type": "output_channel_bias",
-                    "data_type": "bias"
+                    "data_type": "bias",
+                    "output_channel": out_ch,
                 }
     
     return coordinate_data
