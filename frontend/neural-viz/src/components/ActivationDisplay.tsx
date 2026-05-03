@@ -111,9 +111,31 @@ export const ActivationDisplay = ({
         (flatData.length > 0 ? computeAbsMax(flatData) : 1)
       );
 
+      const hasWorkGraph = 'work_graph' in activationData && activationData.work_graph != null;
+
       return (
-        <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: 'hidden' }}>
-          <svg width={"100%"} height={"100%"} viewBox={`0 0 ${width} ${height}`}>
+        <div style={{ 
+          width: "100%", 
+          height: "100%", 
+          borderRadius: 4, 
+          overflow: 'hidden',
+          position: 'relative',
+          boxSizing: 'border-box'
+        }}>
+          {hasWorkGraph && (
+            <div style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#ef4444',
+              boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
+              zIndex: 10
+            }} />
+          )}
+          <svg width={"100%"} height={"100%"} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
             {data.map((row, y) =>
               row.map((value, x) => (
                 <rect
@@ -137,6 +159,7 @@ export const ActivationDisplay = ({
       const t = normalizeSymmetric(value, 3); // ±3 as default range
       const bg = scale(t).hex();
       const textColor = chroma(bg).luminance() > 0.35 ? '#000' : '#fff';
+      const hasWorkGraph = 'work_graph' in activationData && activationData.work_graph != null;
 
       return (
         <div
@@ -151,14 +174,30 @@ export const ActivationDisplay = ({
             fontSize: 10,
             fontWeight: 700,
             color: textColor,
+            position: 'relative',
+            boxSizing: 'border-box'
           }}
         >
+          {hasWorkGraph && (
+            <div style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#ef4444',
+              boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
+              zIndex: 10
+            }} />
+          )}
           {value.toFixed(2)}
         </div>
       );
     }
 
     // ── Fallback ────────────────────────────────────────────────────────────
+    const hasWorkGraph = 'work_graph' in activationData && activationData.work_graph != null;
     return (
       <div
         style={{
@@ -172,8 +211,23 @@ export const ActivationDisplay = ({
           justifyContent: 'center',
           fontSize: 12,
           color: 'rgba(255,255,255,0.4)',
+          position: 'relative',
+          boxSizing: 'border-box'
         }}
       >
+        {hasWorkGraph && (
+          <div style={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: '#ef4444',
+            boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
+            zIndex: 10
+          }} />
+        )}
         ?
       </div>
     );

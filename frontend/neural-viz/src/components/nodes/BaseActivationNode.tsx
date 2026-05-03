@@ -5,6 +5,9 @@ import { type HandleDirection } from "./ActivationFlowNode";
 import SingleOrNoHandle from "../SingleOrNoHandle";
 import type { ActivationFilterAlgorithm } from "../../types/activationFiltering";
 
+import { useFetcherType } from "../../hooks/useFetcherType";
+import { useCallback } from "react";
+
 interface BaseActivationNodeProps {
     coordinate: string;
     fetchers?: NodeFetchers;
@@ -34,7 +37,14 @@ export default function BaseActivationNode({
     filterAlgorithm,
     absMax
 }: BaseActivationNodeProps) {
-    const fetcher = fetchers?.[fetcherType];
+    const { workAlias, graphAlias } = useFetcherType();
+
+    const fetcher = useCallback((coord: string) => {
+        const f = fetchers?.[fetcherType];
+        if (!f) return Promise.reject("No fetcher");
+        
+        return f(coord, workAlias || undefined, graphAlias || undefined);
+    }, [fetchers, fetcherType, workAlias, graphAlias]);
 
     const content = (
         <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}>

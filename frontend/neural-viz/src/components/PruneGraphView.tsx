@@ -39,7 +39,10 @@ export default function PruneGraphView() {
   }, [modelAlias, inputAlias, workflowName, graphAlias]);
 
   useEffect(() => {
-    fetchStatus();
+    const load = async () => {
+      await fetchStatus();
+    };
+    load();
   }, [fetchStatus]);
 
   // Find the first layer that is not done
