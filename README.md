@@ -166,3 +166,6 @@ Problem:
   - In the older algorithm, we used to start by slice level only i thiink (do slice, then do input)
   - This algorithm fits better with this workflow. Ill simply implement that, we have the code anyways.  
 - I need to think this through better, time for some actual system design lol
+
+I need to create this iteratively, the model strugglees a lot
+- Create a Start pruning button which creates a new view with the graph alias

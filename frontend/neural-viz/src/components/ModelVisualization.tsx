@@ -5,6 +5,7 @@ import { Panel } from '@xyflow/react';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { LayerSettings } from './LayerSettings';
+import { PruneGraphButton } from './PruneGraphButton';
 
 export default function ModelVisualization() {
   const { fetcherType } = useFetcherType();
@@ -34,6 +35,7 @@ export default function ModelVisualization() {
           <DataTypeSelector />
           <ColormapSelector />
           <LayerSettings />
+          <PruneGraphButton />
         </Panel>
     </SharedCanvas>
   );

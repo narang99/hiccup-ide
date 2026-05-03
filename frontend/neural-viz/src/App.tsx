@@ -5,6 +5,7 @@ import ModelVisualization from './components/ModelVisualization';
 // import KernelDetailView from './components/KernelDetailView';
 import KernelSliceContribsView from './components/KernelSliceContribsView';
 import SingleLayerVisualization from './components/SingleLayerVisualization';
+import PruneGraphView from './components/PruneGraphView';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             {/* <Route path="/kernel/:nodeId/:kernelIndex" element={<KernelDetailView />} /> */}
             <Route path="/kernel/:nodeId/:kernelIndex" element={<KernelSliceContribsView />} />
             <Route path="/single-layer" element={<SingleLayerVisualization />} />
+            <Route path="/prune-graph/" element={<PruneGraphView />} />
           </Routes>
         </Router>
       </ColormapProvider>

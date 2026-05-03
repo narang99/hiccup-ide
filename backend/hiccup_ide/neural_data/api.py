@@ -460,3 +460,26 @@ def save_pruned_layer(request, model_alias: str, input_alias: str, workflow_name
         "updated_count": updated_count,
         "coordinates_processed": len(current_saliency_maps)
     }
+
+@router.post("/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/")
+def create_or_update_work_graph(request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str):
+    input_obj = get_object_or_404(
+        Input, 
+        model__alias=model_alias, 
+        alias=input_alias
+    )
+    
+    # Get or create the work/workflow
+    work, _ = Work.objects.get_or_create(input=input_obj, name=workflow_name)
+    
+    # Create or update the work graph
+    work_graph, created = WorkGraph.objects.get_or_create(
+        work=work,
+        alias=graph_alias
+    )
+    
+    return {
+        "id": work_graph.pk,
+        "alias": work_graph.alias,
+        "created": created
+    }
