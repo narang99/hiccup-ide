@@ -73,3 +73,21 @@ class BatchSaliencyMapsIn(Schema):
 class NodeStatsOut(Schema):
     min: float
     max: float
+
+
+class ThresholdAlgorithm(Schema):
+    type: str = "ThresholdAlgorithm"
+    threshold: float
+
+
+class IdAlgorithm(Schema):
+    type: str = "Id"
+
+
+class CoordinateAlgorithmIn(Schema):
+    coordinate: str
+    algorithm: dict  # Using dict for flexible discriminated union in Ninja
+
+
+class BatchWorkSaliencyMapIn(Schema):
+    items: List[CoordinateAlgorithmIn]

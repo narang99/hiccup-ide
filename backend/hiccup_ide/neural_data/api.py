@@ -21,9 +21,27 @@ from .schemas import (
     LayerSaliencyMapsOut,
     BatchSaliencyMapsIn,
     NodeStatsOut,
+    BatchWorkSaliencyMapIn,
 )
 
 router = Router()
+
+
+def apply_algorithm(data, algorithm_dict):
+    alg_type = algorithm_dict.get("type")
+    if alg_type == "Id":
+        return data
+    elif alg_type == "ThresholdAlgorithm":
+        threshold = algorithm_dict.get("threshold", 0)
+        # Handle list of lists (2D array)
+        if isinstance(data, list):
+            return [
+                [val if abs(val) >= threshold else 0 for val in row] for row in data
+            ]
+        # Handle single value
+        elif isinstance(data, (int, float)):
+            return data if abs(data) >= threshold else 0
+    return data
 
 
 @router.get("/")
@@ -204,7 +222,6 @@ def get_saliency_maps_stats(
     return {"min": min_val, "max": max_val}
 
 
-
 @router.get(
     "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/status/"
 )
@@ -240,25 +257,68 @@ def get_workflow_pruning_status(
 
     return {"layers": {"done": done_layers, "total": TOTAL_LAYERS}}
 
-@router.post("/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/")
-def create_or_update_work_graph(request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str):
-    input_obj = get_object_or_404(
-        Input, 
-        model__alias=model_alias, 
-        alias=input_alias
-    )
-    
+
+@router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/"
+)
+def create_or_update_work_graph(
+    request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+
     # Get or create the work/workflow
     work, _ = Work.objects.get_or_create(input=input_obj, name=workflow_name)
-    
+
     # Create or update the work graph
-    work_graph, created = WorkGraph.objects.get_or_create(
-        work=work,
-        alias=graph_alias
-    )
-    
-    return {
-        "id": work_graph.pk,
-        "alias": work_graph.alias,
-        "created": created
-    }
+    work_graph, created = WorkGraph.objects.get_or_create(work=work, alias=graph_alias)
+
+    return {"id": work_graph.pk, "alias": work_graph.alias, "created": created}
+
+
+@router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
+)
+def create_batch_work_saliency_maps(
+    request,
+    model_alias: str,
+    input_alias: str,
+    workflow_name: str,
+    graph_alias: str,
+    payload: BatchWorkSaliencyMapIn,
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    work = get_object_or_404(Work, input=input_obj, name=workflow_name)
+    graph = get_object_or_404(WorkGraph, work=work, alias=graph_alias)
+
+    created_count = 0
+    updated_count = 0
+
+    for item in payload.items:
+        # Get original saliency map
+        orig_map = get_object_or_404(
+            SaliencyMap, input=input_obj, coordinate=item.coordinate
+        )
+
+        # Apply algorithm
+        filtered_data = apply_algorithm(orig_map.data, item.algorithm)
+
+        # Create or update WorkSaliencyMap
+        work_map, created = WorkSaliencyMap.objects.update_or_create(
+            input=input_obj,
+            coordinate=item.coordinate,
+            graph=graph,
+            defaults={
+                "data": filtered_data,
+                "shape": orig_map.shape,
+                "layer_name": orig_map.layer_name,
+                "coordinate_type": orig_map.coordinate_type,
+                "data_type": orig_map.data_type,
+            },
+        )
+
+        if created:
+            created_count += 1
+        else:
+            updated_count += 1
+
+    return {"created": created_count, "updated": updated_count}

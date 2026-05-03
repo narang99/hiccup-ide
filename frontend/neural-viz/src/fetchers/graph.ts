@@ -1,3 +1,5 @@
+import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 interface WorkGraphResponse {
@@ -53,6 +55,41 @@ export async function getPruningStatus(
 
   if (!response.ok) {
     throw new Error('Failed to fetch pruning status');
+  }
+
+  return response.json();
+}
+
+export interface CoordinateAlgorithm {
+  coordinate: string;
+  algorithm: ActivationFilterAlgorithm;
+}
+
+export interface BatchWorkSaliencyMapsResponse {
+  created: number;
+  updated: number;
+}
+
+export async function saveWorkSaliencyMaps(
+  modelAlias: string,
+  inputAlias: string,
+  workflowName: string,
+  graphAlias: string,
+  items: CoordinateAlgorithm[]
+): Promise<BatchWorkSaliencyMapsResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/saliency_maps/`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ items }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to save work saliency maps');
   }
 
   return response.json();

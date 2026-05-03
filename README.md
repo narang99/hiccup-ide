@@ -198,3 +198,4 @@ I need to create this iteratively, the model strugglees a lot
   - now for backend, we just push the actual contribs back easy, no need to send back the threshold for now (although there are now two sources of truth (the threshold, and the saliency map))
   - but i cant do much about it, its fine
 - i actually dont need to store the threhsold at all, the user cannot go back lol
+  - good now, we just keep a "Save and Next" button which simply triggers creating new contribs by pushing the contrib algorithm

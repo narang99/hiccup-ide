@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNodesState, useEdgesState, Panel } from '@xyflow/react';
-import { getPruningStatus, type PruningStatusResponse } from '../fetchers/graph';
+import { getPruningStatus, saveWorkSaliencyMaps, type PruningStatusResponse } from '../fetchers/graph';
 import SharedCanvas from './SharedCanvas';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useSingleLayer } from '../hooks/useSingleLayer';
@@ -9,11 +9,13 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 import type { SelectedNode } from '../types/node';
 import { TopKSumSliderPreview } from './prune_preview/TopKSumSliderPreview';
+import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
 
 export default function PruneGraphView() {
   const [status, setStatus] = useState<PruningStatusResponse | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Hardcoded values as specified in requirements
   const modelAlias = 'example-model';
@@ -24,21 +26,21 @@ export default function PruneGraphView() {
 
   const { fetcherType } = useFetcherType();
 
-  useEffect(() => {
-    async function fetchStatus() {
-      try {
-        const data = await getPruningStatus(modelAlias, inputAlias, workflowName, graphAlias);
-        setStatus(data);
-      } catch (err) {
-        console.error('Failed to fetch pruning status:', err);
-        setStatusError('Failed to load pruning progress.');
-      } finally {
-        setStatusLoading(false);
-      }
+  const fetchStatus = useCallback(async () => {
+    try {
+      const data = await getPruningStatus(modelAlias, inputAlias, workflowName, graphAlias);
+      setStatus(data);
+    } catch (err) {
+      console.error('Failed to fetch pruning status:', err);
+      setStatusError('Failed to load pruning progress.');
+    } finally {
+      setStatusLoading(false);
     }
-
-    fetchStatus();
   }, [modelAlias, inputAlias, workflowName, graphAlias]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
   // Find the first layer that is not done
   const firstIncompleteLayer = status?.layers.total.find(
@@ -65,6 +67,30 @@ export default function PruneGraphView() {
 
   const maybeParentNode = nodes.find(n => n.type === "LayerNode");
   const parentNode = (maybeParentNode === undefined) ? null : maybeParentNode as unknown as SelectedNode;
+
+  const handleSaveAndNext = async () => {
+    if (!parentNode) return;
+    
+    setIsSaving(true);
+    const items = nodes
+      .filter(n => n.type === "ActivationFlowNode" && n.parentId === parentNode.id)
+      .map(n => ({
+        coordinate: n.data.coordinate as string,
+        algorithm: (n.data.filterAlgorithm as ActivationFilterAlgorithm) || { type: 'Id' }
+      }));
+
+    try {
+      await saveWorkSaliencyMaps(modelAlias, inputAlias, workflowName, graphAlias, items);
+      
+      // Refresh status to move to next layer
+      await fetchStatus();
+    } catch (err) {
+      console.error('Failed to save and next:', err);
+      alert('Failed to save progress.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (statusLoading) {
     return <div className="flex items-center justify-center h-screen">Loading pruning status...</div>;
@@ -117,6 +143,25 @@ export default function PruneGraphView() {
           <DataTypeSelector />
           <ColormapSelector />
           <TopKSumSliderPreview selectedNode={parentNode} />
+          
+          <button
+            onClick={handleSaveAndNext}
+            disabled={isSaving}
+            style={{
+              padding: '10px 20px',
+              background: isSaving ? 'rgba(168, 85, 247, 0.5)' : '#a855f7',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 14px 0 rgba(168, 85, 247, 0.39)',
+              transition: 'all 0.2s ease',
+              marginTop: '10px'
+            }}
+          >
+            {isSaving ? 'Saving...' : 'Save and Next'}
+          </button>
         </Panel>
 
         {/* Status Overlay */}
