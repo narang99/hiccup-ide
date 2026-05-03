@@ -199,3 +199,12 @@ I need to create this iteratively, the model strugglees a lot
   - but i cant do much about it, its fine
 - i actually dont need to store the threhsold at all, the user cannot go back lol
   - good now, we just keep a "Save and Next" button which simply triggers creating new contribs by pushing the contrib algorithm
+- prune support done basic
+  - now i need support to re calculate saliency maps
+  - Currently pruning always gets raw saliency maps, prunes, then commits a new pruned map
+  - now instead, we want to recalculate pruned maps for each layer again after a prune commit 
+- in this case, it makes sense to have a workbench pruning temp graph with these calculations
+  - we prune, it updates the contribs of that layer
+  - then we recalculate, it sets the new contribs for all layers before this layer
+  - then we prune, update the contribs of that layer, and again and again
+  - onceocne done, we create prune saliency maps. easy

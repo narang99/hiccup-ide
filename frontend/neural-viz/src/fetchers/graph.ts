@@ -36,6 +36,7 @@ export interface PruningStatusResponse {
     done: string[];
     total: string[];
   };
+  session_active: boolean;
 }
 
 export async function getPruningStatus(
@@ -90,6 +91,52 @@ export async function saveWorkSaliencyMaps(
 
   if (!response.ok) {
     throw new Error('Failed to save work saliency maps');
+  }
+
+  return response.json();
+}
+
+export async function startPruning(
+  modelAlias: string,
+  inputAlias: string,
+  workflowName: string,
+  graphAlias: string
+): Promise<{ status: string; cloned_count: number }> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/start_pruning/`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to start pruning session');
+  }
+
+  return response.json();
+}
+
+export async function finalizePruning(
+  modelAlias: string,
+  inputAlias: string,
+  workflowName: string,
+  graphAlias: string
+): Promise<{ status: string; committed_count: number }> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/finalize_pruning/`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to finalize pruning session');
   }
 
   return response.json();

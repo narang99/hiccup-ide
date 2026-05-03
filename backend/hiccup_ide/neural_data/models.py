@@ -120,3 +120,15 @@ class WorkSaliencyMap(SaliencyMapData):
 
     class Meta:
         unique_together = ['input', 'coordinate', 'graph']
+
+class TempPruneSaliencyMap(SaliencyMapData):
+    input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='temp_saliency_maps')
+    coordinate = models.CharField(max_length=200, db_index=True)
+    graph = models.ForeignKey(WorkGraph, on_delete=models.CASCADE)
+    is_modified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.input} - {self.coordinate} (temp saliency)"
+
+    class Meta:
+        unique_together = ['input', 'coordinate', 'graph']

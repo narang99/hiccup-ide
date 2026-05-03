@@ -99,3 +99,13 @@ class CoordinateAlgorithmIn(Schema):
 
 class BatchWorkSaliencyMapIn(Schema):
     items: List[CoordinateAlgorithmIn]
+
+
+class PruningStatusLayers(Schema):
+    done: List[str]
+    total: List[str]
+
+
+class PruningStatusOut(Schema):
+    layers: PruningStatusLayers
+    session_active: bool

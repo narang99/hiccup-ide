@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNodesState, useEdgesState, Panel } from '@xyflow/react';
-import { getPruningStatus, saveWorkSaliencyMaps, type PruningStatusResponse } from '../fetchers/graph';
+import { getPruningStatus, saveWorkSaliencyMaps, startPruning, finalizePruning, type PruningStatusResponse } from '../fetchers/graph';
 import SharedCanvas from './SharedCanvas';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useSingleLayer } from '../hooks/useSingleLayer';
@@ -16,6 +16,7 @@ export default function PruneGraphView() {
   const [statusLoading, setStatusLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   // Hardcoded values as specified in requirements
   const modelAlias = 'example-model';
@@ -44,6 +45,32 @@ export default function PruneGraphView() {
     };
     load();
   }, [fetchStatus]);
+
+  const handleStartPruning = async () => {
+    setIsSaving(true);
+    try {
+      await startPruning(modelAlias, inputAlias, workflowName, graphAlias);
+      await fetchStatus();
+    } catch (err) {
+      console.error('Failed to start pruning:', err);
+      alert('Failed to start pruning session.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleFinalizePruning = async () => {
+    setIsFinalizing(true);
+    try {
+      await finalizePruning(modelAlias, inputAlias, workflowName, graphAlias);
+      await fetchStatus();
+    } catch (err) {
+      console.error('Failed to finalize pruning:', err);
+      alert('Failed to finalize pruning session.');
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
 
   // Find the first layer that is not done
   const firstIncompleteLayer = status?.layers.total.find(
@@ -107,11 +134,58 @@ export default function PruneGraphView() {
     return <div className="flex items-center justify-center h-screen">No status available.</div>;
   }
 
+  // Show start screen if no session is active in the temporary space
+  if (!status.session_active) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <h1 className="text-2xl font-bold mb-4">Pruning Session</h1>
+        <p className="mb-8 text-gray-400">Start a new session to prune the graph layer by layer in a temporary workspace.</p>
+        <button
+          onClick={handleStartPruning}
+          disabled={isSaving}
+          style={{
+            padding: '12px 24px',
+            background: '#a855f7',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          {isSaving ? 'Starting...' : 'Start Pruning Session'}
+        </button>
+      </div>
+    );
+  }
+
   if (!firstIncompleteLayer) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <h1 className="text-2xl font-bold text-green-500">Pruning Complete!</h1>
-        <p className="mt-4 text-gray-400">All layers have been processed.</p>
+        <p className="mt-4 mb-8 text-gray-400">All layers have been processed in the temporary space.</p>
+        <button
+            onClick={handleFinalizePruning}
+            disabled={isFinalizing}
+            style={{
+                padding: '12px 24px',
+                background: '#22c55e',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 600,
+                cursor: 'pointer',
+            }}
+        >
+            {isFinalizing ? 'Finalizing...' : 'Finalize and Commit Changes'}
+        </button>
+        <button
+            onClick={handleStartPruning}
+            className="mt-4 text-sm text-gray-500 hover:text-white"
+            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+        >
+            Restart Session (Discard Temp)
+        </button>
       </div>
     );
   }
@@ -165,6 +239,20 @@ export default function PruneGraphView() {
           >
             {isSaving ? 'Saving...' : 'Save and Next'}
           </button>
+
+          <button
+            onClick={handleStartPruning}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'rgba(255,255,255,0.4)',
+              fontSize: '11px',
+              cursor: 'pointer',
+              textDecoration: 'underline'
+            }}
+          >
+            Restart Session
+          </button>
         </Panel>
 
         {/* Status Overlay */}
@@ -182,7 +270,7 @@ export default function PruneGraphView() {
           color: '#fff',
         }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            Pruning Progress
+            Pruning Progress (Session)
           </div>
           <div style={{ fontSize: '14px', fontWeight: 500 }}>
             Processing: <span style={{ color: '#a855f7', fontWeight: 700 }}>{firstIncompleteLayer}</span>

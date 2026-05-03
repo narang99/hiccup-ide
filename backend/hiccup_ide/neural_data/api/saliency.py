@@ -8,6 +8,7 @@ from ..models import (
     Work,
     WorkGraph,
     WorkSaliencyMap,
+    TempPruneSaliencyMap,
 )
 from ..schemas import (
     SaliencyMapOut,
@@ -16,6 +17,7 @@ from ..schemas import (
     NodeStatsOut,
     BatchWorkSaliencyMapIn,
     WorkGraphMeta,
+    PruningStatusOut,
 )
 from .helpers import get_min_max, apply_algorithm
 
@@ -50,24 +52,43 @@ def get_saliency_maps_by_coordinates(
 
     results_dict = {}
 
-    # 2. Query WorkSaliencyMap if context exists
+    # 2. Query TempPruneSaliencyMap if context exists (Scratchpad priority)
     if work_graph:
-        work_maps = WorkSaliencyMap.objects.filter(
+        temp_maps = TempPruneSaliencyMap.objects.filter(
             graph=work_graph, coordinate__in=coordinates
         )
-        for wm in work_maps:
-            results_dict[wm.coordinate] = SaliencyMapOut(
-                id=wm.pk,
-                coordinate=wm.coordinate,
-                layer_name=wm.layer_name,
-                data=wm.data,
-                shape=wm.shape,
-                coordinate_type=wm.coordinate_type,
-                data_type=wm.data_type,
+        for tm in temp_maps:
+            results_dict[tm.coordinate] = SaliencyMapOut(
+                id=tm.pk,
+                coordinate=tm.coordinate,
+                layer_name=tm.layer_name,
+                data=tm.data,
+                shape=tm.shape,
+                coordinate_type=tm.coordinate_type,
+                data_type=tm.data_type,
                 work_graph=work_meta,
             )
 
-    # 3. Find missing coordinates and query base SaliencyMap
+    # 3. Query WorkSaliencyMap if context exists and not already found in Temp
+    if work_graph:
+        remaining_coords = [c for c in coordinates if c not in results_dict]
+        if remaining_coords:
+            work_maps = WorkSaliencyMap.objects.filter(
+                graph=work_graph, coordinate__in=remaining_coords
+            )
+            for wm in work_maps:
+                results_dict[wm.coordinate] = SaliencyMapOut(
+                    id=wm.pk,
+                    coordinate=wm.coordinate,
+                    layer_name=wm.layer_name,
+                    data=wm.data,
+                    shape=wm.shape,
+                    coordinate_type=wm.coordinate_type,
+                    data_type=wm.data_type,
+                    work_graph=work_meta,
+                )
+
+    # 4. Find missing coordinates and query base SaliencyMap
     remaining_coords = [c for c in coordinates if c not in results_dict]
     if remaining_coords:
         base_maps = SaliencyMap.objects.filter(
@@ -85,7 +106,7 @@ def get_saliency_maps_by_coordinates(
                 work_graph=None,
             )
 
-    # 4. Verify all coordinates are found
+    # 5. Verify all coordinates are found
     if not allow_missing and len(results_dict) != len(set(coordinates)):
         missing = set(coordinates) - set(results_dict.keys())
         raise Http404(f"Saliency maps not found for coordinates: {list(missing)}")
@@ -190,7 +211,8 @@ def get_saliency_maps_stats(
 
 
 @router.get(
-    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/status/"
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/status/",
+    response=PruningStatusOut,
 )
 def get_workflow_pruning_status(
     request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
@@ -205,11 +227,13 @@ def get_workflow_pruning_status(
 
     # Hardcoded total layers in specific order as requested
     TOTAL_LAYERS = ["layers.3", "layers.2", "layers.1", "layers.0", "x"]
-    # TOTAL_LAYERS = ["layers.3", "layers.2", "layers.1", "layers.0"]
 
-    # Get all unique layer_names present in WorkSaliencyMap for this graph
+    # Prune status exclusively uses TempPruneSaliencyMap to track current session progress
+    temp_qs = TempPruneSaliencyMap.objects.filter(graph=work_graph)
+    session_active = temp_qs.exists()
+
     done_layers_set = set(
-        WorkSaliencyMap.objects.filter(graph=work_graph, layer_name__isnull=False)
+        temp_qs.filter(is_modified=True)
         .values_list("layer_name", flat=True)
         .distinct()
     )
@@ -223,7 +247,10 @@ def get_workflow_pruning_status(
             # Once we find a gap, we stop adding to done_layers to ensure sequential order
             break
 
-    return {"layers": {"done": done_layers, "total": TOTAL_LAYERS}}
+    return {
+        "layers": {"done": done_layers, "total": TOTAL_LAYERS},
+        "session_active": session_active,
+    }
 
 
 @router.post(
@@ -244,6 +271,82 @@ def create_or_update_work_graph(
 
 
 @router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
+)
+def initialize_pruning_session(
+    request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    work, _ = Work.objects.get_or_create(input=input_obj, name=workflow_name)
+    graph, _ = WorkGraph.objects.get_or_create(work=work, alias=graph_alias)
+
+    # Clear existing temp maps for this graph
+    TempPruneSaliencyMap.objects.filter(graph=graph).delete()
+
+    # Clone all base SaliencyMaps to TempPruneSaliencyMap
+    base_maps = SaliencyMap.objects.filter(input=input_obj)
+    
+    temp_maps = [
+        TempPruneSaliencyMap(
+            input=input_obj,
+            coordinate=bm.coordinate,
+            graph=graph,
+            data=bm.data,
+            shape=bm.shape,
+            layer_name=bm.layer_name,
+            coordinate_type=bm.coordinate_type,
+            data_type=bm.data_type,
+            is_modified=False,
+        )
+        for bm in base_maps
+    ]
+    
+    TempPruneSaliencyMap.objects.bulk_create(temp_maps)
+
+    return {"status": "started", "cloned_count": len(temp_maps)}
+
+
+@router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/finalize_pruning/"
+)
+def finalize_pruning_session(
+    request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    work = get_object_or_404(Work, input=input_obj, name=workflow_name)
+    graph = get_object_or_404(WorkGraph, work=work, alias=graph_alias)
+
+    # Only commit modified temp maps to WorkSaliencyMap
+    temp_maps = TempPruneSaliencyMap.objects.filter(graph=graph, is_modified=True)
+    
+    if not temp_maps.exists():
+         # Clean up anyway if no modifications were made
+         TempPruneSaliencyMap.objects.filter(graph=graph).delete()
+         return {"status": "finalized", "committed_count": 0}
+
+    committed_count = 0
+    for tm in temp_maps:
+        WorkSaliencyMap.objects.update_or_create(
+            input=input_obj,
+            coordinate=tm.coordinate,
+            graph=graph,
+            defaults={
+                "data": tm.data,
+                "shape": tm.shape,
+                "layer_name": tm.layer_name,
+                "coordinate_type": tm.coordinate_type,
+                "data_type": tm.data_type,
+            },
+        )
+        committed_count += 1
+
+    # Clear temp maps
+    TempPruneSaliencyMap.objects.filter(graph=graph).delete()
+
+    return {"status": "finalized", "committed_count": committed_count}
+
+
+@router.post(
     "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
 )
 def create_batch_work_saliency_maps(
@@ -258,35 +361,25 @@ def create_batch_work_saliency_maps(
     work = get_object_or_404(Work, input=input_obj, name=workflow_name)
     graph = get_object_or_404(WorkGraph, work=work, alias=graph_alias)
 
-    created_count = 0
     updated_count = 0
 
     for item in payload.items:
-        # Get original saliency map
-        orig_map = get_object_or_404(
-            SaliencyMap, input=input_obj, coordinate=item.coordinate
+        # We must find the record in TempPruneSaliencyMap
+        temp_map = get_object_or_404(
+            TempPruneSaliencyMap, input=input_obj, coordinate=item.coordinate, graph=graph
         )
 
-        # Apply algorithm
+        # Get original data for applying algorithm? 
+        # Actually, user says we clone at the start. 
+        # But should we apply algorithm to the CURRENT temp data or the ORIGINAL base data?
+        # Usually pruning is done relative to base data.
+        
+        orig_map = get_object_or_404(SaliencyMap, input=input_obj, coordinate=item.coordinate)
         filtered_data = apply_algorithm(orig_map.data, item.algorithm)
 
-        # Create or update WorkSaliencyMap
-        work_map, created = WorkSaliencyMap.objects.update_or_create(
-            input=input_obj,
-            coordinate=item.coordinate,
-            graph=graph,
-            defaults={
-                "data": filtered_data,
-                "shape": orig_map.shape,
-                "layer_name": orig_map.layer_name,
-                "coordinate_type": orig_map.coordinate_type,
-                "data_type": orig_map.data_type,
-            },
-        )
+        temp_map.data = filtered_data
+        temp_map.is_modified = True
+        temp_map.save()
+        updated_count += 1
 
-        if created:
-            created_count += 1
-        else:
-            updated_count += 1
-
-    return {"created": created_count, "updated": updated_count}
+    return {"created": 0, "updated": updated_count}
