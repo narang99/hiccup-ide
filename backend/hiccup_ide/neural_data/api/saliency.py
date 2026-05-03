@@ -1,85 +1,23 @@
 from ninja import Router
 from django.shortcuts import get_object_or_404
 from django.http import Http404
-
-from .models import (
-    Model,
+from ..models import (
     Input,
-    Activation,
     SaliencyMap,
-    Weight,
     Work,
     WorkGraph,
     WorkSaliencyMap,
 )
-from .schemas import (
-    ModelOut,
-    InputOut,
-    ActivationOut,
+from ..schemas import (
     SaliencyMapOut,
-    WeightOut,
     LayerSaliencyMapsOut,
     BatchSaliencyMapsIn,
     NodeStatsOut,
     BatchWorkSaliencyMapIn,
 )
+from .helpers import get_min_max, apply_algorithm
 
 router = Router()
-
-
-def apply_algorithm(data, algorithm_dict):
-    alg_type = algorithm_dict.get("type")
-    if alg_type == "Id":
-        return data
-    elif alg_type == "ThresholdAlgorithm":
-        threshold = algorithm_dict.get("threshold", 0)
-        # Handle list of lists (2D array)
-        if isinstance(data, list):
-            return [
-                [val if abs(val) >= threshold else 0 for val in row] for row in data
-            ]
-        # Handle single value
-        elif isinstance(data, (int, float)):
-            return data if abs(data) >= threshold else 0
-    return data
-
-
-@router.get("/")
-def root(request):
-    return {"message": "Hiccup IDE API"}
-
-
-@router.get("/models/{model_alias}/", response=ModelOut)
-def get_model(request, model_alias: str):
-    model = get_object_or_404(Model, alias=model_alias)
-    return model
-
-
-@router.get("/models/{model_alias}/inputs/{input_alias}/", response=InputOut)
-def get_input(request, model_alias: str, input_alias: str):
-    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
-    return input_obj
-
-
-@router.get(
-    "/models/{model_alias}/inputs/{input_alias}/activations/single/{coordinate}/",
-    response=ActivationOut,
-)
-def get_activation(request, model_alias: str, input_alias: str, coordinate: str):
-    activation = get_object_or_404(
-        Activation,
-        input__model__alias=model_alias,
-        input__alias=input_alias,
-        coordinate=coordinate,
-    )
-    return activation
-
-
-@router.get("/models/{model_alias}/weights/single/{coordinate}/", response=WeightOut)
-def get_weight(request, model_alias: str, coordinate: str):
-    weight = get_object_or_404(Weight, model__alias=model_alias, coordinate=coordinate)
-    return weight
-
 
 @router.get(
     "/models/{model_alias}/inputs/{input_alias}/saliency_maps/layers/{layer_name}/",
@@ -132,73 +70,6 @@ def get_saliency_map(request, model_alias: str, input_alias: str, coordinate: st
         coordinate=coordinate,
     )
     return saliency_map
-
-
-def _get_min_max_in_list_of_lists(data_lists):
-    main_min, main_max = None, None
-    for data in data_lists:
-        if not data:
-            continue
-        cur_min, cur_max = max(data), min(data)
-        print("currrrrrr", cur_min)
-        print("dataaaaaaaa", data)
-        if main_min is None or cur_min < main_min:
-            main_min = cur_min
-        if main_max is None or cur_max > main_max:
-            main_max = cur_max
-    print("mainnnnnn", main_min)
-    return main_min, main_max
-
-
-def get_min_max(data_list):
-    """Helper to find min and max in a list of nested data (JSON)."""
-    # keep going down until we find a list of elements
-    # then simply run min/max on them and return them
-
-    def _find_min_max(items):
-        if isinstance(items, list):
-            if not items:
-                return 0.0, 0.0
-            elif isinstance(items[0], (int, float)):
-                return min(items), max(items)
-            else:
-                main_min, main_max = None, None
-                for item in items:
-                    cur_min, cur_max = _find_min_max(item)
-                    if main_min is None or cur_min < main_min:
-                        main_min = cur_min
-                    if main_max is None or cur_max > main_max:
-                        main_max = cur_max
-                return main_min, main_max
-        elif isinstance(items, (int, float)):
-            return items, items
-        else:
-            raise Exception(
-                f"only lists or floats are allowed for finding min-max, got={type(items)} items={items}"
-            )
-
-    return _find_min_max(data_list)
-
-
-@router.post(
-    "/models/{model_alias}/inputs/{input_alias}/activations/stats/",
-    response=NodeStatsOut,
-)
-def get_activations_stats(
-    request, model_alias: str, input_alias: str, data: BatchSaliencyMapsIn
-):
-    # Verify input exists
-    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
-
-    # Get all activations for the requested coordinates
-    activations = list(
-        Activation.objects.filter(
-            input=input_obj, coordinate__in=data.coordinates
-        ).values_list("data", flat=True)
-    )
-
-    min_val, max_val = get_min_max(activations)
-    return {"min": min_val, "max": max_val}
 
 
 @router.post(
