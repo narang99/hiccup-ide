@@ -2,8 +2,8 @@ import { useLayerSettingsStore } from '../../stores/layerSettingsStore';
 import { useSaliencyCacheStore } from '../../stores/saliencyCacheStore';
 import { getTopKThreshold } from '../../utils/topk';
 import { type LayerSaliencyData } from '../../fetchers/saliency_map';
-import { loadWorkflowThresholds, saveWorkflowThreshold } from '../../fetchers/threshold';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type LayerThreshold } from '../../fetchers/threshold';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { DebouncedSlider } from '../DebouncedSlider';
 import { useFetcherType } from '../../hooks/useFetcherType';
@@ -14,8 +14,6 @@ interface LayerSettingsViewProps {
     disabled: boolean;
     sliderValue: number;
     onSliderDebouncedChange: (value: number) => void;
-    onSaveThreshold: () => void;
-    isSaving: boolean;
     nodeId?: string;
     nodeData?: {
         label: string;
@@ -24,7 +22,7 @@ interface LayerSettingsViewProps {
     };
 }
 
-const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, onSaveThreshold, isSaving, nodeId, nodeData }: LayerSettingsViewProps) => {
+const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, nodeId, nodeData }: LayerSettingsViewProps) => {
     return (
         <div style={{
             display: 'flex',
@@ -150,30 +148,6 @@ const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, onS
                 </div>
             </div>
 
-            {/* Save Button */}
-            <div style={{
-                marginTop: '12px',
-            }}>
-                <button
-                    onClick={onSaveThreshold}
-                    disabled={disabled || isSaving}
-                    style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        background: disabled || isSaving ? 'rgba(255,255,255,0.1)' : 'rgba(34, 197, 94, 0.2)',
-                        border: disabled || isSaving ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(34, 197, 94, 0.5)',
-                        borderRadius: 6,
-                        color: disabled || isSaving ? 'rgba(255,255,255,0.4)' : '#22c55e',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        cursor: disabled || isSaving ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s ease',
-                    }}
-                >
-                    {isSaving ? 'Saving...' : 'Save Threshold'}
-                </button>
-            </div>
-
             {/* Layer Info */}
             {nodeData && (
                 <div style={{
@@ -207,20 +181,15 @@ const LayerSettingsView = ({ disabled, sliderValue, onSliderDebouncedChange, onS
 
 export interface LayerSettingsProps {
     selectedNode: SelectedNode | null;
+    onChangeThreshold?: (layerId: string, sliderValue: number, algorithm: ActivationFilterAlgorithm) => void;
+    onLoadInitialThresholds?: () => Promise<LayerThreshold[]>;
 }
 
-export const LayerSettings = ({ selectedNode }: LayerSettingsProps) => {
+export const LayerSettings = ({ selectedNode, onChangeThreshold, onLoadInitialThresholds }: LayerSettingsProps) => {
     const { fetcherType } = useFetcherType();
     const { getLayerSettings, updateSliderValue, loadSliderValuesFromThresholds } = useLayerSettingsStore();
     const { fetchAndCacheBatchSaliency, clearCache } = useSaliencyCacheStore();
     const { getNodes, setNodes } = useReactFlow();
-
-    const [isSaving, setIsSaving] = useState(false);
-
-    // Hardcoded values as mentioned in requirements
-    const modelAlias = 'example-model';
-    const inputAlias = 'first-input';
-    const workflowName = 'default-workflow';
 
     const nodeId = selectedNode?.id;
     const nodeData = selectedNode?.data;
@@ -286,32 +255,41 @@ export const LayerSettings = ({ selectedNode }: LayerSettingsProps) => {
             const threshold = computeThreshold(saliencyData, value);
 
             if (threshold !== undefined) {
+                const algorithm: ActivationFilterAlgorithm = {
+                    type: "ThresholdAlgorithm",
+                    threshold: threshold
+                };
+
                 setNodes((nodes) => nodes.map((node) => {
                     if (node.parentId === nodeId && node.type === "ActivationFlowNode") {
                         return {
                             ...node,
                             data: {
                                 ...node.data,
-                                filterAlgorithm: {
-                                    type: "ThresholdAlgorithm",
-                                    threshold: threshold
-                                }
+                                filterAlgorithm: algorithm
                             }
                         };
                     }
                     return node;
                 }));
+
+                // Notify parent of threshold change
+                if (onChangeThreshold) {
+                    onChangeThreshold(nodeId, value, algorithm);
+                }
             }
         } catch (err) {
             console.error('Failed to fetch saliency data or compute threshold:', err);
         }
-    }, [nodeId, nodeData, updateSliderValue, childCoordinates, computeThreshold, fetchAndCacheBatchSaliency, setNodes]);
+    }, [nodeId, nodeData, updateSliderValue, childCoordinates, computeThreshold, fetchAndCacheBatchSaliency, setNodes, onChangeThreshold]);
 
     // Load thresholds on component mount
     useEffect(() => {
         const loadThresholds = async () => {
+            if (!onLoadInitialThresholds) return;
+            
             try {
-                const thresholds = await loadWorkflowThresholds(modelAlias, inputAlias, workflowName);
+                const thresholds = await onLoadInitialThresholds();
 
                 // Update slider values in store
                 loadSliderValuesFromThresholds(thresholds);
@@ -342,51 +320,18 @@ export const LayerSettings = ({ selectedNode }: LayerSettingsProps) => {
         };
 
         loadThresholds();
-    }, [loadSliderValuesFromThresholds, getNodes, setNodes]);
+    }, [onLoadInitialThresholds, loadSliderValuesFromThresholds, setNodes]);
 
     // Clear cache when selected node changes
     useEffect(() => {
         clearCache();
     }, [nodeId, clearCache]);
 
-    const handleSaveThreshold = useCallback(async () => {
-        if (!nodeId) return;
-
-        setIsSaving(true);
-        try {
-            console.log(`Saving threshold for layer ${nodeId}, current sliderValue: ${sliderValue}`);
-
-            // Get the current algorithm from the nodes to save it
-            const allNodes = getNodes();
-            const currentNode = allNodes.find(node =>
-                node.parentId === nodeId && node.type === "ActivationFlowNode"
-            );
-
-            const filterAlgorithm = currentNode?.data?.filterAlgorithm;
-            const algorithm: ActivationFilterAlgorithm = (
-                filterAlgorithm && typeof filterAlgorithm === 'object' && 'type' in filterAlgorithm
-            ) ? filterAlgorithm as ActivationFilterAlgorithm : { type: "Id" };
-
-            await saveWorkflowThreshold(modelAlias, inputAlias, workflowName, {
-                layer_id: nodeId,
-                slider_value: sliderValue,
-                algorithm: algorithm
-            });
-            console.log(`Algorithm saved for layer ${nodeId}, slider_value: ${sliderValue}, algorithm:`, algorithm);
-        } catch (error) {
-            console.error('Failed to save algorithm:', error);
-        } finally {
-            setIsSaving(false);
-        }
-    }, [nodeId, sliderValue, getNodes]);
-
     return (
         <LayerSettingsView
             disabled={disabled}
             sliderValue={sliderValue}
             onSliderDebouncedChange={handleSliderDebouncedChange}
-            onSaveThreshold={handleSaveThreshold}
-            isSaving={isSaving}
             nodeId={nodeId}
             nodeData={nodeData}
         />

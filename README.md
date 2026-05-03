@@ -186,3 +186,15 @@ I need to create this iteratively, the model strugglees a lot
   - jhula time
 - i ll use layersettings right now to do this threhsolding right now. Although im not sure if there is a better way
   - gemini is going full wonky
+- why am i feeling that the work is not good hmm. What are the problems
+  - the first is that preview is hard, but not that bad, we are basically changing the data every time
+  - i dont want layersettings to change the thresholds though, lets make it a pure preview component only
+  - the first thing is that its a ui component which changes thresholds and models data.  
+
+
+- Good so now ive removed the threhsold saving from layersettings view. that should be fine now
+  - We need to now implement similar functionality in the main prune graph view
+  - it should, when a user presses next, it should create a new work saliency map in the backend
+  - now for backend, we just push the actual contribs back easy, no need to send back the threshold for now (although there are now two sources of truth (the threshold, and the saliency map))
+  - but i cant do much about it, its fine
+- i actually dont need to store the threhsold at all, the user cannot go back lol
