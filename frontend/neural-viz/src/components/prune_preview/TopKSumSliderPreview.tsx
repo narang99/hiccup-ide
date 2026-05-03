@@ -3,7 +3,7 @@ import { useSaliencyCacheStore } from '../../stores/saliencyCacheStore';
 import { getTopKThreshold } from '../../utils/topk';
 import { type LayerSaliencyData } from '../../fetchers/saliency_map';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useReactFlow } from '@xyflow/react';
+import { useNodes, useReactFlow } from '@xyflow/react';
 import { DebouncedSlider } from '../DebouncedSlider';
 import { useFetcherType } from '../../hooks/useFetcherType';
 import type { SelectedNode } from '../../types/node';
@@ -189,7 +189,8 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
     const { fetcherType } = useFetcherType();
     const { getLayerSettings, updateSliderValue, loadSliderValuesFromThresholds } = useLayerSettingsStore();
     const { fetchAndCacheBatchSaliency, clearCache } = useSaliencyCacheStore();
-    const { getNodes, setNodes } = useReactFlow();
+    const { setNodes } = useReactFlow();
+    const nodes = useNodes();
 
     const nodeId = selectedNode?.id;
     const nodeData = selectedNode?.data;
@@ -203,9 +204,8 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
     const childNodes = useMemo(() => {
         if (!nodeId) return [];
 
-        const allNodes = getNodes();
-        return allNodes.filter(node => node.parentId === nodeId).filter(node => node.type === "ActivationFlowNode");
-    }, [nodeId, getNodes]);
+        return nodes.filter(node => node.parentId === nodeId).filter(node => node.type === "ActivationFlowNode");
+    }, [nodeId, nodes]);
 
 
     const childCoordinates = useMemo(() => {
@@ -336,4 +336,4 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
             nodeData={nodeData}
         />
     );
-};
+}
