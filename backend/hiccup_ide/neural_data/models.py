@@ -44,14 +44,28 @@ class Activation(models.Model):
         db_table = "activations"
         unique_together = ['input', 'coordinate']
 
-class SaliencyMap(models.Model):
-    input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='saliency_maps')
-    coordinate = models.CharField(max_length=200, db_index=True)
+
+class SaliencyMapData(models.Model):
     data = models.JSONField()
     shape = models.JSONField()
     coordinate_type = models.CharField(max_length=100)
     data_type = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+    class Meta:
+        db_table = "saliency_maps"
+        unique_together = ['input', 'coordinate']
+        abstract = True
+
+class SaliencyMap(SaliencyMapData):
+    input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='saliency_maps')
+    coordinate = models.CharField(max_length=200, db_index=True)
+    # data = models.JSONField()
+    # shape = models.JSONField()
+    # coordinate_type = models.CharField(max_length=100)
+    # data_type = models.CharField(max_length=100)
+    # created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.input} - {self.coordinate} (saliency)"
@@ -105,3 +119,24 @@ class LayerThreshold(models.Model):
     class Meta:
         db_table = "layer_thresholds"
         unique_together = ['work', 'model', 'layer_id']
+
+
+
+class WorkGraph(models.Model):
+    alias = models.CharField(max_length=200)
+    work = models.ForeignKey(Work, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ['work', 'alias']
+
+
+class WorkSaliencyMap(SaliencyMapData):
+    input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='work_saliency_maps')
+    coordinate = models.CharField(max_length=200, db_index=True)
+    graph = models.ForeignKey(WorkGraph, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.input} - {self.coordinate} (saliency)"
+
+    class Meta:
+        unique_together = ['input', 'coordinate', 'graph']
