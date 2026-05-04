@@ -1,3 +1,4 @@
+import torch
 from pt_to_api.capture import get_model_internals
 import random
 from collections import defaultdict
@@ -104,21 +105,15 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
 
     acts = to_device(acts, device)
 
-    total_contribs = {}
-    
-    # Set contributions for all layers after last_layer_key to 0
-    all_layer_keys = ["layers.0", "layers.1", "layers.2", "layers.3", "layers.4", "layers.5"]
-    last_layer_index = all_layer_keys.index(last_layer_key)
-    
-    for i in range(last_layer_index + 1, len(all_layer_keys)):
-        if all_layer_keys[i] in acts:
-            total_contribs[all_layer_keys[i]] = 0
-    
-    # Set the last layer contributions
+    total_contribs, last_layer_index = _empty_initialise(last_layer_key, acts)
     total_contribs[last_layer_key] = last_layer_contribs
 
-    # Propagate backwards from last_layer_key
-    if last_layer_index >= 5:  # layers.5
+    # if last_layer_index is 5, then we have set the contribs for that layer above anyways
+
+    # if last index is 4, then the value is set above
+    # if less, set to 0
+    # if more, back prop, same for other layers other than conv
+    if last_layer_index > 4:
         total_contribs["layers.4"] = v2.linear_calculate_contribs_for_all(
             model.get_submodule("layers.5"),
             acts["layers.4"],
@@ -126,14 +121,18 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
             device,
         )
     
-    if last_layer_index >= 4:  # layers.4
+    if last_layer_index > 3:
         # flatten
         total_contribs["layers.3"] = total_contribs["layers.4"].view(acts["layers.3"].shape)
 
-    if last_layer_index >= 3:  # layers.3
+    if last_layer_index > 2:
         total_contribs["layers.2"] = v1.relu_calculate_contribs(total_contribs["layers.3"])
 
-    if last_layer_index >= 2:  # layers.2
+    # if last index is 2, then we still set the slice values
+    # since for 2, we only set its major value
+    # slices are not set, so we backprop
+    # so slice comes with the older layers code
+    if last_layer_index > 1:
         total_contribs["layers.1"], total_contribs["layers.2.slice"] = (
             v2.conv_calculate_contribs_for_all(
                 acts["layers.1"],
@@ -142,7 +141,7 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
             )
         )
     
-    if last_layer_index >= 1:  # layers.1
+    if last_layer_index > 0:  # layers.1
         total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
 
     if last_layer_index >= 0:  # layers.0
@@ -157,6 +156,33 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
     acts = detach_all(to_device(acts, "cpu"))
     parameters = detach_all(to_device(parameters, "cpu"))
     return total_contribs, acts, parameters
+
+
+def _empty_initialise(last_layer_key: str, acts: dict):
+    all_layer_keys = ["layers.0", "layers.1", "layers.2", "layers.3", "layers.4", "layers.5"]
+    slice_layer_keys = ["layers.0.slice", None, "layers.2.slice", None, None, None]
+
+    last_layer_index = all_layer_keys.index(last_layer_key)
+    total_contribs = {}
+    
+    for i in range(last_layer_index + 1, len(all_layer_keys)):
+        if all_layer_keys[i] in acts:
+            total_contribs[all_layer_keys[i]] = acts[all_layer_keys[i]] * 0
+        # Handle slice scontributions for layers that don't participate
+        if slice_layer_keys[i] is not None:
+            # Get previous layer for slice shape calculation
+            prev_layer_key = all_layer_keys[i-1] if i > 0 else "x"
+            if prev_layer_key in acts and all_layer_keys[i] in acts:
+                total_contribs[slice_layer_keys[i]] = _get_0_slice_contribs(
+                    acts[all_layer_keys[i]], acts[prev_layer_key]
+                )
+    return total_contribs, last_layer_index
+
+def _get_0_slice_contribs(curr_act: torch.Tensor, prev_act: torch.Tensor):
+    # [b, chan_out, chan_in, out_h, out_w]
+    b, c_out, out_h, out_w = curr_act.shape
+    _, c_in, _, _ = prev_act.shape
+    return torch.zeros((b, c_out, c_in, out_h, out_w)).float()
 
 
 # def get_contribs_for_inp(inp_tens, model, input_ratios):
