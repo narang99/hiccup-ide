@@ -8,7 +8,7 @@ import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 import type { SelectedNode } from '../types/node';
-import { TopKSumSliderPreview } from './prune_preview/TopKSumSliderPreview';
+import { PruneHistogramPreview } from './prune_preview/PruneHistogramPreview';
 import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
 
 export default function PruneGraphView() {
@@ -226,7 +226,7 @@ export default function PruneGraphView() {
         <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
           <DataTypeSelector />
           <ColormapSelector />
-          <TopKSumSliderPreview selectedNode={parentNode} />
+          <PruneHistogramPreview selectedNode={parentNode} />
           
           <button
             onClick={handleSaveAndNext}
