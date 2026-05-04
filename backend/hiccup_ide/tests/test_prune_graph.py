@@ -1,15 +1,16 @@
 import pytest
 from django.test import Client
 from neural_data.models import Model, Input, Work, WorkGraph
+from .helpers import create_test_model_with_pt_file, create_test_input_with_pt_file
 
 @pytest.fixture
 def sample_data():
-    model = Model.objects.create(
+    model = create_test_model_with_pt_file(
         alias="test-model",
         name="Test Model",
         definition={"nodes": [], "edges": []}
     )
-    input_obj = Input.objects.create(
+    input_obj = create_test_input_with_pt_file(
         model=model,
         alias="test-input",
         name="Test Input",
@@ -26,17 +27,16 @@ def test_create_work_graph_via_api(sample_data):
     graph_alias = "test-graph"
     
     # Act
-    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/"
+    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/"
     response = client.post(url)
     
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["alias"] == graph_alias
     assert data["created"] is True
     
     # Verify in DB
-    assert WorkGraph.objects.filter(alias=graph_alias, work__name=workflow_name).exists()
+    assert WorkGraph.objects.filter(work__name=workflow_name).exists()
 
 @pytest.mark.django_db
 def test_update_work_graph_via_api(sample_data):
@@ -48,16 +48,15 @@ def test_update_work_graph_via_api(sample_data):
     
     # Create initial
     work = Work.objects.create(input=input_obj, name=workflow_name)
-    WorkGraph.objects.create(work=work, alias=graph_alias)
+    WorkGraph.objects.create(work=work)
     
     # Act - calling the same endpoint should return existing
-    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/"
+    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/"
     response = client.post(url)
     
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["alias"] == graph_alias
     assert data["created"] is False
 
 @pytest.mark.django_db
@@ -70,11 +69,11 @@ def test_get_workflow_pruning_status_sequential(sample_data):
     
     # Create work and graph
     work = Work.objects.create(input=input_obj, name=workflow_name)
-    graph = WorkGraph.objects.create(work=work, alias=graph_alias)
+    graph = WorkGraph.objects.create(work=work)
     
     # Define layers (TOTAL_LAYERS = ["layers.3", "layers.2", "layers.1", "layers.0", "x"])
     # Case 1: No layers done, no session active
-    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/status/"
+    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/status/"
     response = client.get(url)
     assert response.status_code == 200
     assert response.json()["layers"]["done"] == []

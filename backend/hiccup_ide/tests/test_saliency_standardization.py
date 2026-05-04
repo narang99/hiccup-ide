@@ -1,17 +1,17 @@
 import pytest
 from django.test import Client
 from neural_data.models import Model, Input, SaliencyMap, Work, WorkGraph
+from .helpers import create_test_model_with_pt_file, create_test_input_with_pt_file
 
 
 @pytest.fixture
-
 def sample_data():
-    model = Model.objects.create(
+    model = create_test_model_with_pt_file(
         alias="test-model",
         name="Test Model",
         definition={}
     )
-    input_obj = Input.objects.create(
+    input_obj = create_test_input_with_pt_file(
         model=model,
         alias="test-input",
         name="Test Input",
@@ -105,7 +105,7 @@ def test_saliency_priority_logic(sample_data):
     work_alias = "test-work"
     graph_alias = "test-graph"
     work = Work.objects.create(input=input_obj, name=work_alias)
-    graph = WorkGraph.objects.create(work=work, alias=graph_alias)
+    graph = WorkGraph.objects.create(work=work)
     
     # Setup: Work saliency map (priority)
     priority_data = [[1.0, 1.0], [1.0, 1.0]]
@@ -128,16 +128,15 @@ def test_saliency_priority_logic(sample_data):
     assert response.json()["data"] == base_data
     assert response.json()["work_graph"] is None
     
-    # 2. Test get_saliency_map with graph (should get priority)
-    url_with_graph = f"{url}?work_alias={work_alias}&graph_alias={graph_alias}"
-    response = client.get(url_with_graph)
+    # 2. Test get_saliency_map with pruned=true (should get priority)
+    url_with_pruned = f"{url}?work_alias={work_alias}&pruned=true"
+    response = client.get(url_with_pruned)
     assert response.status_code == 200
     assert response.json()["data"] == priority_data
     assert response.json()["work_graph"]["work_alias"] == work_alias
-    assert response.json()["work_graph"]["graph_alias"] == graph_alias
 
-    # 3. Test get_layer_saliency_maps with graph
-    layer_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/saliency_maps/layers/layer1/?work_alias={work_alias}&graph_alias={graph_alias}"
+    # 3. Test get_layer_saliency_maps with pruned=true
+    layer_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/saliency_maps/layers/layer1/?work_alias={work_alias}&pruned=true"
     response = client.get(layer_url)
     assert response.status_code == 200
     items = response.json()["items"]
@@ -146,6 +145,6 @@ def test_saliency_priority_logic(sample_data):
     node2 = next(item for item in items if item["coordinate"] == "layer1.node2")
     
     assert node1["data"] == priority_data
-    assert node1["work_graph"]["graph_alias"] == graph_alias
+    assert node1["work_graph"]["work_alias"] == work_alias
     assert node2["data"] == [[-0.5, 0.0], [0.5, 1.5]] # Base data for node2
     assert node2["work_graph"] is None

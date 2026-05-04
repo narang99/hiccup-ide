@@ -1,15 +1,16 @@
 import pytest
 from django.test import Client
 from neural_data.models import Model, Input, Activation, SaliencyMap, Work, WorkGraph, WorkSaliencyMap
+from .helpers import create_test_model_with_pt_file, create_test_input_with_pt_file
 
 @pytest.fixture
 def sample_data():
-    model = Model.objects.create(
+    model = create_test_model_with_pt_file(
         alias="test-model",
         name="Test Model",
         definition={}
     )
-    input_obj = Input.objects.create(
+    input_obj = create_test_input_with_pt_file(
         model=model,
         alias="test-input",
         name="Test Input",
@@ -56,7 +57,7 @@ def sample_data():
 
     # Create a work and graph
     work = Work.objects.create(input=input_obj, name="test-work")
-    graph = WorkGraph.objects.create(work=work, alias="test-graph")
+    graph = WorkGraph.objects.create(work=work)
 
     # Create work saliency map for node1 (overriding base)
     WorkSaliencyMap.objects.create(
@@ -127,7 +128,7 @@ def test_saliency_maps_stats_with_aliases(sample_data):
     
     # Test with aliases - should use WorkSaliencyMap for node1 and SaliencyMap for node2
     # node1 (work): [[10.0, 20.0], [30.0, 40.0]], node2 (base): [[-0.5, 0.0], [0.5, 1.5]] -> min: -0.5, max: 40.0
-    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/saliency_maps/stats/?work_alias={work.name}&graph_alias={graph.alias}"
+    url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/saliency_maps/stats/?work_alias={work.name}&pruned=true"
     response = client.post(
         url,
         data={"coordinates": ["layer1.node1", "layer1.node2"]},

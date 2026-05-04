@@ -71,17 +71,19 @@ def _create_saliency_map_from_coord_object(
 @pytest.fixture
 def real_model_data(raw_real_model_data_to_persist_in_db):
     """Create test data that matches the actual model architecture"""
+    from .helpers import create_test_model_with_pt_file, create_test_input_with_pt_file
+    
     coord_data, real_contribs, batch_inp_tens = raw_real_model_data_to_persist_in_db
-    model = Model.objects.create(
+    model = create_test_model_with_pt_file(
         alias="real-mnist-model",
         name="Real MNIST Model",
-        definition={"nodes": [], "edges": []},
+        definition={"nodes": [], "edges": []}
     )
-    input_obj = Input.objects.create(
+    input_obj = create_test_input_with_pt_file(
         model=model,
         alias="real-mnist-input",
         name="Real MNIST Input",
-        data_path=INPUT_PATH,
+        data_path=INPUT_PATH
     )
 
     saliency_maps = []
@@ -127,31 +129,29 @@ def calculate_expected_ground_truth(layer_name, pruned_tensor):
     return total_contribs
 
 
-def get_base_url(model_alias, input_alias, workflow_name, graph_alias):
-    return f"/api/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}"
+def get_base_url(model_alias, input_alias, workflow_name):
+    return f"/api/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}"
 
 
-def api_start_pruning(client, model_alias, input_alias, workflow_name, graph_alias):
-    url = f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/start_pruning/"
+def api_start_pruning(client, model_alias, input_alias, workflow_name):
+    url = f"{get_base_url(model_alias, input_alias, workflow_name)}/start_pruning/"
     return client.post(url)
 
 
-def api_get_status(client, model_alias, input_alias, workflow_name, graph_alias):
-    url = (
-        f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/status/"
-    )
+def api_get_status(client, model_alias, input_alias, workflow_name):
+    url = f"{get_base_url(model_alias, input_alias, workflow_name)}/status/"
     return client.get(url)
 
 
 def api_save_saliency_maps(
-    client, model_alias, input_alias, workflow_name, graph_alias, payload
+    client, model_alias, input_alias, workflow_name, payload
 ):
-    url = f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/saliency_maps/"
+    url = f"{get_base_url(model_alias, input_alias, workflow_name)}/saliency_maps/"
     return client.post(url, data=payload, content_type="application/json")
 
 
-def api_finalize_pruning(client, model_alias, input_alias, workflow_name, graph_alias):
-    url = f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/finalize_pruning/"
+def api_finalize_pruning(client, model_alias, input_alias, workflow_name):
+    url = f"{get_base_url(model_alias, input_alias, workflow_name)}/finalize_pruning/"
     return client.post(url)
 
 
@@ -243,19 +243,19 @@ def test_real_model_pruning_propagation_and_ground_truth(
 
     # 1. Initialize session
     response = api_start_pruning(
-        client, model.alias, input_obj.alias, workflow_name, graph_alias
+        client, model.alias, input_obj.alias, workflow_name
     )
     assert response.status_code == 200
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
-    graph = WorkGraph.objects.get(work=work, alias=graph_alias)
+    graph = WorkGraph.objects.get(work=work)
     original_temp_data = get_current_temp_data(graph)
 
     # 2. Apply pruning to target layer
     payload = create_threshold_payload(saliency_maps, layer_to_prune)
     target_coordinate = payload["items"][0]["coordinate"]
     response = api_save_saliency_maps(
-        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+        client, model.alias, input_obj.alias, workflow_name, payload
     )
     assert response.status_code == 200
 
@@ -310,7 +310,7 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
 
     # Initialize session
     response = api_start_pruning(
-        client, model.alias, input_obj.alias, workflow_name, graph_alias
+        client, model.alias, input_obj.alias, workflow_name
     )
     assert response.status_code == 200
 
@@ -320,27 +320,27 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
     threshold = payload["items"][0]["algorithm"]["threshold"]
 
     response = api_save_saliency_maps(
-        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+        client, model.alias, input_obj.alias, workflow_name, payload
     )
     assert response.status_code == 200
 
     # Check status
     status_response = api_get_status(
-        client, model.alias, input_obj.alias, workflow_name, graph_alias
+        client, model.alias, input_obj.alias, workflow_name
     )
     assert status_response.json()["layers"]["done"] == ["layers.3"]
     assert status_response.json()["session_active"]
 
     # Finalize
     response = api_finalize_pruning(
-        client, model.alias, input_obj.alias, workflow_name, graph_alias
+        client, model.alias, input_obj.alias, workflow_name
     )
     assert response.status_code == 200
     assert response.json()["committed_count"] == len(payload["items"])
 
     # Verify WorkSaliencyMap has the data
     work = Work.objects.get(input=input_obj, name=workflow_name)
-    graph = WorkGraph.objects.get(work=work, alias=graph_alias)
+    graph = WorkGraph.objects.get(work=work)
     work_map = WorkSaliencyMap.objects.get(graph=graph, coordinate=target_coordinate)
 
     from neural_data.api.helpers import apply_algorithm
@@ -357,7 +357,7 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
 
     # Final status should show no active session
     final_status = api_get_status(
-        client, model.alias, input_obj.alias, workflow_name, graph_alias
+        client, model.alias, input_obj.alias, workflow_name
     )
     assert not final_status.json()["session_active"]
     assert final_status.json()["layers"]["done"] == []  # Only checking temp maps now
