@@ -105,15 +105,15 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
 
     acts = to_device(acts, device)
 
-    total_contribs, last_layer_index = _empty_initialise(last_layer_key, acts)
+    # Initialize backprop controller
+    all_layer_keys = ["layers.0", "layers.1", "layers.2", "layers.3", "layers.4", "layers.5"]
+    controller = LayerBackpropController(all_layer_keys, last_layer_key)
+
+    total_contribs = _empty_initialise(last_layer_key, acts, controller)
     total_contribs[last_layer_key] = last_layer_contribs
 
-    # if last_layer_index is 5, then we have set the contribs for that layer above anyways
-
-    # if last index is 4, then the value is set above
-    # if less, set to 0
-    # if more, back prop, same for other layers other than conv
-    if last_layer_index > 4:
+    # Backpropagate through layers based on controller logic
+    if controller.should_backprop("layers.4"):
         total_contribs["layers.4"] = v2.linear_calculate_contribs_for_all(
             model.get_submodule("layers.5"),
             acts["layers.4"],
@@ -121,62 +121,89 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
             device,
         )
     
-    if last_layer_index > 3:
+    if controller.should_backprop("layers.3"):
         # flatten
         total_contribs["layers.3"] = total_contribs["layers.4"].view(acts["layers.3"].shape)
 
-    if last_layer_index > 2:
+    if controller.should_backprop("layers.2"):
         total_contribs["layers.2"] = v1.relu_calculate_contribs(total_contribs["layers.3"])
 
-    # if last index is 2, then we still set the slice values
-    # since for 2, we only set its major value
-    # slices are not set, so we backprop
-    # so slice comes with the older layers code
-    if last_layer_index > 1:
-        total_contribs["layers.1"], total_contribs["layers.2.slice"] = (
+    if controller.should_backprop("layers.1"):
+        total_contribs["layers.1"], slice_contrib = (
             v2.conv_calculate_contribs_for_all(
                 acts["layers.1"],
                 model.get_submodule("layers.2"),
                 total_contribs["layers.2"],
             )
         )
+        if controller.should_backprop("layers.2.slice"):
+            total_contribs["layers.2.slice"] = slice_contrib
     
-    if last_layer_index > 0:  # layers.1
+    if controller.should_backprop("layers.0"):
         total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
 
-    if last_layer_index >= 0:  # layers.0
-        total_contribs["x"], total_contribs["layers.0.slice"] = (
+    if controller.should_backprop("x"):
+        total_contribs["x"], slice_contrib = (
             v2.conv_calculate_contribs_for_all(
                 acts["x"],
                 model.get_submodule("layers.0"),
                 total_contribs["layers.0"],
             )
         )
+        if controller.should_backprop("layers.0.slice"):
+            total_contribs["layers.0.slice"] = slice_contrib
     total_contribs = detach_all(to_device(total_contribs, "cpu"))
     acts = detach_all(to_device(acts, "cpu"))
     parameters = detach_all(to_device(parameters, "cpu"))
     return total_contribs, acts, parameters
 
 
-def _empty_initialise(last_layer_key: str, acts: dict):
+class LayerBackpropController:
+    def __init__(self, layer_names, last_layer_key):
+        self.layer_names = layer_names
+        self.last_layer_key = last_layer_key
+        self.last_layer_index = self.layer_names.index(last_layer_key)
+        
+        # Map slice layers to their dependency layers
+        self.slice_dependencies = {
+            "layers.0.slice": "x",
+            "layers.2.slice": "layers.1"
+        }
+    
+    def should_backprop(self, layer_name):
+        """Returns True if the layer should be backpropagated, False if it should be set to zero/input"""
+        # Handle slice layers
+        if layer_name in self.slice_dependencies:
+            dependency = self.slice_dependencies[layer_name]
+            return self.should_backprop(dependency)
+        
+        # Handle regular layers
+        try:
+            layer_index = self.layer_names.index(layer_name)
+            return layer_index <= self.last_layer_index
+        except ValueError:
+            # Layer name not in our list, assume it should be backpropagated
+            return True
+
+
+def _empty_initialise(last_layer_key: str, acts: dict, controller: LayerBackpropController):
     all_layer_keys = ["layers.0", "layers.1", "layers.2", "layers.3", "layers.4", "layers.5"]
     slice_layer_keys = ["layers.0.slice", None, "layers.2.slice", None, None, None]
 
-    last_layer_index = all_layer_keys.index(last_layer_key)
     total_contribs = {}
     
-    for i in range(last_layer_index + 1, len(all_layer_keys)):
-        if all_layer_keys[i] in acts:
-            total_contribs[all_layer_keys[i]] = acts[all_layer_keys[i]] * 0
-        # Handle slice scontributions for layers that don't participate
-        if slice_layer_keys[i] is not None:
-            # Get previous layer for slice shape calculation
-            prev_layer_key = all_layer_keys[i-1] if i > 0 else "x"
-            if prev_layer_key in acts and all_layer_keys[i] in acts:
-                total_contribs[slice_layer_keys[i]] = _get_0_slice_contribs(
-                    acts[all_layer_keys[i]], acts[prev_layer_key]
-                )
-    return total_contribs, last_layer_index
+    for i, layer_key in enumerate(all_layer_keys):
+        if layer_key in acts and not controller.should_backprop(layer_key):
+            total_contribs[layer_key] = acts[layer_key] * 0
+            # Handle slice contributions for layers that don't participate
+            if slice_layer_keys[i] is not None:
+                # Get previous layer for slice shape calculation
+                prev_layer_key = all_layer_keys[i-1] if i > 0 else "x"
+                if prev_layer_key in acts:
+                    total_contribs[slice_layer_keys[i]] = _get_0_slice_contribs(
+                        acts[layer_key], acts[prev_layer_key]
+                    )
+    return total_contribs
 
 def _get_0_slice_contribs(curr_act: torch.Tensor, prev_act: torch.Tensor):
     # [b, chan_out, chan_in, out_h, out_w]
