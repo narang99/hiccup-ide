@@ -5,7 +5,7 @@ export const filterActivation = (data: number[][], algorithm: ActivationFilterAl
         case "Id":
             return data;
         case "ThresholdAlgorithm":
-            return data.map(row => row.map(val => Math.abs(val) < algorithm.threshold ? 0 : val));
+            return data.map(row => row.map(val => val < algorithm.threshold ? 0 : val));
         default:
             return data;
     }

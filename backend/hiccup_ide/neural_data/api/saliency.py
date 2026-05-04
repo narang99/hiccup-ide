@@ -377,11 +377,11 @@ def apply_pruning_to_current_layer(
         elif current_layer_name != temp_map.layer_name:
             raise ValueError(f"All coordinates must belong to the same layer. Expected {current_layer_name}, got {temp_map.layer_name}")
 
-        # Apply algorithm to the ORIGINAL base data as per requirements
-        orig_map = get_object_or_404(
-            SaliencyMap, input=input_obj, coordinate=item.coordinate
-        )
-        filtered_data = apply_algorithm(orig_map.data, item.algorithm)
+        # # Apply algorithm to the ORIGINAL base data as per requirements
+        # orig_map = get_object_or_404(
+        #     TempPruneSaliencyMap, input=input_obj, coordinate=item.coordinate
+        # )
+        filtered_data = apply_algorithm(temp_map.data, item.algorithm)
 
         temp_map.data = filtered_data
         temp_map.is_modified = True
