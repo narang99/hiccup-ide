@@ -6,11 +6,11 @@ import SingleOrNoHandle from "../SingleOrNoHandle";
 import type { ActivationFilterAlgorithm } from "../../types/activationFiltering";
 import type { OverlayAlgorithm } from "../../types/overlay";
 
-import { useFetcherType } from "../../hooks/useFetcherType";
 import { useCallback } from "react";
 import { useNodeId } from "@xyflow/react";
 
 import { useAliases } from "../../hooks/useAliases";
+import { usePruned } from "../../hooks/usePruned";
 
 interface BaseActivationNodeProps {
     coordinate: string;
@@ -47,20 +47,20 @@ export default function BaseActivationNode({
     onPixelLeave,
     overlayAlgorithm
 }: BaseActivationNodeProps) {
-    const { workAlias: contextWorkAlias, graphAlias } = useFetcherType();
     const nodeId = useNodeId();
     const { modelAlias, inputAlias, workAlias } = useAliases();
+    const { isPruned, graphAlias } = usePruned();
 
     const fetcher = useCallback((coord: string) => {
         const f = fetchers?.[fetcherType];
         if (!f) return Promise.reject("No fetcher");
         
         if (fetcherType === 'weight') {
-            return (f as any)(coord, modelAlias, contextWorkAlias || undefined, graphAlias || undefined);
+            return (f as any)(coord, modelAlias, isPruned ? workAlias : undefined, isPruned ? graphAlias || undefined : undefined);
         }
         
-        return f(coord, modelAlias, inputAlias, contextWorkAlias || undefined, graphAlias || undefined);
-    }, [fetchers, fetcherType, modelAlias, inputAlias, contextWorkAlias, graphAlias]);
+        return f(coord, modelAlias, inputAlias, isPruned ? workAlias : undefined, isPruned ? graphAlias || undefined : undefined);
+    }, [fetchers, fetcherType, modelAlias, inputAlias, workAlias, isPruned, graphAlias]);
 
     const handleHover = useCallback((gridCoord: [number, number], position: [number, number]) => {
         if (onPixelHover && nodeId) {

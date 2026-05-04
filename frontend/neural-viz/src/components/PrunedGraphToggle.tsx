@@ -1,21 +1,10 @@
-import { useFetcherType } from '../hooks/useFetcherType';
-import { useAliases } from '../hooks/useAliases';
+import { usePruned } from '../hooks/usePruned';
 
 export const PrunedGraphToggle = () => {
-  const { workAlias: currentWorkAlias, setWorkGraph } = useFetcherType();
-  const { workAlias } = useAliases();
-
-  // Hardcoded values as specified in requirements
-  const graphAlias = 'default_pruned_graph';
-
-  const isPruned = currentWorkAlias === workAlias;
+  const { isPruned, setPruned } = usePruned();
 
   const handleToggle = () => {
-    if (isPruned) {
-      setWorkGraph(null, null);
-    } else {
-      setWorkGraph(workAlias, graphAlias);
-    }
+    setPruned(!isPruned, 'default_pruned_graph');
   };
 
   return (

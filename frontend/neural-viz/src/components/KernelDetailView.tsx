@@ -150,13 +150,13 @@ const createSumGroup = (
 
 import { useAliases } from '../hooks/useAliases';
 
-const createSliceToSumEdges = (inChannels: number, targetLayerId: string): Edge[] => {
+const createSliceToSumEdges = (inChannels: number): Edge[] => {
   const edges: Edge[] = [];
   for (let i = 0; i < inChannels; i++) {
     edges.push({
       id: `slice-${i}-to-sum`,
       source: `slice-${i}`,
-      target: sumLayerId,
+      target: 'sum',
       type: 'default',
       style: { stroke: '#dc2626', strokeWidth: 2 },
     });
@@ -203,7 +203,7 @@ export default function KernelDetailView() {
 
 
     // 3. Create edges between LayerNodes
-    const edges = createSliceToSumEdges(inChannels, 'sum-layer');
+    const edges = createSliceToSumEdges(inChannels);
 
     return { nodes, edges };
   }, [fetcherType, pageDirection]);

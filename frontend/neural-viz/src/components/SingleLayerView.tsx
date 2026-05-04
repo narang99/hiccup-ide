@@ -12,6 +12,7 @@ import { TopKSumSliderPreview } from './prune_preview/TopKSumSliderPreview';
 interface SingleLayerViewProps {
   modelAlias: string;
   inputAlias: string;
+  workAlias: string;
   layerId: string;
   pageDirection?: "TB" | "LR";
 }
@@ -19,6 +20,7 @@ interface SingleLayerViewProps {
 export default function SingleLayerView({ 
   modelAlias, 
   inputAlias,
+  workAlias,
   layerId, 
   pageDirection = "TB" 
 }: SingleLayerViewProps) {
@@ -30,7 +32,7 @@ export default function SingleLayerView({
     loading,
     error,
     modelNode
-  } = useSingleLayer(modelAlias, layerId, fetcherType, pageDirection);
+  } = useSingleLayer(modelAlias, inputAlias, workAlias, layerId, fetcherType, pageDirection);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

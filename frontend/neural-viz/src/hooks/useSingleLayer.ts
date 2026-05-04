@@ -10,6 +10,8 @@ import { type Direction } from '../types/direction';
 
 export const useSingleLayer = (
   modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
   layerId: string,
   fetcherType: FetcherType = "activation",
   pageDirection: Direction = "TB"
@@ -39,7 +41,10 @@ export const useSingleLayer = (
           modelNode, 
           basePosition, 
           fetcherType, 
-          layerBlockHandleDirection, 
+          layerBlockHandleDirection,
+          modelAlias,
+          inputAlias,
+          workAlias,
           directionInsideLayerBlock
         );
         break;

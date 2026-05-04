@@ -4,6 +4,7 @@ import { getPruningStatus, saveWorkSaliencyMaps, startPruning, finalizePruning, 
 import SharedCanvas from './SharedCanvas';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useSingleLayer } from '../hooks/useSingleLayer';
+import { usePruned } from '../hooks/usePruned';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
@@ -24,7 +25,8 @@ export default function PruneGraphView() {
   const graphAlias = 'default_pruned_graph';
   const pageDirection = 'TB';
 
-  const { fetcherType, setWorkGraph } = useFetcherType();
+  const { fetcherType } = useFetcherType();
+  const { setPruned } = usePruned();
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -32,18 +34,14 @@ export default function PruneGraphView() {
       setStatus(data);
       
       // Update global context so fetchers know to look in the scratchpad if a session is active
-      if (data.session_active) {
-        setWorkGraph(workAlias, graphAlias);
-      } else {
-        setWorkGraph(null, null);
-      }
+      setPruned(data.session_active, graphAlias);
     } catch (err) {
       console.error('Failed to fetch pruning status:', err);
       setStatusError('Failed to load pruning progress.');
     } finally {
       setStatusLoading(false);
     }
-  }, [modelAlias, inputAlias, workAlias, graphAlias, setWorkGraph]);
+  }, [modelAlias, inputAlias, workAlias, graphAlias, setPruned]);
 
   useEffect(() => {
     const load = async () => {
@@ -89,7 +87,7 @@ export default function PruneGraphView() {
     loading: layerLoading,
     error: layerError,
     modelNode
-  } = useSingleLayer(modelAlias, firstIncompleteLayer || '', fetcherType, pageDirection);
+  } = useSingleLayer(modelAlias, inputAlias, workAlias, firstIncompleteLayer || '', fetcherType, pageDirection);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
