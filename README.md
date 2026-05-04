@@ -205,52 +205,15 @@ Problem:
 
 # Pruning
 
-- Ive got a good idea of what pruning should look like now.  
-- You first prune the last layer, recalculate with new contribs
-- The next point is slightly complicated, you threshold the slices now (this sets the pixels allowed for slices). This in turn should technically fix the pixels allowed for input, we need to add that. 
-  - This pruning is done at slice level.
-  - In the older algorithm, we used to start by slice level only i thiink (do slice, then do input)
-  - This algorithm fits better with this workflow. Ill simply implement that, we have the code anyways.  
-- I need to think this through better, time for some actual system design lol
+## Alg1
+Current pruning strat:
+- Start with last layer, threshold
+  - backprop contribs again with these new values
+- then do next layer, threshold
+  - backprop contribs again with these new values
+- repeat
 
-I need to create this iteratively, the model strugglees a lot
-- Create a Start pruning button which creates a new view with the graph alias
-- This now creates a new graph
-- Now in this, we want to show the first not done layer
-  - it is quite useful to see what the layers have i think, but im not sure
-  - the easiest thing is to actually use a graph with all the values and allow the user to preview them
-  - this previewing however, if i dont do back and forth with backend, then it is useful see how the contribs are changing
-  - for that usecase, i would need to implement this logic in frontend AND backend, which is painful
-  - lets first only implement an algorithm in the backend. What are our options for previewing
-  - do i need previewing in the first place? Yes
-  - Technically, we can push the preview to backend, and backend then can create a new WorkSaliencyMap for all the ones associated with that layer, and then we good. We would need to send the coordinates too though
-  - This is because we have different views of the coordinates of the same thing
-  - Now we mark a layer as done when we are done with one of the coordinates, thats not very nice though. Because our next step is to do it input slice wise. 
-  - Or i could simply prune the coordinates in the next layer, and only see slices when interested
-  - doing slice wise might be a problem, i would need to see what all is happening.  
-  - no no, lets only do layer wise, no slice wise. that fixes a problem for us.  
-  - jhula time
-- i ll use layersettings right now to do this threhsolding right now. Although im not sure if there is a better way
-  - gemini is going full wonky
-- why am i feeling that the work is not good hmm. What are the problems
-  - the first is that preview is hard, but not that bad, we are basically changing the data every time
-  - i dont want layersettings to change the thresholds though, lets make it a pure preview component only
-  - the first thing is that its a ui component which changes thresholds and models data.  
+- downstream layers are not affected in subsequent backprops
 
-
-- Good so now ive removed the threhsold saving from layersettings view. that should be fine now
-  - We need to now implement similar functionality in the main prune graph view
-  - it should, when a user presses next, it should create a new work saliency map in the backend
-  - now for backend, we just push the actual contribs back easy, no need to send back the threshold for now (although there are now two sources of truth (the threshold, and the saliency map))
-  - but i cant do much about it, its fine
-- i actually dont need to store the threhsold at all, the user cannot go back lol
-  - good now, we just keep a "Save and Next" button which simply triggers creating new contribs by pushing the contrib algorithm
-- prune support done basic
-  - now i need support to re calculate saliency maps
-  - Currently pruning always gets raw saliency maps, prunes, then commits a new pruned map
-  - now instead, we want to recalculate pruned maps for each layer again after a prune commit 
-- in this case, it makes sense to have a workbench pruning temp graph with these calculations
-  - we prune, it updates the contribs of that layer
-  - then we recalculate, it sets the new contribs for all layers before this layer
-  - then we prune, update the contribs of that layer, and again and again
-  - onceocne done, we create prune saliency maps. easy
+**NOTE** This can turn actually negative final contribs to positive contribs (since we are removing all negative contribs anyways after pruning)
+For now, this is okay for circuit analysis in the end, i would need to see if there are better algos though (or i could keep the max reds, basically thresholding with reds also). Lets see, for now this is fine

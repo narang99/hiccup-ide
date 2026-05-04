@@ -221,3 +221,4 @@ __marimo__/
 .streamlit/secrets.toml
 
 /hiccup_ide/db.sqlite3
+/test_load
