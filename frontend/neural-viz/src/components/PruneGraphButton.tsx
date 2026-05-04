@@ -8,13 +8,10 @@ export const PruneGraphButton = () => {
   const navigate = useNavigate();
   const { modelAlias, inputAlias, workAlias } = useAliases();
 
-  // Hardcoded values as specified in requirements
-  const graphAlias = 'default_pruned_graph';
-
   const handlePruneGraph = async () => {
     setIsPruning(true);
     try {
-      await createOrUpdateWorkGraph(modelAlias, inputAlias, workAlias, graphAlias);
+      await createOrUpdateWorkGraph(modelAlias, inputAlias, workAlias);
       navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/prune-graph/`);
     } catch (error) {
       console.error('Failed to prune graph:', error);

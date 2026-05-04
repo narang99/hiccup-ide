@@ -4,18 +4,16 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 interface WorkGraphResponse {
   id: number;
-  alias: string;
   created: boolean;
 }
 
 export async function createOrUpdateWorkGraph(
   modelAlias: string,
   inputAlias: string,
-  workflowName: string,
-  graphAlias: string
+  workflowName: string
 ): Promise<WorkGraphResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/`,
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/`,
     {
       method: 'POST',
       headers: {
@@ -42,11 +40,10 @@ export interface PruningStatusResponse {
 export async function getPruningStatus(
   modelAlias: string,
   inputAlias: string,
-  workflowName: string,
-  graphAlias: string
+  workflowName: string
 ): Promise<PruningStatusResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/status/`,
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/status/`,
     {
       headers: {
         'Content-Type': 'application/json',
@@ -75,11 +72,10 @@ export async function saveWorkSaliencyMaps(
   modelAlias: string,
   inputAlias: string,
   workflowName: string,
-  graphAlias: string,
   items: CoordinateAlgorithm[]
 ): Promise<BatchWorkSaliencyMapsResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/saliency_maps/`,
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/saliency_maps/`,
     {
       method: 'POST',
       headers: {
@@ -99,11 +95,10 @@ export async function saveWorkSaliencyMaps(
 export async function startPruning(
   modelAlias: string,
   inputAlias: string,
-  workflowName: string,
-  graphAlias: string
+  workflowName: string
 ): Promise<{ status: string; cloned_count: number }> {
   const response = await fetch(
-    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/start_pruning/`,
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/start_pruning/`,
     {
       method: 'POST',
       headers: {
@@ -122,11 +117,10 @@ export async function startPruning(
 export async function finalizePruning(
   modelAlias: string,
   inputAlias: string,
-  workflowName: string,
-  graphAlias: string
+  workflowName: string
 ): Promise<{ status: string; committed_count: number }> {
   const response = await fetch(
-    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/graphs/${graphAlias}/finalize_pruning/`,
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workflowName}/finalize_pruning/`,
     {
       method: 'POST',
       headers: {

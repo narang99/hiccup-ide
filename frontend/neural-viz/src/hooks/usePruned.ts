@@ -2,19 +2,14 @@ import { create } from 'zustand';
 
 interface PrunedStore {
   isPruned: boolean;
-  graphAlias: string | null;
-  setPruned: (isPruned: boolean, graphAlias?: string) => void;
+  setPruned: (isPruned: boolean) => void;
   reset: () => void;
 }
 
 export const usePruned = create<PrunedStore>((set) => ({
   isPruned: false,
-  graphAlias: null,
-  setPruned: (isPruned: boolean, graphAlias?: string) => {
-    set({ 
-      isPruned, 
-      graphAlias: isPruned ? (graphAlias || 'default_pruned_graph') : null 
-    });
+  setPruned: (isPruned: boolean) => {
+    set({ isPruned });
   },
-  reset: () => set({ isPruned: false, graphAlias: null }),
+  reset: () => set({ isPruned: false }),
 }));

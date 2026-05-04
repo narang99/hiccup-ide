@@ -22,7 +22,6 @@ export default function PruneGraphView() {
   const [isFinalizing, setIsFinalizing] = useState(false);
 
   const { modelAlias, inputAlias, workAlias } = useAliases();
-  const graphAlias = 'default_pruned_graph';
   const pageDirection = 'TB';
 
   const { fetcherType } = useFetcherType();
@@ -30,18 +29,18 @@ export default function PruneGraphView() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const data = await getPruningStatus(modelAlias, inputAlias, workAlias, graphAlias);
+      const data = await getPruningStatus(modelAlias, inputAlias, workAlias);
       setStatus(data);
       
       // Update global context so fetchers know to look in the scratchpad if a session is active
-      setPruned(data.session_active, graphAlias);
+      setPruned(data.session_active);
     } catch (err) {
       console.error('Failed to fetch pruning status:', err);
       setStatusError('Failed to load pruning progress.');
     } finally {
       setStatusLoading(false);
     }
-  }, [modelAlias, inputAlias, workAlias, graphAlias, setPruned]);
+  }, [modelAlias, inputAlias, workAlias, setPruned]);
 
   useEffect(() => {
     const load = async () => {
@@ -53,7 +52,7 @@ export default function PruneGraphView() {
   const handleStartPruning = async () => {
     setIsSaving(true);
     try {
-      await startPruning(modelAlias, inputAlias, workAlias, graphAlias);
+      await startPruning(modelAlias, inputAlias, workAlias);
       await fetchStatus();
     } catch (err) {
       console.error('Failed to start pruning:', err);
@@ -66,7 +65,7 @@ export default function PruneGraphView() {
   const handleFinalizePruning = async () => {
     setIsFinalizing(true);
     try {
-      await finalizePruning(modelAlias, inputAlias, workAlias, graphAlias);
+      await finalizePruning(modelAlias, inputAlias, workAlias);
       await fetchStatus();
     } catch (err) {
       console.error('Failed to finalize pruning:', err);
@@ -114,7 +113,7 @@ export default function PruneGraphView() {
       }));
 
     try {
-      await saveWorkSaliencyMaps(modelAlias, inputAlias, workAlias, graphAlias, items);
+      await saveWorkSaliencyMaps(modelAlias, inputAlias, workAlias, items);
       
       // Refresh status to move to next layer
       await fetchStatus();

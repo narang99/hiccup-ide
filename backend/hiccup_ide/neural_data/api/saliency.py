@@ -29,36 +29,33 @@ from .helpers import get_min_max, apply_algorithm
 router = Router()
 
 
-def get_work_graph_context(
-    input_obj: Input, work_alias: Optional[str], graph_alias: Optional[str]
-):
-    if not (work_alias and graph_alias):
+def get_work_graph_context(input_obj: Input, work_alias: Optional[str]):
+    if not work_alias:
         return None, None
 
-    work_graph = WorkGraph.objects.filter(
-        work__input=input_obj, work__name=work_alias, alias=graph_alias
-    ).first()
-
-    if not work_graph:
+    try:
+        work = Work.objects.get(input=input_obj, name=work_alias)
+        work_graph = work.graph  # OneToOne relationship
+        return work_graph, WorkGraphMeta(work_alias=work_alias, graph_alias=None)
+    except (Work.DoesNotExist, WorkGraph.DoesNotExist):
         return None, None
-
-    return work_graph, WorkGraphMeta(work_alias=work_alias, graph_alias=graph_alias)
 
 
 def get_saliency_maps_by_coordinates(
     input_obj: Input,
     coordinates: ListType[str],
     work_alias: Optional[str] = None,
-    graph_alias: Optional[str] = None,
+    pruned: bool = False,
     allow_missing: bool = False,
 ) -> ListType[SaliencyMapOut]:
     # 1. Resolve work context
-    work_graph, work_meta = get_work_graph_context(input_obj, work_alias, graph_alias)
+    work_graph, work_meta = get_work_graph_context(input_obj, work_alias)
 
     results_dict = {}
 
-    # 2. Query TempPruneSaliencyMap if context exists (Scratchpad priority)
-    if work_graph:
+    # When pruned=True and work context exists, prioritize pruned data
+    if pruned and work_graph:
+        # 2. Query TempPruneSaliencyMap first (Scratchpad priority)
         temp_maps = TempPruneSaliencyMap.objects.filter(
             graph=work_graph, coordinate__in=coordinates
         )
@@ -76,8 +73,7 @@ def get_saliency_maps_by_coordinates(
                 work_graph=work_meta,
             )
 
-    # 3. Query WorkSaliencyMap if context exists and not already found in Temp
-    if work_graph:
+        # 3. Query WorkSaliencyMap for coordinates not found in Temp
         remaining_coords = [c for c in coordinates if c not in results_dict]
         if remaining_coords:
             work_maps = WorkSaliencyMap.objects.filter(
@@ -97,7 +93,7 @@ def get_saliency_maps_by_coordinates(
                     work_graph=work_meta,
                 )
 
-    # 4. Find missing coordinates and query base SaliencyMap
+    # 4. For unpruned data or when no work context, always query base SaliencyMap
     remaining_coords = [c for c in coordinates if c not in results_dict]
     if remaining_coords:
         base_maps = SaliencyMap.objects.filter(
@@ -136,7 +132,7 @@ def get_layer_saliency_maps(
     input_alias: str,
     layer_name: str,
     work_alias: Optional[str] = None,
-    graph_alias: Optional[str] = None,
+    pruned: bool = False,
 ):
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
 
@@ -153,7 +149,7 @@ def get_layer_saliency_maps(
         raise Http404(f"No saliency maps found for layer '{layer_name}'")
 
     items = get_saliency_maps_by_coordinates(
-        input_obj, coordinates, work_alias, graph_alias
+        input_obj, coordinates, work_alias, pruned
     )
     return {"items": items}
 
@@ -168,11 +164,11 @@ def get_batch_saliency_maps(
     input_alias: str,
     data: BatchSaliencyMapsIn,
     work_alias: Optional[str] = None,
-    graph_alias: Optional[str] = None,
+    pruned: bool = False,
 ):
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
     items = get_saliency_maps_by_coordinates(
-        input_obj, data.coordinates, work_alias, graph_alias
+        input_obj, data.coordinates, work_alias, pruned
     )
     return {"items": items}
 
@@ -187,11 +183,11 @@ def get_saliency_map(
     input_alias: str,
     coordinate: str,
     work_alias: Optional[str] = None,
-    graph_alias: Optional[str] = None,
+    pruned: bool = False,
 ):
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
     items = get_saliency_maps_by_coordinates(
-        input_obj, [coordinate], work_alias, graph_alias
+        input_obj, [coordinate], work_alias, pruned
     )
     return items[0]
 
@@ -206,14 +202,14 @@ def get_saliency_maps_stats(
     input_alias: str,
     data: BatchSaliencyMapsIn,
     work_alias: Optional[str] = None,
-    graph_alias: Optional[str] = None,
+    pruned: bool = False,
 ):
     # Verify input exists
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
 
     # Get all saliency maps for the requested coordinates using the helper
     items = get_saliency_maps_by_coordinates(
-        input_obj, data.coordinates, work_alias, graph_alias, allow_missing=True
+        input_obj, data.coordinates, work_alias, pruned, allow_missing=True
     )
 
     saliency_maps = [item.data for item in items]
@@ -222,19 +218,19 @@ def get_saliency_maps_stats(
 
 
 @router.get(
-    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/status/",
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/status/",
     response=PruningStatusOut,
 )
 def get_workflow_pruning_status(
-    request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
+    request, model_alias: str, input_alias: str, workflow_name: str
 ):
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
 
     # Get the work/workflow
     work = get_object_or_404(Work, input=input_obj, name=workflow_name)
 
-    # Get the work graph
-    work_graph = get_object_or_404(WorkGraph, work=work, alias=graph_alias)
+    # Get the work graph (OneToOne relationship)
+    work_graph = get_object_or_404(WorkGraph, work=work)
 
     # Hardcoded total layers in specific order as requested
     TOTAL_LAYERS = ["layers.3", "layers.2", "layers.1", "layers.0", "x"]
@@ -266,31 +262,31 @@ def get_workflow_pruning_status(
 
 
 @router.post(
-    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/"
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/"
 )
 def create_or_update_work_graph(
-    request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
+    request, model_alias: str, input_alias: str, workflow_name: str
 ):
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
 
     # Get or create the work/workflow
     work, _ = Work.objects.get_or_create(input=input_obj, name=workflow_name)
 
-    # Create or update the work graph
-    work_graph, created = WorkGraph.objects.get_or_create(work=work, alias=graph_alias)
+    # Create or update the work graph (OneToOne relationship)
+    work_graph, created = WorkGraph.objects.get_or_create(work=work)
 
-    return {"id": work_graph.pk, "alias": work_graph.alias, "created": created}
+    return {"id": work_graph.pk, "created": created}
 
 
 @router.post(
-    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/start_pruning/"
 )
 def initialize_pruning_session(
-    request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
+    request, model_alias: str, input_alias: str, workflow_name: str
 ):
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
     work, _ = Work.objects.get_or_create(input=input_obj, name=workflow_name)
-    graph, _ = WorkGraph.objects.get_or_create(work=work, alias=graph_alias)
+    graph, _ = WorkGraph.objects.get_or_create(work=work)
 
     # Clear existing temp maps for this graph
     TempPruneSaliencyMap.objects.filter(graph=graph).delete()
@@ -321,14 +317,14 @@ def initialize_pruning_session(
 
 
 @router.post(
-    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/finalize_pruning/"
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/finalize_pruning/"
 )
 def finalize_pruning_session(
-    request, model_alias: str, input_alias: str, workflow_name: str, graph_alias: str
+    request, model_alias: str, input_alias: str, workflow_name: str
 ):
     input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
     work = get_object_or_404(Work, input=input_obj, name=workflow_name)
-    graph = get_object_or_404(WorkGraph, work=work, alias=graph_alias)
+    graph = get_object_or_404(WorkGraph, work=work)
 
     # Only commit modified temp maps to WorkSaliencyMap
     temp_maps = TempPruneSaliencyMap.objects.filter(graph=graph, is_modified=True)
@@ -452,7 +448,6 @@ def update_upstream_temp_maps(
 @functools.lru_cache(maxsize=1)
 def _get_cached_mnist_model(model_obj: Model):
     from pt_to_api.mnist import SimpleMNIST
-    import torch
 
     pt_file = model_obj.load_pt_file()
     if pt_file is None:
@@ -509,14 +504,13 @@ def recalculate_upstream_saliency(
 
 
 @router.post(
-    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/saliency_maps/"
 )
 def create_batch_work_saliency_maps(
     request,
     model_alias: str,
     input_alias: str,
     workflow_name: str,
-    graph_alias: str,
     payload: BatchWorkSaliencyMapIn,
 ):
     # this is not very efficient obviously
@@ -527,7 +521,7 @@ def create_batch_work_saliency_maps(
     with transaction.atomic():
         input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
         work = get_object_or_404(Work, input=input_obj, name=workflow_name)
-        graph = get_object_or_404(WorkGraph, work=work, alias=graph_alias)
+        graph = get_object_or_404(WorkGraph, work=work)
 
         if not payload.items:
             return {"created": 0, "updated": 0}

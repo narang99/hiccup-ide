@@ -4,7 +4,7 @@ export const PrunedGraphToggle = () => {
   const { isPruned, setPruned } = usePruned();
 
   const handleToggle = () => {
-    setPruned(!isPruned, 'default_pruned_graph');
+    setPruned(!isPruned);
   };
 
   return (

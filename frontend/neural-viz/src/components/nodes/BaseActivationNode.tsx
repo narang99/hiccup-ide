@@ -49,18 +49,18 @@ export default function BaseActivationNode({
 }: BaseActivationNodeProps) {
     const nodeId = useNodeId();
     const { modelAlias, inputAlias, workAlias } = useAliases();
-    const { isPruned, graphAlias } = usePruned();
+    const { isPruned } = usePruned();
 
     const fetcher = useCallback((coord: string) => {
         const f = fetchers?.[fetcherType];
         if (!f) return Promise.reject("No fetcher");
         
         if (fetcherType === 'weight') {
-            return (f as any)(coord, modelAlias, isPruned ? workAlias : undefined, isPruned ? graphAlias || undefined : undefined);
+            return (f as any)(coord, modelAlias, isPruned ? workAlias : undefined, isPruned);
         }
         
-        return f(coord, modelAlias, inputAlias, isPruned ? workAlias : undefined, isPruned ? graphAlias || undefined : undefined);
-    }, [fetchers, fetcherType, modelAlias, inputAlias, workAlias, isPruned, graphAlias]);
+        return f(coord, modelAlias, inputAlias, isPruned ? workAlias : undefined, isPruned);
+    }, [fetchers, fetcherType, modelAlias, inputAlias, workAlias, isPruned]);
 
     const handleHover = useCallback((gridCoord: [number, number], position: [number, number]) => {
         if (onPixelHover && nodeId) {

@@ -1,7 +1,7 @@
 
 export interface WorkGraphMeta {
   work_alias: string;
-  graph_alias: string;
+  graph_alias: string | null;
 }
 
 export interface LayerSaliencyMap {
@@ -24,7 +24,7 @@ export async function loadLayerSaliencyMaps(
   inputAlias: string, 
   layerName: string,
   workAlias?: string,
-  graphAlias?: string
+  pruned?: boolean
 ): Promise<LayerSaliencyData> {
   try {
     const apiBaseUrl = "http://localhost:8000";
@@ -33,7 +33,7 @@ export async function loadLayerSaliencyMaps(
     let url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/layers/${layerName}/`;
     const params = new URLSearchParams();
     if (workAlias) params.append('work_alias', workAlias);
-    if (graphAlias) params.append('graph_alias', graphAlias);
+    if (pruned) params.append('pruned', 'true');
     if (params.toString()) url += `?${params.toString()}`;
 
     const response = await fetch(url, { headers });
@@ -59,7 +59,7 @@ export async function loadBatchSaliencyMaps(
   inputAlias: string, 
   coordinates: string[],
   workAlias?: string,
-  graphAlias?: string
+  pruned?: boolean
 ): Promise<LayerSaliencyData> {
   try {
     const apiBaseUrl = "http://localhost:8000";
@@ -68,7 +68,7 @@ export async function loadBatchSaliencyMaps(
     let url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/batch/`;
     const params = new URLSearchParams();
     if (workAlias) params.append('work_alias', workAlias);
-    if (graphAlias) params.append('graph_alias', graphAlias);
+    if (pruned) params.append('pruned', 'true');
     if (params.toString()) url += `?${params.toString()}`;
 
     const response = await fetch(url, { 
@@ -99,7 +99,7 @@ export async function loadSaliencyMapFromFile(
   modelAlias: string,
   inputAlias: string,
   workAlias?: string,
-  graphAlias?: string
+  pruned?: boolean
 ): Promise<LayerSaliencyMap> {
   try {
     const apiBaseUrl = "http://localhost:8000";
@@ -108,7 +108,7 @@ export async function loadSaliencyMapFromFile(
     let url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/saliency_maps/single/${coordinate}/`;
     const params = new URLSearchParams();
     if (workAlias) params.append('work_alias', workAlias);
-    if (graphAlias) params.append('graph_alias', graphAlias);
+    if (pruned) params.append('pruned', 'true');
     if (params.toString()) url += `?${params.toString()}`;
 
     const response = await fetch(url, {headers,});

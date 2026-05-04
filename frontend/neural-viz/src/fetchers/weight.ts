@@ -10,7 +10,7 @@ export async function loadWeightFromFile(
   coordinate: string,
   modelAlias: string,
   workAlias?: string,
-  graphAlias?: string
+  pruned?: boolean
 ): Promise<WeightData> {
   try {
     const apiBaseUrl = "http://localhost:8000";
@@ -20,7 +20,7 @@ export async function loadWeightFromFile(
     
     const params = new URLSearchParams();
     if (workAlias) params.append('work_alias', workAlias);
-    if (graphAlias) params.append('graph_alias', graphAlias);
+    if (pruned) params.append('pruned', 'true');
     if (params.toString()) url += `?${params.toString()}`;
 
     const response = await fetch(url, { headers });

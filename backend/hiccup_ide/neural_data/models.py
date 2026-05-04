@@ -123,11 +123,10 @@ class Work(models.Model):
         unique_together = ['input', 'name']
 
 class WorkGraph(models.Model):
-    alias = models.CharField(max_length=200)
-    work = models.ForeignKey(Work, on_delete=models.CASCADE)
+    work = models.OneToOneField(Work, on_delete=models.CASCADE, related_name='graph')
 
     class Meta:
-        unique_together = ['work', 'alias']
+        db_table = "work_graphs"
 
 
 class WorkSaliencyMap(SaliencyMapData):
