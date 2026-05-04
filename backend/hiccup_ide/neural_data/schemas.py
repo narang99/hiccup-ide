@@ -34,7 +34,6 @@ class InputOut(Schema):
 
 class WorkGraphMeta(Schema):
     work_alias: str
-    graph_alias: str
 
 
 

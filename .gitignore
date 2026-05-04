@@ -63,6 +63,9 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Django media files (user uploads, model files, etc.)
+backend/hiccup_ide/media/
+
 # Flask stuff:
 instance/
 .webassets-cache

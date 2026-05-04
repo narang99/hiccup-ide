@@ -1,7 +1,6 @@
 
 export interface WorkGraphMeta {
   work_alias: string;
-  graph_alias: string | null;
 }
 
 export interface LayerSaliencyMap {
