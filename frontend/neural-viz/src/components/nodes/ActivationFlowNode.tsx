@@ -2,6 +2,7 @@ import { type NodeProps, type Node } from '@xyflow/react';
 import type { NodeFetchers, FetcherType } from "../../fetchers";
 import BaseActivationNode from "./BaseActivationNode";
 import type { ActivationFilterAlgorithm } from '../../types/activationFiltering';
+import type { OverlayAlgorithm } from '../../types/overlay';
 
 export type HandleDirection = "TB" | "LR" | null;
 
@@ -17,6 +18,9 @@ export interface ActivationNodeData extends Record<string, unknown> {
     link?: string;
     filterAlgorithm?: ActivationFilterAlgorithm;
     absMax?: number;
+    onPixelHover?: (nodeId: string, coordinate: string, x: number, y: number) => void;
+    onPixelLeave?: (nodeId: string, coordinate: string) => void;
+    overlayAlgorithm?: OverlayAlgorithm;
 }
 
 export type ActivationNodeType = Node<ActivationNodeData, 'ActivationNode'>;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import chroma from 'chroma-js';
 import { type ActivationData } from '../fetchers/activation';
 import { type LayerSaliencyMap } from '../fetchers/saliency_map';
@@ -6,6 +6,7 @@ import { COLORMAPS, COLORMAP_META, normalizeSymmetric, type ColormapName } from 
 import { useColormap } from '../hooks/useColormap';
 import { filterActivation } from '../activationFiltering';
 import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
+import type { OverlayAlgorithm } from '../types/overlay';
 
 type BaseData = ActivationData | LayerSaliencyMap;
 
@@ -19,6 +20,9 @@ interface ActivationDisplayProps {
   filterAlgorithm?: ActivationFilterAlgorithm;
   // color map, maximum value for opacity scaling
   absMax?: number;
+  onPixelHover?: (x: number, y: number) => void;
+  onPixelLeave?: () => void;
+  overlayAlgorithm?: OverlayAlgorithm;
 }
 
 export const ActivationDisplay = ({
@@ -28,10 +32,14 @@ export const ActivationDisplay = ({
   colormap,
   filterAlgorithm = { type: 'Id' },
   absMax,
+  onPixelHover,
+  onPixelLeave,
+  overlayAlgorithm = { type: 'NoOverlay' },
 }: ActivationDisplayProps) => {
   const [activationData, setActivationData] = useState<BaseData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   // Fall back to global context colormap when no explicit prop is passed
   const { colormap: globalColormap } = useColormap();
@@ -61,6 +69,30 @@ export const ActivationDisplay = ({
     loadActivation();
     return () => { cancelled = true; };
   }, [coordinate, fetcher]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current || !activationData || !onPixelHover) return;
+
+    const [height, width] = activationData.shape;
+    if (height === 0 || width === 0) return;
+
+    const svg = svgRef.current;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+
+    const cursorPt = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+    
+    // Map SVG coordinates to grid coordinates
+    const gridX = Math.floor(cursorPt.x);
+    const gridY = Math.floor(cursorPt.y);
+
+    if (gridX >= 0 && gridX < width && gridY >= 0 && gridY < height) {
+      onPixelHover(gridX, gridY);
+    } else if (onPixelLeave) {
+      onPixelLeave();
+    }
+  }, [activationData, onPixelHover, onPixelLeave]);
 
   const renderActivation = (absMax?: number) => {
     if (isLoading) {
@@ -135,7 +167,15 @@ export const ActivationDisplay = ({
               zIndex: 10
             }} />
           )}
-          <svg width={"100%"} height={"100%"} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+          <svg 
+            ref={svgRef}
+            width={"100%"} 
+            height={"100%"} 
+            viewBox={`0 0 ${width} ${height}`} 
+            preserveAspectRatio="none"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={onPixelLeave}
+          >
             {data.map((row, y) =>
               row.map((value, x) => (
                 <rect
@@ -147,6 +187,18 @@ export const ActivationDisplay = ({
                   fill={scale(normalizeSymmetric(value, actualAbsMax)).hex()}
                 />
               ))
+            )}
+            {overlayAlgorithm.type === 'DrawRect' && (
+              <rect
+                x={overlayAlgorithm.start[0]}
+                y={overlayAlgorithm.start[1]}
+                width={overlayAlgorithm.end[0] - overlayAlgorithm.start[0]}
+                height={overlayAlgorithm.end[1] - overlayAlgorithm.start[1]}
+                fill="none"
+                stroke={overlayAlgorithm.color || "#f59e0b"}
+                strokeWidth={0.5}
+                style={{ vectorEffect: 'non-scaling-stroke' }}
+              />
             )}
           </svg>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge, useNodesState, useEdgesState } from '@xyflow/react';
 import { type ModelData } from '../types/model';
@@ -10,6 +10,7 @@ import { makeEvenlySpacedLayout } from '../layouts';
 import { type Direction } from '../types/direction';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
+import { type OverlayAlgorithm } from '../types/overlay';
 
 const getActivationNode = (
     id: string,
@@ -59,6 +60,9 @@ const generateKernelSliceView = (
     kernelIdx: number,
     inputIdx: number,
     pageDirection: Direction,
+    onPixelHover?: (nodeId: string, coordinate: string, x: number, y: number) => void,
+    onPixelLeave?: (nodeId: string, coordinate: string) => void,
+    inputOverlay?: OverlayAlgorithm,
 ): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
     if (!targetNode || targetNode.type !== 'Conv2d') return null;
@@ -87,17 +91,33 @@ const generateKernelSliceView = (
             handleDirection: pageDirection,
         },
     });
-    nodes.push(getActivationNode(
-        "input-act",
-        inputLayout.children[0],
-        `Channel ${inputIdx}`,
-        `${inputNodeId}.out_${inputIdx}`,
-        "activation",
-        inputLayerId,
-        childWidth,
-        childHeight,
-        null
-    ));
+    nodes.push({
+        ...getActivationNode(
+            "input-act",
+            inputLayout.children[0],
+            `Channel ${inputIdx}`,
+            `${inputNodeId}.out_${inputIdx}`,
+            "activation",
+            inputLayerId,
+            childWidth,
+            childHeight,
+            null
+        ),
+        data: {
+            ...getActivationNode(
+                "input-act",
+                inputLayout.children[0],
+                `Channel ${inputIdx}`,
+                `${inputNodeId}.out_${inputIdx}`,
+                "activation",
+                inputLayerId,
+                childWidth,
+                childHeight,
+                null
+            ).data,
+            overlayAlgorithm: inputOverlay,
+        }
+    });
 
     // 2. Weight Layer
     const weightLayout = makeEvenlySpacedLayout(1, childHeight, childWidth, padding, "TB");
@@ -143,28 +163,62 @@ const generateKernelSliceView = (
             handleDirection: pageDirection,
         },
     });
-    nodes.push(getActivationNode(
-        "output-act",
-        outputLayout.children[0],
-        "Activation",
-        `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
-        "activation",
-        outputLayerId,
-        childWidth,
-        childHeight,
-        null
-    ));
-    nodes.push(getActivationNode(
-        "output-saliency",
-        outputLayout.children[1],
-        "Saliency",
-        `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
-        "saliency_map",
-        outputLayerId,
-        childWidth,
-        childHeight,
-        null
-    ));
+    nodes.push({
+        ...getActivationNode(
+            "output-act",
+            outputLayout.children[0],
+            "Activation",
+            `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+            "activation",
+            outputLayerId,
+            childWidth,
+            childHeight,
+            null
+        ),
+        data: {
+            ...getActivationNode(
+                "output-act",
+                outputLayout.children[0],
+                "Activation",
+                `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+                "activation",
+                outputLayerId,
+                childWidth,
+                childHeight,
+                null
+            ).data,
+            onPixelHover,
+            onPixelLeave,
+        }
+    });
+    nodes.push({
+        ...getActivationNode(
+            "output-saliency",
+            outputLayout.children[1],
+            "Saliency",
+            `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+            "saliency_map",
+            outputLayerId,
+            childWidth,
+            childHeight,
+            null
+        ),
+        data: {
+            ...getActivationNode(
+                "output-saliency",
+                outputLayout.children[1],
+                "Saliency",
+                `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+                "saliency_map",
+                outputLayerId,
+                childWidth,
+                childHeight,
+                null
+            ).data,
+            onPixelHover,
+            onPixelLeave,
+        }
+    });
 
     const edges: Edge[] = [
         {
@@ -192,7 +246,34 @@ export default function KernelSliceView() {
     const { modelData } = useModelData("example-model");
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
     const pageDirection: Direction = "LR";
+
+    // Receptive field params hardcoded: ((3,3), 1, 2, 0)
+    // kernel_size, stride, padding, dilation
+    const KERNEL_SIZE = 3;
+    const STRIDE = 2;
+    const PADDING = 1;
+
+    const handlePixelHover = useCallback((id: string, _coordinate: string, x: number, y: number) => {
+        if (id === 'output-act' || id === 'output-saliency') {
+            const x_in_start = x * STRIDE - PADDING;
+            const y_in_start = y * STRIDE - PADDING;
+            const x_in_end = x_in_start + KERNEL_SIZE;
+            const y_in_end = y_in_start + KERNEL_SIZE;
+
+            setInputOverlay({
+                type: 'DrawRect',
+                start: [x_in_start, y_in_start],
+                end: [x_in_end, y_in_end],
+                color: "#f59e0b"
+            });
+        }
+    }, [STRIDE, PADDING, KERNEL_SIZE]);
+
+    const handlePixelLeave = useCallback(() => {
+        setInputOverlay({ type: 'NoOverlay' });
+    }, []);
 
     useEffect(() => {
         if (modelData && nodeId && kernelIndex && inputIndex) {
@@ -201,14 +282,17 @@ export default function KernelSliceView() {
                 nodeId,
                 parseInt(kernelIndex),
                 parseInt(inputIndex),
-                pageDirection
+                pageDirection,
+                handlePixelHover,
+                handlePixelLeave,
+                inputOverlay
             );
             if (result) {
                 setNodes(result.nodes);
                 setEdges(result.edges);
             }
         }
-    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges]);
+    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, inputOverlay]);
 
     const handleBackClick = () => {
         navigate(`/kernel/${nodeId}/${kernelIndex}`);
@@ -252,6 +336,7 @@ export default function KernelSliceView() {
                 </button>
             </Panel>
             <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                <DataTypeSelector />
                 <ColormapSelector />
             </Panel>
         </SharedCanvas>

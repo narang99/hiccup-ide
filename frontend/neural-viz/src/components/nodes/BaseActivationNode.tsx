@@ -4,9 +4,11 @@ import { Link } from 'react-router-dom';
 import { type HandleDirection } from "./ActivationFlowNode";
 import SingleOrNoHandle from "../SingleOrNoHandle";
 import type { ActivationFilterAlgorithm } from "../../types/activationFiltering";
+import type { OverlayAlgorithm } from "../../types/overlay";
 
 import { useFetcherType } from "../../hooks/useFetcherType";
 import { useCallback } from "react";
+import { useNodeId } from "@xyflow/react";
 
 interface BaseActivationNodeProps {
     coordinate: string;
@@ -21,6 +23,9 @@ interface BaseActivationNodeProps {
     link?: string;
     filterAlgorithm?: ActivationFilterAlgorithm;
     absMax?: number;
+    onPixelHover?: (nodeId: string, coordinate: string, x: number, y: number) => void;
+    onPixelLeave?: (nodeId: string, coordinate: string) => void;
+    overlayAlgorithm?: OverlayAlgorithm;
 }
 
 export default function BaseActivationNode({
@@ -35,9 +40,13 @@ export default function BaseActivationNode({
     handleDirection = "TB",
     link,
     filterAlgorithm,
-    absMax
+    absMax,
+    onPixelHover,
+    onPixelLeave,
+    overlayAlgorithm
 }: BaseActivationNodeProps) {
     const { workAlias, graphAlias } = useFetcherType();
+    const nodeId = useNodeId();
 
     const fetcher = useCallback((coord: string) => {
         const f = fetchers?.[fetcherType];
@@ -45,6 +54,18 @@ export default function BaseActivationNode({
         
         return f(coord, workAlias || undefined, graphAlias || undefined);
     }, [fetchers, fetcherType, workAlias, graphAlias]);
+
+    const handleHover = useCallback((x: number, y: number) => {
+        if (onPixelHover && nodeId) {
+            onPixelHover(nodeId, coordinate, x, y);
+        }
+    }, [onPixelHover, nodeId, coordinate]);
+
+    const handleLeave = useCallback(() => {
+        if (onPixelLeave && nodeId) {
+            onPixelLeave(nodeId, coordinate);
+        }
+    }, [onPixelLeave, nodeId, coordinate]);
 
     const content = (
         <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}>
@@ -100,6 +121,9 @@ export default function BaseActivationNode({
                         maxSize={maxSize}
                         filterAlgorithm={filterAlgorithm}
                         absMax={absMax}
+                        onPixelHover={handleHover}
+                        onPixelLeave={handleLeave}
+                        overlayAlgorithm={overlayAlgorithm}
                     />
                 ) : (
                     <div style={{
