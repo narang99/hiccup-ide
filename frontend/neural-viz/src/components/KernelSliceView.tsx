@@ -1,0 +1,259 @@
+import { useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Panel, type Node, type Edge, useNodesState, useEdgesState } from '@xyflow/react';
+import { type ModelData } from '../types/model';
+import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
+import { useModelData } from '../hooks/useModelData';
+import SharedCanvas from './SharedCanvas';
+import { type HandleDirection } from './nodes/ActivationFlowNode';
+import { makeEvenlySpacedLayout } from '../layouts';
+import { type Direction } from '../types/direction';
+import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
+import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
+
+const getActivationNode = (
+    id: string,
+    position: { x: number, y: number },
+    title: string,
+    coordinate: string,
+    fetcherType: FetcherType = "activation",
+    parentId?: string,
+    width?: number,
+    height?: number,
+    handleDirection: HandleDirection = null,
+    absMax?: number,
+    link?: string,
+): Node => {
+    return ({
+        id: id,
+        type: 'ActivationFlowNode',
+        position: position,
+        data: {
+            coordinate: coordinate,
+            fetchers: DEFAULT_FETCHERS,
+            fetcherType: fetcherType,
+            maxSize: 84,
+            title: title,
+            handleDirection,
+            absMax,
+            link,
+        },
+        width: width,
+        height: height,
+        style: {
+            background: 'transparent',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            borderRadius: '6px',
+            padding: 0,
+            fontSize: '10px',
+            overflow: 'hidden',
+        },
+        parentId: parentId,
+        extent: parentId ? 'parent' : undefined,
+    });
+};
+
+const generateKernelSliceView = (
+    data: ModelData,
+    nodeId: string,
+    kernelIdx: number,
+    inputIdx: number,
+    pageDirection: Direction,
+): { nodes: Node[], edges: Edge[] } | null => {
+    const targetNode = data.nodes.find(n => n.id === nodeId);
+    if (!targetNode || targetNode.type !== 'Conv2d') return null;
+
+    const targetEdge = data.edges.find(e => e.target === nodeId);
+    const inputNodeId = targetEdge ? targetEdge.source : "x";
+
+    const nodes: Node[] = [];
+    const childWidth = 130;
+    const childHeight = 150;
+    const padding = 10;
+
+    // 1. Input Activation Layer
+    const inputLayout = makeEvenlySpacedLayout(1, childHeight, childWidth, padding, "TB");
+    const inputLayerId = "input-layer";
+    nodes.push({
+        id: inputLayerId,
+        type: 'LayerNode',
+        position: { x: 0, y: 0 },
+        width: inputLayout.parent.width,
+        height: inputLayout.parent.height,
+        data: {
+            label: "Input Activation",
+            layerType: 'Input',
+            nodeCount: 1,
+            handleDirection: pageDirection,
+        },
+    });
+    nodes.push(getActivationNode(
+        "input-act",
+        inputLayout.children[0],
+        `Channel ${inputIdx}`,
+        `${inputNodeId}.out_${inputIdx}`,
+        "activation",
+        inputLayerId,
+        childWidth,
+        childHeight,
+        null
+    ));
+
+    // 2. Weight Layer
+    const weightLayout = makeEvenlySpacedLayout(1, childHeight, childWidth, padding, "TB");
+    const weightLayerId = "weight-layer";
+    nodes.push({
+        id: weightLayerId,
+        type: 'LayerNode',
+        position: { x: 0, y: 0 },
+        width: weightLayout.parent.width,
+        height: weightLayout.parent.height,
+        data: {
+            label: "Kernel Weight",
+            layerType: 'Conv2d',
+            nodeCount: 1,
+            handleDirection: pageDirection,
+        },
+    });
+    nodes.push(getActivationNode(
+        "weight-node",
+        weightLayout.children[0],
+        `W[${kernelIdx}][${inputIdx}]`,
+        `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+        "weight",
+        weightLayerId,
+        childWidth,
+        childHeight,
+        null
+    ));
+
+    // 3. Output Contribution Layer (Activation and Saliency)
+    const outputLayout = makeEvenlySpacedLayout(2, childHeight, childWidth, padding, "TB");
+    const outputLayerId = "output-layer";
+    nodes.push({
+        id: outputLayerId,
+        type: 'LayerNode',
+        position: { x: 0, y: 0 },
+        width: outputLayout.parent.width,
+        height: outputLayout.parent.height,
+        data: {
+            label: "Output Contribution",
+            layerType: 'Conv2d',
+            nodeCount: 2,
+            handleDirection: pageDirection,
+        },
+    });
+    nodes.push(getActivationNode(
+        "output-act",
+        outputLayout.children[0],
+        "Activation",
+        `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+        "activation",
+        outputLayerId,
+        childWidth,
+        childHeight,
+        null
+    ));
+    nodes.push(getActivationNode(
+        "output-saliency",
+        outputLayout.children[1],
+        "Saliency",
+        `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+        "saliency_map",
+        outputLayerId,
+        childWidth,
+        childHeight,
+        null
+    ));
+
+    const edges: Edge[] = [
+        {
+            id: "input-to-weight",
+            source: inputLayerId,
+            target: weightLayerId,
+            type: "default",
+            style: { stroke: '#94a3b8', strokeWidth: 2 },
+        },
+        {
+            id: "weight-to-output",
+            source: weightLayerId,
+            target: outputLayerId,
+            type: "default",
+            style: { stroke: '#dc2626', strokeWidth: 2 },
+        }
+    ];
+
+    return { nodes, edges };
+};
+
+export default function KernelSliceView() {
+    const { nodeId, kernelIndex, inputIndex } = useParams<{ nodeId: string; kernelIndex: string; inputIndex: string }>();
+    const navigate = useNavigate();
+    const { modelData } = useModelData("example-model");
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const pageDirection: Direction = "LR";
+
+    useEffect(() => {
+        if (modelData && nodeId && kernelIndex && inputIndex) {
+            const result = generateKernelSliceView(
+                modelData,
+                nodeId,
+                parseInt(kernelIndex),
+                parseInt(inputIndex),
+                pageDirection
+            );
+            if (result) {
+                setNodes(result.nodes);
+                setEdges(result.edges);
+            }
+        }
+    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges]);
+
+    const handleBackClick = () => {
+        navigate(`/kernel/${nodeId}/${kernelIndex}`);
+    };
+
+    if (!modelData) {
+        return <div className="flex items-center justify-center h-screen">Loading slice details...</div>;
+    }
+
+    return (
+        <SharedCanvas
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            fitView
+            minZoom={0.5}
+            maxZoom={2}
+            pageDirection={pageDirection}
+        >
+            <Panel position="top-left">
+                <button
+                    onClick={handleBackClick}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '7px 12px',
+                        background: 'rgba(13, 13, 20, 0.88)',
+                        border: '1px solid rgba(255,255,255,0.09)',
+                        borderRadius: 10,
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                        color: 'rgba(255,255,255,0.75)',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                    }}
+                >
+                    ← Kernel View
+                </button>
+            </Panel>
+            <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                <ColormapSelector />
+            </Panel>
+        </SharedCanvas>
+    );
+}

@@ -27,6 +27,7 @@ const getNodeShowingActivation = (
     height?: number,
     handleDirection: HandleDirection = null,
     absMax?: number,
+    link?: string,
 ): Node => {
     return ({
         id: id,
@@ -40,6 +41,7 @@ const getNodeShowingActivation = (
             title: title,
             handleDirection,
             absMax,
+            link,
         },
         width: width,
         height: height,
@@ -108,7 +110,8 @@ const generateKernelSliceContribsView = (
             childWidth,
             childHeight,
             null,
-            absMaxMap[sliceParentLayerId]
+            absMaxMap[sliceParentLayerId],
+            `/kernel-slice/${nodeId}/${kernelIdx}/${i}`,
         ));
     }
 
