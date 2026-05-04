@@ -4,6 +4,38 @@ The goal is to be as minimal as possible, with all the tools i use.
 The first major concern is to get started with the minimum number of tools I need, the amount I use for analysis right now atleast using jupyter notebooks. I think I can do pretty fast development.   
 
 
+# Progress
+Good progress now
+- full visualisation on main screen
+  - global vs local color scaling
+  - dark vs light mode 
+  - slider to see the brighter pixels of each layer (top K pixels which make sum to X% [X taken from slider])
+  - auto layouting
+  - on click, open the slice wise contribs for conv layer blocks
+- conv layer block slices view
+  - slider again for seeing bigger contribs
+  - on click -> go to kernel analysis view
+- kernel analysis view
+  - show weight, input, output, and saliency
+  - on hover in saliency map, show the input receptive field
+- graph pruning
+  - workflow to prune saliency map
+  - first prune last layer, recalculate for earlier layers
+  - see the recalculated part, prune again, and so on
+  - Gives a fully pruned graph
+
+Next steps:
+- Adding notes on each POI. Checking then in the final view how something was made
+  - Labelling each POI (a cluster label for the top level pattern)
+  - the actual meaning and extra notes
+  - keep saving in backend
+- I would also like a view to show all the inputs of the kernel with high contribs 
+  - this would need some work in load data only right now (im not going to put a lot of interactivity in this)
+  - basically load all inputs, with their contribs
+    - then in kernel analysis view, we show one more layer with high contrib inputs (with patch drawn). (we dont need to show the output for now or anything)
+
+
+# old roadmap
 Minimal features needed:
 - Visualising activations for convolution operator ✅
   - full activation of the whole 3D kernel

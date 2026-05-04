@@ -26,6 +26,7 @@ const getActivationNode = (
     link?: string,
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
+    onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
 ): Node => {
     return ({
         id: id,
@@ -39,7 +40,9 @@ const getActivationNode = (
             title: title,
             handleDirection,
             absMax,
-            clickAction: link ? { type: 'link', link } : undefined,
+            clickAction: link 
+                ? { type: 'link', link } 
+                : (onPixelClick ? { type: 'callback', callback: onPixelClick } : undefined),
             onPixelHover,
             onPixelLeave,
         },
@@ -66,6 +69,7 @@ const generateKernelSliceView = (
     pageDirection: Direction,
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
+    onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
     inputOverlay?: OverlayAlgorithm,
 ): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
@@ -181,7 +185,8 @@ const generateKernelSliceView = (
         undefined,
         undefined,
         onPixelHover,
-        onPixelLeave
+        onPixelLeave,
+        onPixelClick
     ));
 
     const edges: Edge[] = [
@@ -213,13 +218,17 @@ export default function KernelSliceView() {
     const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
     const pageDirection: Direction = "LR";
 
+    // Annotation Dialog state
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [dialogInfo, setDialogInfo] = useState<{ gridCoord: [number, number] | null } | null>(null);
+
     // Receptive field params hardcoded: ((3,3), 1, 2, 0)
     // kernel_size, stride, padding, dilation
     const KERNEL_SIZE = 3;
     const STRIDE = 2;
     const PADDING = 1;
 
-    const handlePixelHover = useCallback((id: string, _coordinate: string, gridCoord: [number, number], _position: [number, number]) => {
+    const handlePixelHover = useCallback((id: string, _: string, gridCoord: [number, number]) => {
         const [x, y] = gridCoord;
         if (id === 'output-act' || id === 'output-saliency') {
             const x_in_start = x * STRIDE - PADDING;
@@ -240,6 +249,11 @@ export default function KernelSliceView() {
         setInputOverlay({ type: 'NoOverlay' });
     }, []);
 
+    const handlePixelClick = useCallback((_: string, __: string, gridCoord: [number, number] | null) => {
+        setDialogInfo({ gridCoord });
+        setIsDialogOpen(true);
+    }, []);
+
     useEffect(() => {
         if (modelData && nodeId && kernelIndex && inputIndex) {
             const result = generateKernelSliceView(
@@ -250,6 +264,7 @@ export default function KernelSliceView() {
                 pageDirection,
                 handlePixelHover,
                 handlePixelLeave,
+                handlePixelClick,
                 inputOverlay
             );
             if (result) {
@@ -257,7 +272,7 @@ export default function KernelSliceView() {
                 setEdges(result.edges);
             }
         }
-    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, inputOverlay]);
+    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay]);
 
     const handleBackClick = () => {
         navigate(`/kernel/${nodeId}/${kernelIndex}`);
@@ -268,42 +283,145 @@ export default function KernelSliceView() {
     }
 
     return (
-        <SharedCanvas
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            fitView
-            minZoom={0.5}
-            maxZoom={2}
-            pageDirection={pageDirection}
-        >
-            <Panel position="top-left">
-                <button
-                    onClick={handleBackClick}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '7px 12px',
-                        background: 'rgba(13, 13, 20, 0.88)',
-                        border: '1px solid rgba(255,255,255,0.09)',
-                        borderRadius: 10,
-                        backdropFilter: 'blur(10px)',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                        color: 'rgba(255,255,255,0.75)',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                    }}
-                >
-                    ← Kernel View
-                </button>
-            </Panel>
-            <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                <DataTypeSelector />
-                <ColormapSelector />
-            </Panel>
-        </SharedCanvas>
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <SharedCanvas
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                fitView
+                minZoom={0.5}
+                maxZoom={2}
+                pageDirection={pageDirection}
+            >
+                <Panel position="top-left">
+                    <button
+                        onClick={handleBackClick}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '7px 12px',
+                            background: 'rgba(13, 13, 20, 0.88)',
+                            border: '1px solid rgba(255,255,255,0.09)',
+                            borderRadius: 10,
+                            backdropFilter: 'blur(10px)',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                            color: 'rgba(255,255,255,0.75)',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        ← Kernel View
+                    </button>
+                </Panel>
+                <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                    <DataTypeSelector />
+                    <ColormapSelector />
+                </Panel>
+            </SharedCanvas>
+
+            {isDialogOpen && (
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    backdropFilter: 'blur(4px)',
+                }}>
+                    <div style={{
+                        background: '#1e1e2e',
+                        padding: '24px',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        width: '320px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                    }}>
+                        <h3 style={{ margin: '0 0 16px 0', color: '#fff', fontSize: '16px' }}>
+                            Pixel Annotation {dialogInfo?.gridCoord ? `(${dialogInfo.gridCoord[0]}, ${dialogInfo.gridCoord[1]})` : ''}
+                        </h3>
+                        
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '4px' }}>Label</label>
+                            <input 
+                                type="text" 
+                                style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    background: '#0d0d14',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '6px',
+                                    padding: '8px 12px',
+                                    color: '#fff',
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                }}
+                                placeholder="Enter label..."
+                                autoFocus
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '4px' }}>Note</label>
+                            <textarea 
+                                style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    background: '#0d0d14',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '6px',
+                                    padding: '8px 12px',
+                                    color: '#fff',
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    minHeight: '80px',
+                                    resize: 'vertical',
+                                }}
+                                placeholder="Enter note..."
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button 
+                                onClick={() => setIsDialogOpen(false)}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: 'transparent',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '6px',
+                                    color: 'rgba(255,255,255,0.7)',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => setIsDialogOpen(false)}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: '#3b82f6',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                }}
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

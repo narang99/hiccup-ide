@@ -73,7 +73,7 @@ export default function BaseActivationNode({
         }
     }, [clickAction, nodeId, coordinate]);
 
-    const handleGeneralClick = useCallback((e: React.MouseEvent) => {
+    const handleGeneralClick = useCallback(() => {
         if (clickAction?.type === 'callback' && nodeId) {
             // Check if this was a click on the ActivationDisplay by checking if it was handled
             // If we use stopPropagation in ActivationDisplay, we don't need to check anything here.
