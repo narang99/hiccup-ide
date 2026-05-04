@@ -12,6 +12,9 @@ import SharedCanvas from './SharedCanvas';
 import { type HandleDirection } from './nodes/ActivationFlowNode';
 import { makeEvenlySpacedLayout } from '../layouts';
 import { toggleDirection, type Direction } from '../types/direction';
+import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
+import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
+import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
 
 const getNodeShowingActivation = (
     id: string,
@@ -223,7 +226,6 @@ export default function KernelSliceContribsView() {
             maxZoom={2}
             pageDirection={pageDirection}
         >
-            {/* ── Back button ── */}
             <Panel position="top-left">
                 <button
                     onClick={handleBackClick}
@@ -245,6 +247,11 @@ export default function KernelSliceContribsView() {
                 >
                     ← Overview
                 </button>
+            </Panel>
+            <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                <DataTypeSelector />
+                <ColormapSelector />
+                <AttachedToSelectedNodeLayerSettings />
             </Panel>
         </SharedCanvas>
     );
