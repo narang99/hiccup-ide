@@ -12,7 +12,9 @@
       "Bash(uv run python manage.py makemigrations)",
       "Bash(uv run python manage.py migrate)",
       "Bash(uv run python manage.py check)",
-      "Bash(mkdir -p \"/Users/hariomnarang/Desktop/personal/hiccup-ide/frontend/neural-viz/docs\")"
+      "Bash(mkdir -p \"/Users/hariomnarang/Desktop/personal/hiccup-ide/frontend/neural-viz/docs\")",
+      "Bash(uv run pytest hiccup_ide/tests/test_real_model_pruning.py -v)",
+      "Bash(uv run pytest hiccup_ide/tests/test_temp_pruning.py hiccup_ide/tests/test_real_model_pruning.py -v)"
     ],
     "deny": [],
     "ask": []

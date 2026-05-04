@@ -794,7 +794,7 @@ requires-dist = [
     { name = "django-cors-headers", specifier = ">=4.9.0" },
     { name = "django-ninja", specifier = ">=1.6.2" },
     { name = "django-stubs", specifier = ">=6.0.3" },
-    { name = "pt-to-api", directory = "../pt-to-api" },
+    { name = "pt-to-api", editable = "../pt-to-api" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-django", specifier = ">=4.12.0" },
 ]
@@ -1716,7 +1716,7 @@ wheels = [
 [[package]]
 name = "pt-to-api"
 version = "0.1.0"
-source = { directory = "../pt-to-api" }
+source = { editable = "../pt-to-api" }
 dependencies = [
     { name = "fastai" },
     { name = "ipykernel" },

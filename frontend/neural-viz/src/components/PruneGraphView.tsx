@@ -25,19 +25,26 @@ export default function PruneGraphView() {
   const graphAlias = 'default_pruned_graph';
   const pageDirection = 'TB';
 
-  const { fetcherType } = useFetcherType();
+  const { fetcherType, setWorkGraph } = useFetcherType();
 
   const fetchStatus = useCallback(async () => {
     try {
       const data = await getPruningStatus(modelAlias, inputAlias, workflowName, graphAlias);
       setStatus(data);
+      
+      // Update global context so fetchers know to look in the scratchpad if a session is active
+      if (data.session_active) {
+        setWorkGraph(workflowName, graphAlias);
+      } else {
+        setWorkGraph(null, null);
+      }
     } catch (err) {
       console.error('Failed to fetch pruning status:', err);
       setStatusError('Failed to load pruning progress.');
     } finally {
       setStatusLoading(false);
     }
-  }, [modelAlias, inputAlias, workflowName, graphAlias]);
+  }, [modelAlias, inputAlias, workflowName, graphAlias, setWorkGraph]);
 
   useEffect(() => {
     const load = async () => {

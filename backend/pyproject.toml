@@ -15,4 +15,4 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-pt-to-api = { path = "../pt-to-api" }
+pt-to-api = { path = "../pt-to-api", editable = true }
