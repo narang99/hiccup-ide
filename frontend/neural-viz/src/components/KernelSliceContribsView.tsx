@@ -41,7 +41,7 @@ const getNodeShowingActivation = (
             title: title,
             handleDirection,
             absMax,
-            link,
+            clickAction: link ? { type: 'link', link } : undefined,
         },
         width: width,
         height: height,

@@ -24,6 +24,8 @@ const getActivationNode = (
     handleDirection: HandleDirection = null,
     absMax?: number,
     link?: string,
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
+    onPixelLeave?: (nodeId: string, coordinate: string) => void,
 ): Node => {
     return ({
         id: id,
@@ -37,7 +39,9 @@ const getActivationNode = (
             title: title,
             handleDirection,
             absMax,
-            link,
+            clickAction: link ? { type: 'link', link } : undefined,
+            onPixelHover,
+            onPixelLeave,
         },
         width: width,
         height: height,
@@ -60,7 +64,7 @@ const generateKernelSliceView = (
     kernelIdx: number,
     inputIdx: number,
     pageDirection: Direction,
-    onPixelHover?: (nodeId: string, coordinate: string, x: number, y: number) => void,
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
     inputOverlay?: OverlayAlgorithm,
 ): { nodes: Node[], edges: Edge[] } | null => {
@@ -91,33 +95,19 @@ const generateKernelSliceView = (
             handleDirection: pageDirection,
         },
     });
-    nodes.push({
-        ...getActivationNode(
-            "input-act",
-            inputLayout.children[0],
-            `Channel ${inputIdx}`,
-            `${inputNodeId}.out_${inputIdx}`,
-            "activation",
-            inputLayerId,
-            childWidth,
-            childHeight,
-            null
-        ),
-        data: {
-            ...getActivationNode(
-                "input-act",
-                inputLayout.children[0],
-                `Channel ${inputIdx}`,
-                `${inputNodeId}.out_${inputIdx}`,
-                "activation",
-                inputLayerId,
-                childWidth,
-                childHeight,
-                null
-            ).data,
-            overlayAlgorithm: inputOverlay,
-        }
-    });
+    const inputActNode = getActivationNode(
+        "input-act",
+        inputLayout.children[0],
+        `Channel ${inputIdx}`,
+        `${inputNodeId}.out_${inputIdx}`,
+        "activation",
+        inputLayerId,
+        childWidth,
+        childHeight,
+        null
+    );
+    inputActNode.data = { ...inputActNode.data, overlayAlgorithm: inputOverlay };
+    nodes.push(inputActNode);
 
     // 2. Weight Layer
     const weightLayout = makeEvenlySpacedLayout(1, childHeight, childWidth, padding, "TB");
@@ -163,62 +153,36 @@ const generateKernelSliceView = (
             handleDirection: pageDirection,
         },
     });
-    nodes.push({
-        ...getActivationNode(
-            "output-act",
-            outputLayout.children[0],
-            "Activation",
-            `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
-            "activation",
-            outputLayerId,
-            childWidth,
-            childHeight,
-            null
-        ),
-        data: {
-            ...getActivationNode(
-                "output-act",
-                outputLayout.children[0],
-                "Activation",
-                `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
-                "activation",
-                outputLayerId,
-                childWidth,
-                childHeight,
-                null
-            ).data,
-            onPixelHover,
-            onPixelLeave,
-        }
-    });
-    nodes.push({
-        ...getActivationNode(
-            "output-saliency",
-            outputLayout.children[1],
-            "Saliency",
-            `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
-            "saliency_map",
-            outputLayerId,
-            childWidth,
-            childHeight,
-            null
-        ),
-        data: {
-            ...getActivationNode(
-                "output-saliency",
-                outputLayout.children[1],
-                "Saliency",
-                `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
-                "saliency_map",
-                outputLayerId,
-                childWidth,
-                childHeight,
-                null
-            ).data,
-            onPixelHover,
-            onPixelLeave,
-        }
-    });
+    nodes.push(getActivationNode(
+        "output-act",
+        outputLayout.children[0],
+        "Activation",
+        `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+        "activation",
+        outputLayerId,
+        childWidth,
+        childHeight,
+        null,
+        undefined,
+        undefined,
+        onPixelHover,
+        onPixelLeave
+    ));
+    nodes.push(getActivationNode(
+        "output-saliency",
+        outputLayout.children[1],
+        "Saliency",
+        `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
+        "saliency_map",
+        outputLayerId,
+        childWidth,
+        childHeight,
+        null,
+        undefined,
+        undefined,
+        onPixelHover,
+        onPixelLeave
+    ));
 
     const edges: Edge[] = [
         {
@@ -255,7 +219,8 @@ export default function KernelSliceView() {
     const STRIDE = 2;
     const PADDING = 1;
 
-    const handlePixelHover = useCallback((id: string, _coordinate: string, x: number, y: number) => {
+    const handlePixelHover = useCallback((id: string, _coordinate: string, gridCoord: [number, number], _position: [number, number]) => {
+        const [x, y] = gridCoord;
         if (id === 'output-act' || id === 'output-saliency') {
             const x_in_start = x * STRIDE - PADDING;
             const y_in_start = y * STRIDE - PADDING;

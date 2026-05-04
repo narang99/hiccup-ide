@@ -1,7 +1,7 @@
 import type { NodeFetchers, FetcherType } from "../../fetchers";
 import { ActivationDisplay } from "../ActivationDisplay";
 import { Link } from 'react-router-dom';
-import { type HandleDirection } from "./ActivationFlowNode";
+import { type HandleDirection, type ClickAction } from "./ActivationFlowNode";
 import SingleOrNoHandle from "../SingleOrNoHandle";
 import type { ActivationFilterAlgorithm } from "../../types/activationFiltering";
 import type { OverlayAlgorithm } from "../../types/overlay";
@@ -20,10 +20,10 @@ interface BaseActivationNodeProps {
     badgeLabel?: string;
     badgeColor?: string;
     handleDirection?: HandleDirection;
-    link?: string;
+    clickAction?: ClickAction;
     filterAlgorithm?: ActivationFilterAlgorithm;
     absMax?: number;
-    onPixelHover?: (nodeId: string, coordinate: string, x: number, y: number) => void;
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void;
     onPixelLeave?: (nodeId: string, coordinate: string) => void;
     overlayAlgorithm?: OverlayAlgorithm;
 }
@@ -38,7 +38,7 @@ export default function BaseActivationNode({
     badgeLabel,
     badgeColor = '#60a5fa',
     handleDirection = "TB",
-    link,
+    clickAction,
     filterAlgorithm,
     absMax,
     onPixelHover,
@@ -55,9 +55,9 @@ export default function BaseActivationNode({
         return f(coord, workAlias || undefined, graphAlias || undefined);
     }, [fetchers, fetcherType, workAlias, graphAlias]);
 
-    const handleHover = useCallback((x: number, y: number) => {
+    const handleHover = useCallback((gridCoord: [number, number], position: [number, number]) => {
         if (onPixelHover && nodeId) {
-            onPixelHover(nodeId, coordinate, x, y);
+            onPixelHover(nodeId, coordinate, gridCoord, position);
         }
     }, [onPixelHover, nodeId, coordinate]);
 
@@ -67,8 +67,26 @@ export default function BaseActivationNode({
         }
     }, [onPixelLeave, nodeId, coordinate]);
 
+    const handlePixelClick = useCallback((gridCoord: [number, number] | null, position: [number, number] | null) => {
+        if (clickAction?.type === 'callback' && nodeId) {
+            clickAction.callback(nodeId, coordinate, gridCoord, position);
+        }
+    }, [clickAction, nodeId, coordinate]);
+
+    const handleGeneralClick = useCallback((e: React.MouseEvent) => {
+        if (clickAction?.type === 'callback' && nodeId) {
+            // Check if this was a click on the ActivationDisplay by checking if it was handled
+            // If we use stopPropagation in ActivationDisplay, we don't need to check anything here.
+            clickAction.callback(nodeId, coordinate, null, null);
+        }
+    }, [clickAction, nodeId, coordinate]);
+
     const content = (
-        <div className={className} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}>
+        <div 
+            className={className} 
+            style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}
+            onClick={clickAction?.type === 'callback' ? handleGeneralClick : undefined}
+        >
             <SingleOrNoHandle handleDirection={handleDirection} badgeColor={badgeColor} />
             {/* ── Toolbar ── */}
             <div style={{
@@ -123,6 +141,7 @@ export default function BaseActivationNode({
                         absMax={absMax}
                         onPixelHover={handleHover}
                         onPixelLeave={handleLeave}
+                        onPixelClick={clickAction?.type === 'callback' ? handlePixelClick : undefined}
                         overlayAlgorithm={overlayAlgorithm}
                     />
                 ) : (
@@ -138,9 +157,9 @@ export default function BaseActivationNode({
         </div>
     );
 
-    if (link) {
+    if (clickAction?.type === 'link') {
         return (
-            <Link to={link} style={{ textDecoration: 'none', color: 'inherit', display: 'block', width: '100%', height: '100%' }}>
+            <Link to={clickAction.link} style={{ textDecoration: 'none', color: 'inherit', display: 'block', width: '100%', height: '100%' }}>
                 {content}
             </Link>
         );

@@ -20,8 +20,9 @@ interface ActivationDisplayProps {
   filterAlgorithm?: ActivationFilterAlgorithm;
   // color map, maximum value for opacity scaling
   absMax?: number;
-  onPixelHover?: (x: number, y: number) => void;
+  onPixelHover?: (gridCoord: [number, number], position: [number, number]) => void;
   onPixelLeave?: () => void;
+  onPixelClick?: (gridCoord: [number, number] | null, position: [number, number] | null) => void;
   overlayAlgorithm?: OverlayAlgorithm;
 }
 
@@ -34,6 +35,7 @@ export const ActivationDisplay = ({
   absMax,
   onPixelHover,
   onPixelLeave,
+  onPixelClick,
   overlayAlgorithm = { type: 'NoOverlay' },
 }: ActivationDisplayProps) => {
   const [activationData, setActivationData] = useState<BaseData | null>(null);
@@ -70,11 +72,11 @@ export const ActivationDisplay = ({
     return () => { cancelled = true; };
   }, [coordinate, fetcher]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current || !activationData || !onPixelHover) return;
+  const getCoordinates = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current || !activationData) return null;
 
     const [height, width] = activationData.shape;
-    if (height === 0 || width === 0) return;
+    if (height === 0 || width === 0) return null;
 
     const svg = svgRef.current;
     const pt = svg.createSVGPoint();
@@ -87,12 +89,45 @@ export const ActivationDisplay = ({
     const gridX = Math.floor(cursorPt.x);
     const gridY = Math.floor(cursorPt.y);
 
-    if (gridX >= 0 && gridX < width && gridY >= 0 && gridY < height) {
-      onPixelHover(gridX, gridY);
+    const isWithinBounds = gridX >= 0 && gridX < width && gridY >= 0 && gridY < height;
+
+    return {
+      gridX,
+      gridY,
+      isWithinBounds,
+      position: [cursorPt.x, cursorPt.y] as [number, number]
+    };
+  }, [activationData]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onPixelHover) return;
+    const coords = getCoordinates(e);
+    if (!coords) return;
+
+    if (coords.isWithinBounds) {
+      onPixelHover([coords.gridX, coords.gridY], coords.position);
     } else if (onPixelLeave) {
       onPixelLeave();
     }
-  }, [activationData, onPixelHover, onPixelLeave]);
+  }, [getCoordinates, onPixelHover, onPixelLeave]);
+
+  const handleMouseClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onPixelClick) return;
+    e.stopPropagation();
+    const coords = getCoordinates(e);
+    
+    if (!coords) {
+        // If we can't get coordinates (e.g. data not loaded), we still might want to trigger the click with nulls
+        onPixelClick(null, null);
+        return;
+    }
+
+    if (coords.isWithinBounds) {
+        onPixelClick([coords.gridX, coords.gridY], coords.position);
+    } else {
+        onPixelClick(null, coords.position);
+    }
+  }, [getCoordinates, onPixelClick]);
 
   const renderActivation = (absMax?: number) => {
     if (isLoading) {
@@ -121,6 +156,10 @@ export const ActivationDisplay = ({
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: 14,
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPixelClick?.(null, null);
           }}
         >
           ⚠️
@@ -175,6 +214,7 @@ export const ActivationDisplay = ({
             preserveAspectRatio="none"
             onMouseMove={handleMouseMove}
             onMouseLeave={onPixelLeave}
+            onClick={handleMouseClick}
           >
             {data.map((row, y) =>
               row.map((value, x) => (
@@ -229,6 +269,10 @@ export const ActivationDisplay = ({
             position: 'relative',
             boxSizing: 'border-box'
           }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPixelClick?.(null, null);
+          }}
         >
           {hasWorkGraph && (
             <div style={{
@@ -265,6 +309,10 @@ export const ActivationDisplay = ({
           color: 'rgba(255,255,255,0.4)',
           position: 'relative',
           boxSizing: 'border-box'
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPixelClick?.(null, null);
         }}
       >
         {hasWorkGraph && (

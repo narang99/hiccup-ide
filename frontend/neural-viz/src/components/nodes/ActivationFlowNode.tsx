@@ -6,6 +6,10 @@ import type { OverlayAlgorithm } from '../../types/overlay';
 
 export type HandleDirection = "TB" | "LR" | null;
 
+export type ClickAction = 
+    | { type: 'link'; link: string }
+    | { type: 'callback'; callback: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void };
+
 export interface ActivationNodeData extends Record<string, unknown> {
     coordinate: string;
     fetchers?: NodeFetchers;
@@ -15,10 +19,10 @@ export interface ActivationNodeData extends Record<string, unknown> {
     badgeLabel?: string;
     badgeColor?: string;
     handleDirection?: HandleDirection;
-    link?: string;
+    clickAction?: ClickAction;
     filterAlgorithm?: ActivationFilterAlgorithm;
     absMax?: number;
-    onPixelHover?: (nodeId: string, coordinate: string, x: number, y: number) => void;
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void;
     onPixelLeave?: (nodeId: string, coordinate: string) => void;
     overlayAlgorithm?: OverlayAlgorithm;
 }
@@ -32,7 +36,7 @@ export const ActivationFlowNode = ({ data }: NodeProps) => {
         <BaseActivationNode 
             {...typedData} 
             handleDirection={typedData.handleDirection} 
-            link={typedData.link} 
+            clickAction={typedData.clickAction} 
             filterAlgorithm={typedData.filterAlgorithm}
             absMax={typedData.absMax}
         />
