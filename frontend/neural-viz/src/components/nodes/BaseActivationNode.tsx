@@ -52,12 +52,16 @@ export default function BaseActivationNode({
     const { isPruned } = usePruned();
 
     const fetcher = useCallback((coord: string) => {
-        const f = fetchers?.[fetcherType];
-        if (!f) return Promise.reject("No fetcher");
-        
+        if (!fetchers) return Promise.reject("No fetchers provided");
+
         if (fetcherType === 'weight') {
-            return (f as any)(coord, modelAlias, isPruned ? workAlias : undefined, isPruned);
+            const weightFetcher = fetchers.weight;
+            if (!weightFetcher) return Promise.reject("No weight fetcher");
+            return weightFetcher(coord, modelAlias, isPruned ? workAlias : undefined, isPruned);
         }
+        
+        const f = fetchers[fetcherType as 'activation' | 'saliency_map'];
+        if (!f) return Promise.reject(`No ${fetcherType} fetcher`);
         
         return f(coord, modelAlias, inputAlias, isPruned ? workAlias : undefined, isPruned);
     }, [fetchers, fetcherType, modelAlias, inputAlias, workAlias, isPruned]);

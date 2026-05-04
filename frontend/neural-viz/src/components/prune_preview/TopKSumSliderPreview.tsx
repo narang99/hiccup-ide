@@ -284,7 +284,7 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
         } catch (err) {
             console.error('Failed to fetch saliency data or compute threshold:', err);
         }
-    }, [nodeId, nodeData, updateSliderValue, childCoordinates, computeThreshold, fetchAndCacheBatchSaliency, setNodes, onChangeThreshold]);
+    }, [nodeId, nodeData, updateSliderValue, childCoordinates, computeThreshold, fetchAndCacheBatchSaliency, setNodes, onChangeThreshold, inputAlias, modelAlias]);
 
     // Load thresholds on component mount
     useEffect(() => {

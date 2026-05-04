@@ -73,7 +73,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
 
 
     return { nodes: allNodes, edges: allEdges };
-  }, [fetcherType, directionInsideLayerBlock, layerBlockHandleDirection]);
+  }, [fetcherType, directionInsideLayerBlock, layerBlockHandleDirection, modelAlias, inputAlias, workAlias]);
 
 
   // Update nodes and edges when model data changes

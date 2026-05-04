@@ -79,7 +79,7 @@ export const useSingleLayer = (
       nodes: layerNodes,
       edges: [] as Edge[]
     };
-  }, [modelData, layerId, fetcherType, pageDirection]);
+  }, [modelData, layerId, fetcherType, pageDirection, modelAlias, inputAlias, workAlias]);
 
   return {
     nodes,
