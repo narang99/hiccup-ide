@@ -2,6 +2,8 @@ import pytest
 import torch
 import os
 from django.test import Client
+from pt_to_api.contrib_processor import process_contribs_to_coordinates
+from neural_data.api.saliency import reconstruct_layer_tensor
 from neural_data.models import (
     Model,
     Input,
@@ -28,22 +30,8 @@ def requires_real_model():
     )
 
 
-@pytest.fixture
-def real_model_data():
-    """Create test data that matches the actual model architecture"""
-    model = Model.objects.create(
-        alias="real-mnist-model",
-        name="Real MNIST Model",
-        definition={"nodes": [], "edges": []},
-    )
-    input_obj = Input.objects.create(
-        model=model,
-        alias="real-mnist-input",
-        name="Real MNIST Input",
-        data_path=INPUT_PATH,
-    )
-
-    # Load the actual model and input to understand the real shapes
+@pytest.fixture(scope="session")
+def raw_real_model_data_to_persist_in_db():
     from pt_to_api.mnist import SimpleMNIST, get_contribs_for_inp_vectorized
 
     actual_model = SimpleMNIST()
@@ -58,63 +46,61 @@ def real_model_data():
     )
 
     # Convert to coordinate format using the actual processor
-    from pt_to_api.contrib_processor import process_contribs_to_coordinates
 
     coord_data = process_contribs_to_coordinates(real_contribs, sample_idx=0)
 
-    # Create SaliencyMaps with the real coordinate data
+    return coord_data, real_contribs, batch_inp_tens
+
+
+def _create_saliency_map_from_coord_object(input_obj, coordinate, layer_name, data_info):
+    return SaliencyMap.objects.create(
+        input=input_obj,
+        coordinate=coordinate,
+        layer_name=layer_name,
+        data=data_info["data"],
+        shape=data_info["shape"],
+        coordinate_type=data_info.get("coordinate_type", "output_channel"),
+        data_type="saliency",
+        output_channel=data_info.get("output_channel"),
+        input_channel=data_info.get("input_channel"),
+    )
+
+@pytest.fixture
+def real_model_data(raw_real_model_data_to_persist_in_db):
+    """Create test data that matches the actual model architecture"""
+    coord_data, real_contribs, batch_inp_tens = raw_real_model_data_to_persist_in_db
+    model = Model.objects.create(
+        alias="real-mnist-model",
+        name="Real MNIST Model",
+        definition={"nodes": [], "edges": []},
+    )
+    input_obj = Input.objects.create(
+        model=model,
+        alias="real-mnist-input",
+        name="Real MNIST Input",
+        data_path=INPUT_PATH,
+    )
+
     saliency_maps = []
     for coordinate, data_info in coord_data.items():
         if coordinate.startswith("layers.3."):
-            saliency_map = SaliencyMap.objects.create(
-                input=input_obj,
-                coordinate=coordinate,
-                layer_name="layers.3",
-                data=data_info["data"],
-                shape=data_info["shape"],
-                coordinate_type=data_info.get("coordinate_type", "output_channel"),
-                data_type="saliency",
-                output_channel=data_info.get("output_channel"),
-                input_channel=data_info.get("input_channel"),
+            saliency_map = _create_saliency_map_from_coord_object(
+                input_obj, coordinate, "layers.3", data_info
             )
             saliency_maps.append(saliency_map)
         elif coordinate.startswith("layers.2."):
-            saliency_map = SaliencyMap.objects.create(
-                input=input_obj,
-                coordinate=coordinate,
-                layer_name="layers.2",
-                data=data_info["data"],
-                shape=data_info["shape"],
-                coordinate_type=data_info.get("coordinate_type", "output_channel"),
-                data_type="saliency",
-                output_channel=data_info.get("output_channel"),
-                input_channel=data_info.get("input_channel"),
+            saliency_map = _create_saliency_map_from_coord_object(
+                input_obj, coordinate, "layers.2", data_info
             )
             saliency_maps.append(saliency_map)
         elif coordinate.startswith("layers.1."):
-            saliency_map = SaliencyMap.objects.create(
-                input=input_obj,
-                coordinate=coordinate,
-                layer_name="layers.1",
-                data=data_info["data"],
-                shape=data_info["shape"],
-                coordinate_type=data_info.get("coordinate_type", "output_channel"),
-                data_type="saliency",
-                output_channel=data_info.get("output_channel"),
-                input_channel=data_info.get("input_channel"),
+            saliency_map = _create_saliency_map_from_coord_object(
+                input_obj, coordinate, "layers.1", data_info
             )
             saliency_maps.append(saliency_map)
         elif coordinate.startswith("x."):
-            saliency_map = SaliencyMap.objects.create(
-                input=input_obj,
-                coordinate=coordinate,
-                layer_name="x",
-                data=data_info["data"],
-                shape=data_info["shape"],
-                coordinate_type=data_info.get("coordinate_type", "output_channel"),
-                data_type="saliency",
-                output_channel=data_info.get("output_channel"),
-                input_channel=data_info.get("input_channel"),
+            saliency_map = _create_saliency_map_from_coord_object(
+                input_obj, coordinate, "x", data_info
             )
             saliency_maps.append(saliency_map)
 
@@ -138,19 +124,46 @@ def calculate_expected_ground_truth(layer_name, pruned_tensor):
     return total_contribs
 
 
+def get_base_url(model_alias, input_alias, workflow_name, graph_alias):
+    return f"/api/models/{model_alias}/inputs/{input_alias}/workflows/{workflow_name}/graphs/{graph_alias}"
+
+
+def api_start_pruning(client, model_alias, input_alias, workflow_name, graph_alias):
+    url = f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/start_pruning/"
+    return client.post(url)
+
+
+def api_get_status(client, model_alias, input_alias, workflow_name, graph_alias):
+    url = f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/status/"
+    return client.get(url)
+
+
+def api_save_saliency_maps(
+    client, model_alias, input_alias, workflow_name, graph_alias, payload
+):
+    url = f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/saliency_maps/"
+    return client.post(url, data=payload, content_type="application/json")
+
+
+def api_finalize_pruning(client, model_alias, input_alias, workflow_name, graph_alias):
+    url = f"{get_base_url(model_alias, input_alias, workflow_name, graph_alias)}/finalize_pruning/"
+    return client.post(url)
+
+
 @pytest.mark.django_db
 @requires_real_model()
 def test_real_model_layers_3_pruning_ground_truth(real_model_data):
     """Test pruning layers.3 with actual model and validate against ground truth"""
-    model, input_obj, saliency_maps, original_contribs, batch_inp_tens = real_model_data
+    model, input_obj, saliency_maps, _, _ = real_model_data
     client = Client()
 
     workflow_name = "real-model-test-3"
     graph_alias = "real-graph-3"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    response = client.post(start_url)
+    response = api_start_pruning(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias
+    )
     assert response.status_code == 200
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
@@ -168,7 +181,6 @@ def test_real_model_layers_3_pruning_ground_truth(real_model_data):
     flat_data = torch.tensor(original_data).flatten()
     threshold = float(torch.median(flat_data))
 
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -177,46 +189,35 @@ def test_real_model_layers_3_pruning_ground_truth(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
-
-    # Reconstruct the pruned tensor
-    from neural_data.api.saliency import reconstruct_layer_tensor
 
     pruned_tensor = reconstruct_layer_tensor(graph, "layers.3")
     assert pruned_tensor is not None
 
-    # Calculate expected ground truth
     expected_contribs = calculate_expected_ground_truth("layers.3", pruned_tensor)
 
-    # Compare with actual propagated values in temp maps
     upstream_layers = ["layers.2", "layers.1", "x"]
 
     for layer_name in upstream_layers:
-        if layer_name in expected_contribs:
-            # Get the actual propagated values from temp maps
-            temp_maps = TempPruneSaliencyMap.objects.filter(
-                graph=graph, layer_name=layer_name, coordinate_type="output_channel"
-            ).order_by("coordinate")
+        assert layer_name in expected_contribs
 
-            if temp_maps.exists():
-                # Reconstruct actual tensor from temp maps
-                actual_tensor = reconstruct_layer_tensor(graph, layer_name)
-                expected_tensor = expected_contribs[layer_name]
+        actual_tensor = reconstruct_layer_tensor(graph, layer_name)
+        expected_tensor = expected_contribs[layer_name]
 
-                # Compare shapes
-                assert actual_tensor.shape == expected_tensor.shape, (
-                    f"Shape mismatch for {layer_name}: actual {actual_tensor.shape} vs expected {expected_tensor.shape}"
-                )
+        assert actual_tensor.shape == expected_tensor.shape, (
+            f"Shape mismatch for {layer_name}: actual {actual_tensor.shape} vs expected {expected_tensor.shape}"
+        )
 
-                # Compare values (with reasonable tolerance for floating point arithmetic)
-                torch.testing.assert_close(
-                    actual_tensor,
-                    expected_tensor,
-                    atol=1e-6,
-                    rtol=1e-5,
-                    msg=f"Value mismatch for {layer_name}",
-                )
+        torch.testing.assert_close(
+            actual_tensor,
+            expected_tensor,
+            atol=1e-6,
+            rtol=1e-5,
+            msg=f"Value mismatch for {layer_name}",
+        )
 
 
 @pytest.mark.django_db
@@ -230,8 +231,7 @@ def test_real_model_layers_2_pruning_ground_truth(real_model_data):
     graph_alias = "real-graph-2"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    client.post(start_url)
+    api_start_pruning(client, model.alias, input_obj.alias, workflow_name, graph_alias)
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
     graph = WorkGraph.objects.get(work=work, alias=graph_alias)
@@ -247,7 +247,6 @@ def test_real_model_layers_2_pruning_ground_truth(real_model_data):
     flat_data = torch.tensor(original_data).flatten()
     threshold = float(torch.median(flat_data))
 
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -256,11 +255,10 @@ def test_real_model_layers_2_pruning_ground_truth(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
-
-    # Reconstruct the pruned tensor
-    from neural_data.api.saliency import reconstruct_layer_tensor
 
     pruned_tensor = reconstruct_layer_tensor(graph, "layers.2")
     assert pruned_tensor is not None
@@ -272,23 +270,22 @@ def test_real_model_layers_2_pruning_ground_truth(real_model_data):
     upstream_layers = ["layers.1", "x"]
 
     for layer_name in upstream_layers:
-        if layer_name in expected_contribs:
-            temp_maps = TempPruneSaliencyMap.objects.filter(
-                graph=graph, layer_name=layer_name, coordinate_type="output_channel"
-            ).order_by("coordinate")
+        assert layer_name in expected_contribs
 
-            if temp_maps.exists():
-                actual_tensor = reconstruct_layer_tensor(graph, layer_name)
-                expected_tensor = expected_contribs[layer_name]
+        actual_tensor = reconstruct_layer_tensor(graph, layer_name)
+        expected_tensor = expected_contribs[layer_name]
 
-                assert actual_tensor.shape == expected_tensor.shape
-                torch.testing.assert_close(
-                    actual_tensor,
-                    expected_tensor,
-                    atol=1e-6,
-                    rtol=1e-5,
-                    msg=f"Value mismatch for {layer_name}",
-                )
+        assert actual_tensor.shape == expected_tensor.shape, (
+            f"Shape mismatch for {layer_name}: actual {actual_tensor.shape} vs expected {expected_tensor.shape}"
+        )
+
+        torch.testing.assert_close(
+            actual_tensor,
+            expected_tensor,
+            atol=1e-6,
+            rtol=1e-5,
+            msg=f"Value mismatch for {layer_name}",
+        )
 
     # Verify that layers.3 was NOT modified (downstream layer)
     layers_3_modified = TempPruneSaliencyMap.objects.filter(
@@ -310,8 +307,7 @@ def test_real_model_input_layer_no_propagation(real_model_data):
     graph_alias = "real-input-graph"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    client.post(start_url)
+    api_start_pruning(client, model.alias, input_obj.alias, workflow_name, graph_alias)
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
     graph = WorkGraph.objects.get(work=work, alias=graph_alias)
@@ -334,7 +330,6 @@ def test_real_model_input_layer_no_propagation(real_model_data):
     flat_data = torch.tensor(original_data).flatten()
     threshold = float(torch.median(flat_data))
 
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -343,7 +338,9 @@ def test_real_model_input_layer_no_propagation(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
 
     # Verify the input layer was modified
@@ -356,7 +353,7 @@ def test_real_model_input_layer_no_propagation(real_model_data):
     for temp_map in TempPruneSaliencyMap.objects.filter(graph=graph).exclude(
         layer_name="x"
     ):
-        assert temp_map.is_modified == False, (
+        assert not temp_map.is_modified, (
             f"Layer {temp_map.layer_name} should not be user-modified"
         )
         # Data should be unchanged (no propagation occurred)
@@ -376,19 +373,13 @@ def test_real_model_algorithm_correctness(real_model_data):
     graph_alias = "real-algorithm-graph"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    client.post(start_url)
+    api_start_pruning(client, model.alias, input_obj.alias, workflow_name, graph_alias)
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
     graph = WorkGraph.objects.get(work=work, alias=graph_alias)
 
-    # Test with coordinates from the same layer (API requirement)
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
-
     # Test layers.3 coordinates
-    layers_3_maps = [sm for sm in saliency_maps if sm.layer_name == "layers.3"][
-        :2
-    ]  # Take up to 2
+    layers_3_maps = [sm for sm in saliency_maps if sm.layer_name == "layers.3"][:2]
     if layers_3_maps:
         test_cases_3 = []
         for saliency_map in layers_3_maps:
@@ -405,7 +396,7 @@ def test_real_model_algorithm_correctness(real_model_data):
                 }
             )
 
-        # Calculate expected results and apply pruning for layers.3
+        # Calculate expected results
         from neural_data.api.helpers import apply_algorithm
 
         for test_case in test_cases_3:
@@ -419,8 +410,8 @@ def test_real_model_algorithm_correctness(real_model_data):
                 for tc in test_cases_3
             ]
         }
-        response = client.post(
-            save_url, data=payload_3, content_type="application/json"
+        response = api_save_saliency_maps(
+            client, model.alias, input_obj.alias, workflow_name, graph_alias, payload_3
         )
         assert response.status_code == 200
 
@@ -446,9 +437,7 @@ def test_real_model_propagation_data_changes(real_model_data):
     graph_alias = "data-change-test"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    response = client.post(start_url)
-    assert response.status_code == 200
+    api_start_pruning(client, model.alias, input_obj.alias, workflow_name, graph_alias)
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
     graph = WorkGraph.objects.get(work=work, alias=graph_alias)
@@ -472,7 +461,6 @@ def test_real_model_propagation_data_changes(real_model_data):
     target_coordinate = layers_3_maps[0].coordinate
 
     # Apply pruning to layers.3 which should trigger backpropagation
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -481,7 +469,9 @@ def test_real_model_propagation_data_changes(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
 
     # Verify that upstream layers have different data after backpropagation
@@ -520,8 +510,7 @@ def test_real_model_layer_isolation_downstream_unchanged(real_model_data):
     graph_alias = "downstream-isolation"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    client.post(start_url)
+    api_start_pruning(client, model.alias, input_obj.alias, workflow_name, graph_alias)
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
     graph = WorkGraph.objects.get(work=work, alias=graph_alias)
@@ -542,7 +531,6 @@ def test_real_model_layer_isolation_downstream_unchanged(real_model_data):
     target_coordinate = layers_2_maps[0].coordinate
 
     # Apply pruning to layers.2 (middle layer)
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -551,7 +539,9 @@ def test_real_model_layer_isolation_downstream_unchanged(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
 
     # Verify that downstream layers.3 data did NOT change
@@ -608,8 +598,7 @@ def test_real_model_input_layer_no_upstream_changes(real_model_data):
     graph_alias = "input-isolation"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    client.post(start_url)
+    api_start_pruning(client, model.alias, input_obj.alias, workflow_name, graph_alias)
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
     graph = WorkGraph.objects.get(work=work, alias=graph_alias)
@@ -633,7 +622,6 @@ def test_real_model_input_layer_no_upstream_changes(real_model_data):
     target_coordinate = x_maps[0].coordinate
 
     # Apply pruning to input layer 'x'
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -642,7 +630,9 @@ def test_real_model_input_layer_no_upstream_changes(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
 
     # Verify that NO other layers changed (since x has no upstream)
@@ -683,8 +673,7 @@ def test_real_model_algorithm_uses_original_data(real_model_data):
     graph_alias = "original-data-test"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    client.post(start_url)
+    api_start_pruning(client, model.alias, input_obj.alias, workflow_name, graph_alias)
 
     work = Work.objects.get(input=input_obj, name=workflow_name)
     graph = WorkGraph.objects.get(work=work, alias=graph_alias)
@@ -700,7 +689,6 @@ def test_real_model_algorithm_uses_original_data(real_model_data):
     original_data = original_saliency_map.data
 
     # Apply algorithm to the coordinate
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -709,7 +697,9 @@ def test_real_model_algorithm_uses_original_data(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
 
     # Get the result in TempPruneSaliencyMap
@@ -734,264 +724,6 @@ def test_real_model_algorithm_uses_original_data(real_model_data):
 
 @pytest.mark.django_db
 @requires_real_model()
-def test_real_model_manual_propagation_pipeline_verification(real_model_data):
-    """Manual end-to-end test: reconstruct tensors, run get_contribs manually, verify database matches"""
-    model, input_obj, saliency_maps, original_contribs, batch_inp_tens = real_model_data
-    client = Client()
-
-    workflow_name = "manual-pipeline-test"
-    graph_alias = "pipeline-verification"
-
-    # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    response = client.post(start_url)
-    assert response.status_code == 200
-
-    work = Work.objects.get(input=input_obj, name=workflow_name)
-    graph = WorkGraph.objects.get(work=work, alias=graph_alias)
-
-    # Choose layers.3 as our target layer for manual propagation
-    target_layer = "layers.3"
-
-    # Step 1: Apply the same pruning operation that the API will do
-    # Find a layers.3 coordinate to prune
-    layers_3_maps = [sm for sm in saliency_maps if sm.layer_name == target_layer]
-    target_coordinate = layers_3_maps[0].coordinate
-
-    # Manually apply the algorithm to the temp map (simulating what API does)
-    from neural_data.api.helpers import apply_algorithm
-
-    original_saliency_map = SaliencyMap.objects.get(
-        input=input_obj, coordinate=target_coordinate
-    )
-    pruned_data = apply_algorithm(
-        original_saliency_map.data, {"type": "ThresholdAlgorithm", "threshold": 0.5}
-    )
-
-    # Update the temp map with pruned data
-    target_temp_map = TempPruneSaliencyMap.objects.get(
-        graph=graph, coordinate=target_coordinate
-    )
-    target_temp_map.data = pruned_data
-    target_temp_map.is_modified = True
-    target_temp_map.save()
-
-    # Step 2: NOW reconstruct the tensor using the same function the API uses (after modification)
-    from neural_data.api.saliency import reconstruct_layer_tensor
-
-    reconstructed_tensor = reconstruct_layer_tensor(graph, target_layer)
-    assert reconstructed_tensor is not None, (
-        f"Could not reconstruct tensor for {target_layer}"
-    )
-
-    print(f"✓ Applied pruning to {target_coordinate}")
-    print(f"✓ Reconstructed {target_layer} tensor shape: {reconstructed_tensor.shape}")
-
-    # Step 2: Load the same model and input that the API uses
-    from neural_data.api.saliency import (
-        _get_cached_mnist_model,
-        _get_cached_mnist_input_tensor,
-    )
-
-    api_model = _get_cached_mnist_model()
-    api_input = _get_cached_mnist_input_tensor()
-
-    # Step 3: Manually run get_contribs_for_inp_vectorized with our reconstructed tensor
-    from pt_to_api.mnist import get_contribs_for_inp_vectorized
-
-    manual_contribs, manual_acts, manual_params = get_contribs_for_inp_vectorized(
-        api_input, api_model, reconstructed_tensor, target_layer, "cpu"
-    )
-
-    print(f"✓ Manual get_contribs completed for {target_layer}")
-    print(f"✓ Generated contributions for layers: {list(manual_contribs.keys())}")
-
-    # Step 4: Convert manual contributions to coordinate format (same as API does)
-    from pt_to_api.contrib_processor import process_contribs_to_coordinates
-
-    manual_coords_dict = process_contribs_to_coordinates(manual_contribs, sample_idx=0)
-
-    print(f"✓ Converted to coordinates format: {len(manual_coords_dict)} coordinates")
-
-    # Step 5: Now trigger the API to do the same operation and compare
-    # Find a layers.3 coordinate to prune via API
-    layers_3_maps = [sm for sm in saliency_maps if sm.layer_name == target_layer]
-    target_coordinate = layers_3_maps[0].coordinate
-
-    # Apply pruning via API (this should internally do the same reconstruction + get_contribs)
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
-    payload = {
-        "items": [
-            {
-                "coordinate": target_coordinate,
-                "algorithm": {"type": "ThresholdAlgorithm", "threshold": 0.5},
-            }
-        ]
-    }
-    response = client.post(save_url, data=payload, content_type="application/json")
-    assert response.status_code == 200
-
-    print(f"✓ API pruning completed for {target_coordinate}")
-
-    # Step 6: Compare manual results with what got saved to database
-    upstream_layers = ["layers.2", "layers.1", "x"]  # layers that should have changed
-
-    print(
-        f"✓ Available manual coordinates: {sorted(manual_coords_dict.keys())[:10]}..."
-    )  # Show first 10
-
-    verification_results = []
-    for layer_name in upstream_layers:
-        # Get database results for this layer
-        db_temp_maps = TempPruneSaliencyMap.objects.filter(
-            graph=graph, layer_name=layer_name
-        )[:3]
-
-        for tm in db_temp_maps:
-            if tm.coordinate in manual_coords_dict:
-                manual_result = manual_coords_dict[tm.coordinate]
-                db_result = tm.data
-
-                # Compare the data (allowing for small floating point differences)
-                import numpy as np
-
-                manual_array = np.array(manual_result["data"], dtype=float)
-                db_array = np.array(db_result, dtype=float)
-
-                # Use relative tolerance for comparison
-                are_close = np.allclose(manual_array, db_array, rtol=1e-5, atol=1e-8)
-                verification_results.append(
-                    {
-                        "coordinate": tm.coordinate,
-                        "matches": are_close,
-                        "manual_shape": manual_array.shape,
-                        "db_shape": db_array.shape,
-                    }
-                )
-
-                if are_close:
-                    print(
-                        f"✓ MATCH: {tm.coordinate} - manual and DB results are equivalent"
-                    )
-                else:
-                    print(f"✗ MISMATCH: {tm.coordinate} - manual and DB results differ")
-                    print(f"  Manual sample: {manual_array.flat[:5]}")
-                    print(f"  DB sample: {db_array.flat[:5]}")
-            else:
-                print(
-                    f"⚠ Database coordinate {tm.coordinate} not found in manual results"
-                )
-
-    # Step 7: Verify that our manual reconstruction matched what the API reconstructed
-    # We can check this by seeing if the target layer got the same pruned result
-    target_temp_map = TempPruneSaliencyMap.objects.get(
-        graph=graph, coordinate=target_coordinate
-    )
-
-    # Manually apply the same algorithm to verify the API used the same tensor
-    from neural_data.api.helpers import apply_algorithm
-
-    original_saliency_map = SaliencyMap.objects.get(
-        input=input_obj, coordinate=target_coordinate
-    )
-    expected_pruned_data = apply_algorithm(
-        original_saliency_map.data, {"type": "ThresholdAlgorithm", "threshold": 0.5}
-    )
-
-    assert target_temp_map.data == expected_pruned_data, (
-        "API should have applied algorithm to original data"
-    )
-    print(f"✓ Target layer {target_coordinate} was correctly pruned")
-
-    # Step 8: Analyze the differences
-    matching_count = sum(1 for result in verification_results if result["matches"])
-    total_count = len(verification_results)
-
-    assert total_count > 0, "Should have at least some coordinates to compare"
-    match_ratio = matching_count / total_count
-
-    print(
-        f"✓ Manual vs API verification: {matching_count}/{total_count} coordinates match ({match_ratio:.1%})"
-    )
-
-    # Let's understand the differences better
-    zero_vs_nonzero_count = 0
-    small_diff_count = 0
-
-    for result in verification_results:
-        if not result["matches"]:
-            coord = result["coordinate"]
-            tm = TempPruneSaliencyMap.objects.get(graph=graph, coordinate=coord)
-            manual_result = manual_coords_dict[coord]
-
-            manual_array = np.array(manual_result["data"], dtype=float)
-            db_array = np.array(tm.data, dtype=float)
-
-            # Check if one is zero and other is very small
-            manual_max = np.abs(manual_array).max()
-            db_max = np.abs(db_array).max()
-
-            if (manual_max < 1e-4 and db_max == 0) or (
-                db_max < 1e-4 and manual_max == 0
-            ):
-                zero_vs_nonzero_count += 1
-                print(
-                    f"  → {coord}: Zero vs very small values (manual_max={manual_max:.2e}, db_max={db_max:.2e})"
-                )
-            elif manual_max < 1e-4 and db_max < 1e-4:
-                small_diff_count += 1
-                print(
-                    f"  → {coord}: Both very small values (manual_max={manual_max:.2e}, db_max={db_max:.2e})"
-                )
-            else:
-                # Check relative difference for larger values
-                rel_diff = np.abs(
-                    (manual_array - db_array)
-                    / (np.abs(manual_array) + np.abs(db_array) + 1e-10)
-                ).max()
-                if rel_diff < 0.1:  # 10% relative difference
-                    small_diff_count += 1
-                    print(
-                        f"  → {coord}: Acceptable relative difference (rel_diff={rel_diff:.1%}, manual_max={manual_max:.2e}, db_max={db_max:.2e})"
-                    )
-                else:
-                    print(
-                        f"  → {coord}: Significant difference (rel_diff={rel_diff:.1%}, manual_max={manual_max:.2e}, db_max={db_max:.2e})"
-                    )
-
-    print(
-        f"✓ Analysis: {zero_vs_nonzero_count} zero vs small, {small_diff_count} small vs small differences"
-    )
-
-    # The test is successful if:
-    # 1. We have exact matches OR
-    # 2. The differences are all in very small values (suggesting numerical precision differences)
-    total_acceptable = matching_count + zero_vs_nonzero_count + small_diff_count
-    acceptable_ratio = total_acceptable / total_count
-
-    print(
-        f"✓ Acceptable results (exact + small differences): {total_acceptable}/{total_count} ({acceptable_ratio:.1%})"
-    )
-
-    # Success criteria: either 80% exact match OR 90% acceptable (including small value differences)
-    if match_ratio >= 0.8:
-        print("✅ FULL PIPELINE VERIFICATION PASSED - Exact matches")
-    elif acceptable_ratio >= 0.9:
-        print("✅ FULL PIPELINE VERIFICATION PASSED - Acceptable precision differences")
-        print("✅ Manual and API paths produce essentially equivalent results")
-    else:
-        print(f"❌ Too many significant mismatches: {acceptable_ratio:.1%} acceptable")
-        assert False, (
-            f"Pipeline verification failed: only {acceptable_ratio:.1%} of results are acceptable"
-        )
-
-    print(
-        "✅ Manual reconstruction → get_contribs → coordinate conversion pipeline verified"
-    )
-
-
-@pytest.mark.django_db
-@requires_real_model()
 def test_real_model_full_workflow_with_finalization(real_model_data):
     """Test complete real model workflow including finalization"""
     model, input_obj, saliency_maps, original_contribs, batch_inp_tens = real_model_data
@@ -1001,8 +733,9 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
     graph_alias = "real-full-graph"
 
     # Initialize session
-    start_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/start_pruning/"
-    response = client.post(start_url)
+    response = api_start_pruning(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias
+    )
     assert response.status_code == 200
 
     # Apply pruning to layers.3
@@ -1010,7 +743,6 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
     flat_data = torch.tensor(layers_3_map.data).flatten()
     threshold = float(torch.median(flat_data))
 
-    save_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/saliency_maps/"
     payload = {
         "items": [
             {
@@ -1019,18 +751,22 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
             }
         ]
     }
-    response = client.post(save_url, data=payload, content_type="application/json")
+    response = api_save_saliency_maps(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias, payload
+    )
     assert response.status_code == 200
 
     # Check status
-    status_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/status/"
-    status_response = client.get(status_url)
+    status_response = api_get_status(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias
+    )
     assert status_response.json()["layers"]["done"] == ["layers.3"]
     assert status_response.json()["session_active"] == True
 
     # Finalize
-    finalize_url = f"/api/models/{model.alias}/inputs/{input_obj.alias}/workflows/{workflow_name}/graphs/{graph_alias}/finalize_pruning/"
-    response = client.post(finalize_url)
+    response = api_finalize_pruning(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias
+    )
     assert response.status_code == 200
     assert response.json()["committed_count"] == 1
 
@@ -1052,6 +788,8 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
     assert TempPruneSaliencyMap.objects.filter(graph=graph).count() == 0
 
     # Final status should show no active session
-    final_status = client.get(status_url)
+    final_status = api_get_status(
+        client, model.alias, input_obj.alias, workflow_name, graph_alias
+    )
     assert final_status.json()["session_active"] == False
     assert final_status.json()["layers"]["done"] == []  # Only checking temp maps now
