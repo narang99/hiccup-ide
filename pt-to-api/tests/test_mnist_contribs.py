@@ -57,13 +57,13 @@ class TestLayerBackpropController:
         ]
         controller = LayerBackpropController(layer_names, "layers.2")
 
-        # Layers at or before last_layer should backprop
+        # Layers before last_layer should backprop
         assert controller.should_backprop("layers.0") is True
         assert controller.should_backprop("layers.1") is True
-        assert controller.should_backprop("layers.2") is True
         assert controller.should_backprop("x") is True  # x is always backprop
 
-        # Layers after last_layer should not backprop
+        # Last layer and layers after should not backprop
+        assert controller.should_backprop("layers.2") is False
         assert controller.should_backprop("layers.3") is False
         assert controller.should_backprop("layers.4") is False
         assert controller.should_backprop("layers.5") is False
@@ -83,8 +83,8 @@ class TestLayerBackpropController:
         controller = LayerBackpropController(layer_names, "layers.1")
         assert controller.should_backprop("layers.0.slice") is True  # depends on x
         assert (
-            controller.should_backprop("layers.2.slice") is True
-        )  # depends on layers.1, and layers.1 <= last_layer
+            controller.should_backprop("layers.2.slice") is False
+        )  # depends on layers.1, but layers.1 is last_layer (not < last_layer)
 
         # Test with last_layer = layers.0
         controller = LayerBackpropController(layer_names, "layers.0")
@@ -98,7 +98,7 @@ class TestLayerBackpropController:
         assert controller.should_backprop("layers.0.slice") is True  # depends on x
         assert (
             controller.should_backprop("layers.2.slice") is True
-        )  # depends on layers.1, and layers.1 <= last_layer
+        )  # depends on layers.1, and layers.1 < last_layer
 
 
 class TestContribsCalculation:
@@ -169,18 +169,31 @@ class TestContribsCalculation:
         controller = LayerBackpropController(layer_names, last_layer_key)
 
         for layer_name in layer_names:
-            if layer_name in acts and not controller.should_backprop(layer_name):
+            if layer_name in acts:
                 assert total_contribs[layer_name].shape == acts[layer_name].shape
-                are_equal_to_zero = torch.allclose(
-                    total_contribs[layer_name],
-                    torch.zeros_like(acts[layer_name]),
-                    atol=1e-7,
-                )
-                if controller.should_backprop(layer_name):
-                    # Verify it's actually zero (or at least very small)
-                    assert not are_equal_to_zero
+                
+                # Special case: last layer gets input contributions, not computed ones
+                if layer_name == last_layer_key:
+                    # Last layer should have the input contributions (ones in our test)
+                    expected_ones = torch.ones_like(acts[layer_name])
+                    are_equal_to_ones = torch.allclose(
+                        total_contribs[layer_name],
+                        expected_ones,
+                        atol=1e-7,
+                    )
+                    assert are_equal_to_ones, f"Last layer {layer_name} should have input contributions"
                 else:
-                    assert are_equal_to_zero
+                    are_equal_to_zero = torch.allclose(
+                        total_contribs[layer_name],
+                        torch.zeros_like(acts[layer_name]),
+                        atol=1e-7,
+                    )
+                    if controller.should_backprop(layer_name):
+                        # Should NOT be zero (has actual contributions)
+                        assert not are_equal_to_zero, f"Layer {layer_name} should have non-zero contributions"
+                    else:
+                        # Should be zero (not backpropagated)
+                        assert are_equal_to_zero, f"Layer {layer_name} should be zero"
 
     @pytest.mark.parametrize("last_layer_key", ["layers.0", "layers.1", "layers.2"])
     def test_slice_contribs_shapes(self, model, batch_input, device, last_layer_key):

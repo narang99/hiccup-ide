@@ -14,7 +14,13 @@
       "Bash(uv run python manage.py check)",
       "Bash(mkdir -p \"/Users/hariomnarang/Desktop/personal/hiccup-ide/frontend/neural-viz/docs\")",
       "Bash(uv run pytest hiccup_ide/tests/test_real_model_pruning.py -v)",
-      "Bash(uv run pytest hiccup_ide/tests/test_temp_pruning.py hiccup_ide/tests/test_real_model_pruning.py -v)"
+      "Bash(uv run pytest hiccup_ide/tests/test_temp_pruning.py hiccup_ide/tests/test_real_model_pruning.py -v)",
+      "Bash(uv run pytest tests/test_mnist_contribs.py::TestLayerBackpropController -v)",
+      "Bash(uv run pytest tests/test_mnist_contribs.py -v)",
+      "Bash(uv run pytest tests/test_mnist_contribs.py::TestContribsCalculation::test_contribs_are_backpropped_or_zero -v)",
+      "Bash(uv run pytest hiccup_ide/tests/test_real_model_pruning.py::test_real_model_input_layer_no_upstream_changes -v -s)",
+      "Bash(uv run pytest hiccup_ide/tests/test_real_model_pruning.py::test_real_model_algorithm_uses_original_data -v -s)",
+      "Bash(uv run pytest hiccup_ide/tests/ -v)"
     ],
     "deny": [],
     "ask": []

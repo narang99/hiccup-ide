@@ -22,10 +22,10 @@ export const PrunedGraphToggle = () => {
       onClick={handleToggle}
       style={{
         padding: '8px 12px',
-        background: isPruned ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-        border: isPruned ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+        background: isPruned ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.1)',
+        border: isPruned ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(239, 68, 68, 0.3)',
         borderRadius: 6,
-        color: isPruned ? '#4ade80' : 'rgba(255, 255, 255, 0.6)',
+        color: isPruned ? '#4ade80' : '#ef4444',
         fontSize: 11,
         fontWeight: 600,
         cursor: 'pointer',
@@ -41,7 +41,7 @@ export const PrunedGraphToggle = () => {
         width: 8,
         height: 8,
         borderRadius: '50%',
-        background: isPruned ? '#4ade80' : 'rgba(255, 255, 255, 0.2)',
+        background: isPruned ? '#4ade80' : '#ef4444',
         boxShadow: isPruned ? '0 0 8px rgba(74, 222, 128, 0.5)' : 'none'
       }} />
       {isPruned ? 'Pruned View: ON' : 'Pruned View: OFF'}

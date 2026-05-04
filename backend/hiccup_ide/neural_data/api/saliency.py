@@ -530,7 +530,7 @@ def create_batch_work_saliency_maps(
 
         if not payload.items:
             return {"created": 0, "updated": 0}
-
+        
         # 1. Update the current layer in TempPruneSaliencyMap with pruned data
         updated_count, current_layer_name = apply_pruning_to_current_layer(
             input_obj, graph, payload.items

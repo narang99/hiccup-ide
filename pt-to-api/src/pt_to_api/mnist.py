@@ -152,6 +152,7 @@ def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, 
         )
         if controller.should_backprop("layers.0.slice"):
             total_contribs["layers.0.slice"] = slice_contrib
+
     total_contribs = detach_all(to_device(total_contribs, "cpu"))
     acts = detach_all(to_device(acts, "cpu"))
     parameters = detach_all(to_device(parameters, "cpu"))
@@ -180,7 +181,7 @@ class LayerBackpropController:
         # Handle regular layers
         try:
             layer_index = self.layer_names.index(layer_name)
-            return layer_index <= self.last_layer_index
+            return layer_index < self.last_layer_index
         except ValueError:
             # Layer name not in our list, assume it should be backpropagated
             return True
