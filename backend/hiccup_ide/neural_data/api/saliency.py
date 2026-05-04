@@ -6,6 +6,7 @@ from django.http import Http404
 from django.db import transaction
 from typing import Optional, List as ListType
 from ..models import (
+    Model,
     Input,
     SaliencyMap,
     Work,
@@ -449,30 +450,30 @@ def update_upstream_temp_maps(
 
 
 @functools.lru_cache(maxsize=1)
-def _get_cached_mnist_model():
+def _get_cached_mnist_model(model_obj: Model):
     from pt_to_api.mnist import SimpleMNIST
     import torch
 
-    MODEL_PATH = (
-        "/Users/hariomnarang/Desktop/personal/hiccup-ide/pt-to-api/data/model.pt"
-    )
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+    pt_file = model_obj.load_pt_file()
+    if pt_file is None:
+        raise FileNotFoundError(f"Model pt_file not found for model {model_obj.alias}")
+    
     model = SimpleMNIST()
-    model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
+    # If the pt_file is a state dict, load it. If it's a full model, we might need different logic.
+    # For now, assuming it's a state dict as per existing code.
+    model.load_state_dict(pt_file)
+    model = model.to("cpu")
     model.eval()
     return model
 
 
 @functools.lru_cache(maxsize=1)
-def _get_cached_mnist_input_tensor():
+def _get_cached_mnist_input_tensor(input_obj: Input):
     import torch
-    INPUT_PATH = "/Users/hariomnarang/Desktop/personal/hiccup-ide/pt-to-api/data/first-input-tens.pt"
-    if not os.path.exists(INPUT_PATH):
-        raise FileNotFoundError(f"Input file not found at {INPUT_PATH}")
-    return torch.load(
-        INPUT_PATH, map_location="cpu", weights_only=False
-    )
+    pt_file = input_obj.load_pt_file().to("cpu")
+    if pt_file is None:
+        raise FileNotFoundError(f"Input pt_file not found for input {input_obj.alias}")
+    return pt_file
 
 def recalculate_upstream_saliency(
     input_obj: Input, graph: WorkGraph, current_layer_name: str
@@ -481,8 +482,8 @@ def recalculate_upstream_saliency(
     from pt_to_api.mnist import get_contribs_for_inp_vectorized
 
     try:
-        model = _get_cached_mnist_model()
-        batch_inp_tens = _get_cached_mnist_input_tensor()
+        model = _get_cached_mnist_model(input_obj.model)
+        batch_inp_tens = _get_cached_mnist_input_tensor(input_obj)
 
         # Reconstruct the current layer's pruned contributions into a tensor
         last_layer_contribs = reconstruct_layer_tensor(graph, current_layer_name)

@@ -13,7 +13,7 @@ router = Router()
 router.add_router("", activations_router)
 router.add_router("", weights_router)
 router.add_router("", saliency_router)
-router.add_router("poi/", poi_router)
+router.add_router("", poi_router)
 
 
 @router.get("/")

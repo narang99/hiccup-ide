@@ -4,11 +4,18 @@ class Model(models.Model):
     alias = models.CharField(max_length=100, unique=True, db_index=True)
     name = models.CharField(max_length=200)
     definition = models.JSONField()
+    pt_file = models.FileField(upload_to='models/pt/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.alias} - {self.name}"
+
+    def load_pt_file(self):
+        import torch
+        if not self.pt_file:
+            return None
+        return torch.load(self.pt_file.path)
 
     class Meta:
         db_table = "models"
@@ -18,11 +25,18 @@ class Input(models.Model):
     model = models.ForeignKey(Model, on_delete=models.CASCADE, related_name='inputs')
     name = models.CharField(max_length=200)
     data_path = models.CharField(max_length=500)
+    pt_file = models.FileField(upload_to='inputs/pt/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.model.alias}/{self.alias} - {self.name}"
+
+    def load_pt_file(self):
+        import torch
+        if not self.pt_file:
+            return None
+        return torch.load(self.pt_file.path, weights_only=False)
 
     class Meta:
         db_table = "inputs"

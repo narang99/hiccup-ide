@@ -20,11 +20,15 @@ export default function AnnotationDialog({
     const [note, setNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
+    // Hardcoded aliases for now
+    const MODEL_ALIAS = "example-model";
+    const INPUT_ALIAS = "first-input";
+    const WORK_ALIAS = workAlias || "default-workflow";
+
     useEffect(() => {
-        const effectiveWorkAlias = workAlias || "default-workflow";
-        if (isOpen && gridCoord && effectiveWorkAlias && weightCoordinate) {
+        if (isOpen && gridCoord && WORK_ALIAS && weightCoordinate) {
             // Load existing POIs for this slice
-            listPOIs(effectiveWorkAlias, weightCoordinate).then(pois => {
+            listPOIs(MODEL_ALIAS, INPUT_ALIAS, WORK_ALIAS, weightCoordinate).then(pois => {
                 const existing = pois.find(p => p.x === gridCoord[0] && p.y === gridCoord[1]);
                 if (existing) {
                     setLabel(existing.label);
@@ -39,21 +43,20 @@ export default function AnnotationDialog({
                 setNote('');
             });
         }
-    }, [isOpen, gridCoord, workAlias, weightCoordinate]);
+    }, [isOpen, gridCoord, WORK_ALIAS, weightCoordinate]);
 
     const handleSave = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        const effectiveWorkAlias = workAlias;
         
-        if (!gridCoord || !effectiveWorkAlias || !weightCoordinate) {
+        if (!gridCoord || !WORK_ALIAS || !weightCoordinate) {
             console.warn("Missing required data for saving POI");
             return;
         }
 
         setIsSaving(true);
         try {
-            await savePOI({
-                work_alias: effectiveWorkAlias,
+            await savePOI(MODEL_ALIAS, INPUT_ALIAS, WORK_ALIAS, {
+                work_alias: WORK_ALIAS,
                 weight_coordinate: weightCoordinate,
                 x: gridCoord[0],
                 y: gridCoord[1],
