@@ -138,3 +138,18 @@ class TempPruneSaliencyMap(SaliencyMapData):
 
     class Meta:
         unique_together = ['input', 'coordinate', 'graph']
+
+
+class POI(models.Model):
+    work = models.ForeignKey(Work, on_delete=models.CASCADE)
+    weight = models.ForeignKey(Weight, on_delete=models.CASCADE)
+
+    x = models.IntegerField()
+    y = models.IntegerField()
+
+    note = models.TextField()
+    label = models.CharField(max_length=20)
+
+    class Meta:
+        db_table = "pois"
+        unique_together = ['work', 'weight', 'x', 'y']

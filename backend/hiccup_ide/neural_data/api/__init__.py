@@ -5,6 +5,7 @@ from ..schemas import ModelOut, InputOut
 from .activations import router as activations_router
 from .weights import router as weights_router
 from .saliency import router as saliency_router
+from .poi import router as poi_router
 
 router = Router()
 
@@ -12,6 +13,7 @@ router = Router()
 router.add_router("", activations_router)
 router.add_router("", weights_router)
 router.add_router("", saliency_router)
+router.add_router("/poi", poi_router)
 
 
 @router.get("/")

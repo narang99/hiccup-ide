@@ -115,3 +115,22 @@ class PruningStatusLayers(Schema):
 class PruningStatusOut(Schema):
     layers: PruningStatusLayers
     session_active: bool
+
+
+class POIIn(Schema):
+    work_alias: str
+    weight_coordinate: str
+    x: int
+    y: int
+    label: str
+    note: str
+
+
+class POIOut(Schema):
+    id: int
+    work_alias: str
+    weight_coordinate: str
+    x: int
+    y: int
+    label: str
+    note: str
