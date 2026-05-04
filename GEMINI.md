@@ -16,11 +16,15 @@ Django application with Django Ninja API framework that serves model data.
 **Purpose**: Serve JSON model data via REST API endpoints
 **Tech Stack**: Django + Django Ninja + uv package management
 
-### 3. `frontend/neural-viz/` - React Visualization Frontend
+3. **frontend/neural-viz/** - React Visualization Frontend
 React application that visualizes neural network models and their activations.
 
 **Purpose**: Interactive visualization of neural network models and data
 **Tech Stack**: React + TypeScript + Vite
+
+## Key Workflows
+
+- [Graph Pruning Flow](./backend/docs/graph-pruning.md): Detailed explanation of the sequential pruning process and re-propagation logic.
 
 ## Data Flow Workflow
 

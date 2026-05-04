@@ -99,3 +99,7 @@ def test_feature_with_edge_case():
 ```
 
 **Important**: Always use function-based tests, never class-based tests. This keeps tests simple and focused.
+
+## Documentation
+
+- [Graph Pruning Flow](./docs/graph-pruning.md): Conceptual overview and API workflow for the graph pruning feature.
