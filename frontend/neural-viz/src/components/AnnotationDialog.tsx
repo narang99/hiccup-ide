@@ -1,10 +1,79 @@
+import { useState, useEffect } from 'react';
+import { listPOIs, savePOI } from '../fetchers/poi';
+
 interface AnnotationDialogProps {
     isOpen: boolean;
     gridCoord: [number, number] | null;
+    workAlias: string;
+    weightCoordinate: string;
     onClose: () => void;
 }
 
-export default function AnnotationDialog({ isOpen, gridCoord, onClose }: AnnotationDialogProps) {
+export default function AnnotationDialog({ 
+    isOpen, 
+    gridCoord, 
+    workAlias, 
+    weightCoordinate, 
+    onClose 
+}: AnnotationDialogProps) {
+    const [label, setLabel] = useState('');
+    const [note, setNote] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        const effectiveWorkAlias = workAlias || "default-workflow";
+        if (isOpen && gridCoord && effectiveWorkAlias && weightCoordinate) {
+            // Load existing POIs for this slice
+            listPOIs(effectiveWorkAlias, weightCoordinate).then(pois => {
+                const existing = pois.find(p => p.x === gridCoord[0] && p.y === gridCoord[1]);
+                if (existing) {
+                    setLabel(existing.label);
+                    setNote(existing.note);
+                } else {
+                    setLabel('');
+                    setNote('');
+                }
+            }).catch(err => {
+                console.error("Failed to load POIs:", err);
+                setLabel('');
+                setNote('');
+            });
+        }
+    }, [isOpen, gridCoord, workAlias, weightCoordinate]);
+
+    const handleSave = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const effectiveWorkAlias = workAlias;
+        
+        if (!gridCoord || !effectiveWorkAlias || !weightCoordinate) {
+            console.warn("Missing required data for saving POI");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await savePOI({
+                work_alias: effectiveWorkAlias,
+                weight_coordinate: weightCoordinate,
+                x: gridCoord[0],
+                y: gridCoord[1],
+                label,
+                note
+            });
+            onClose();
+        } catch (error) {
+            console.error("Save error:", error);
+            alert("Failed to save POI");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleCancel = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onClose();
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -37,6 +106,8 @@ export default function AnnotationDialog({ isOpen, gridCoord, onClose }: Annotat
                     <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '4px' }}>Label</label>
                     <input 
                         type="text" 
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
                         style={{
                             width: '100%',
                             boxSizing: 'border-box',
@@ -56,6 +127,8 @@ export default function AnnotationDialog({ isOpen, gridCoord, onClose }: Annotat
                 <div style={{ marginBottom: '24px' }}>
                     <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '4px' }}>Note</label>
                     <textarea 
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
                         style={{
                             width: '100%',
                             boxSizing: 'border-box',
@@ -75,7 +148,8 @@ export default function AnnotationDialog({ isOpen, gridCoord, onClose }: Annotat
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                     <button 
-                        onClick={onClose}
+                        onClick={handleCancel}
+                        disabled={isSaving}
                         style={{
                             padding: '8px 16px',
                             background: 'transparent',
@@ -89,7 +163,8 @@ export default function AnnotationDialog({ isOpen, gridCoord, onClose }: Annotat
                         Cancel
                     </button>
                     <button 
-                        onClick={onClose}
+                        onClick={handleSave}
+                        disabled={isSaving}
                         style={{
                             padding: '8px 16px',
                             background: '#3b82f6',
@@ -99,9 +174,10 @@ export default function AnnotationDialog({ isOpen, gridCoord, onClose }: Annotat
                             cursor: 'pointer',
                             fontSize: '13px',
                             fontWeight: 600,
+                            opacity: isSaving ? 0.7 : 1,
                         }}
                     >
-                        Save
+                        {isSaving ? 'Saving...' : 'Save'}
                     </button>
                 </div>
             </div>

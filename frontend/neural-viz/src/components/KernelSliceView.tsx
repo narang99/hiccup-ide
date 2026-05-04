@@ -214,10 +214,19 @@ export default function KernelSliceView() {
     const { nodeId, kernelIndex, inputIndex } = useParams<{ nodeId: string; kernelIndex: string; inputIndex: string }>();
     const navigate = useNavigate();
     const { modelData } = useModelData("example-model");
+    const workAlias = "default-workflow";
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
     const pageDirection: Direction = "LR";
+
+    const weightCoordinate = nodeId && kernelIndex && inputIndex 
+        ? `${nodeId}.out_${kernelIndex}.in_${inputIndex}`
+        : null;
+
+    if (!weightCoordinate) {
+        throw new Error("KernelSliceView: Missing required route parameters (nodeId, kernelIndex, or inputIndex) to determine weightCoordinate.");
+    }
 
     // Annotation Dialog state
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -326,6 +335,8 @@ export default function KernelSliceView() {
             <AnnotationDialog 
                 isOpen={isDialogOpen}
                 gridCoord={dialogInfo?.gridCoord ?? null}
+                workAlias={workAlias}
+                weightCoordinate={weightCoordinate as string}
                 onClose={() => setIsDialogOpen(false)}
             />
         </div>
