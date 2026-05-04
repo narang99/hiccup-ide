@@ -96,12 +96,12 @@ export async function loadBatchSaliencyMaps(
 
 export async function loadSaliencyMapFromFile(
   coordinate: string,
+  modelAlias: string,
+  inputAlias: string,
   workAlias?: string,
   graphAlias?: string
 ): Promise<LayerSaliencyMap> {
   try {
-    const modelAlias = "example-model";
-    const inputAlias = "first-input";
     const apiBaseUrl = "http://localhost:8000";
     
     const headers = {'Content-Type': 'application/json'};

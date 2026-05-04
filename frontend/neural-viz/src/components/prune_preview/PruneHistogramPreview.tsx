@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useNodes, useReactFlow } from '@xyflow/react';
 import { useSaliencyCacheStore } from '../../stores/saliencyCacheStore';
 import { useFetcherType } from '../../hooks/useFetcherType';
+import { useAliases } from '../../hooks/useAliases';
 import type { SelectedNode } from '../../types/node';
 import type { ActivationFilterAlgorithm } from '../../types/activationFiltering';
 import { HistogramPlot, type HistogramData, type HistogramStats } from './HistogramPlot';
@@ -14,6 +15,7 @@ interface PruneHistogramPreviewProps {
 export const PruneHistogramPreview = ({ selectedNode, onChangeThreshold }: PruneHistogramPreviewProps) => {
     const { fetcherType } = useFetcherType();
     const { fetchAndCacheBatchSaliency } = useSaliencyCacheStore();
+    const { modelAlias, inputAlias } = useAliases();
     const { setNodes } = useReactFlow();
     const nodes = useNodes();
 
@@ -47,8 +49,8 @@ export const PruneHistogramPreview = ({ selectedNode, onChangeThreshold }: Prune
             setIsLoading(true);
             try {
                 const saliencyData = await fetchAndCacheBatchSaliency(
-                    'example-model',
-                    'first-input',
+                    modelAlias,
+                    inputAlias,
                     childCoordinates,
                     nodeId
                 );

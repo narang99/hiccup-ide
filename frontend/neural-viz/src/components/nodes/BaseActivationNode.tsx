@@ -10,6 +10,8 @@ import { useFetcherType } from "../../hooks/useFetcherType";
 import { useCallback } from "react";
 import { useNodeId } from "@xyflow/react";
 
+import { useAliases } from "../../hooks/useAliases";
+
 interface BaseActivationNodeProps {
     coordinate: string;
     fetchers?: NodeFetchers;
@@ -45,15 +47,20 @@ export default function BaseActivationNode({
     onPixelLeave,
     overlayAlgorithm
 }: BaseActivationNodeProps) {
-    const { workAlias, graphAlias } = useFetcherType();
+    const { workAlias: contextWorkAlias, graphAlias } = useFetcherType();
     const nodeId = useNodeId();
+    const { modelAlias, inputAlias, workAlias } = useAliases();
 
     const fetcher = useCallback((coord: string) => {
         const f = fetchers?.[fetcherType];
         if (!f) return Promise.reject("No fetcher");
         
-        return f(coord, workAlias || undefined, graphAlias || undefined);
-    }, [fetchers, fetcherType, workAlias, graphAlias]);
+        if (fetcherType === 'weight') {
+            return (f as any)(coord, modelAlias, contextWorkAlias || undefined, graphAlias || undefined);
+        }
+        
+        return f(coord, modelAlias, inputAlias, contextWorkAlias || undefined, graphAlias || undefined);
+    }, [fetchers, fetcherType, modelAlias, inputAlias, contextWorkAlias, graphAlias]);
 
     const handleHover = useCallback((gridCoord: [number, number], position: [number, number]) => {
         if (onPixelHover && nodeId) {
@@ -81,6 +88,7 @@ export default function BaseActivationNode({
         }
     }, [clickAction, nodeId, coordinate]);
 
+    // Reverted: use clickAction link directly without automatic prepending
     const content = (
         <div 
             className={className} 

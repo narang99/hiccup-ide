@@ -27,6 +27,9 @@ export const createOutputKernelNode = (
   height: number,
   width: number,
   position: { x: number; y: number },
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
   fetchers?: NodeFetchers,
   fetcherType?: FetcherType,
   handleDirection: HandleDirection = null,
@@ -52,7 +55,7 @@ export const createOutputKernelNode = (
       badgeLabel: kernelIndex !== undefined ? `K${kernelIndex}` : undefined,
       badgeColor: "#60a5fa",
       handleDirection,
-      clickAction: { type: 'link', link: `/kernel/${parentNode.id}/${kernelIndex}` },
+      clickAction: { type: 'link', link: `/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${parentNode.id}/${kernelIndex}` },
       absMax,
     },
     style: {

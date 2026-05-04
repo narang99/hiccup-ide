@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { type Node } from '@xyflow/react';
 import { type FetcherType } from '../fetchers';
 import { fetchActivationsStats, fetchSaliencyMapsStats } from '../fetchers/stats';
+import { useAliases } from './useAliases';
 
 interface UseLayerStatsParams {
   nodes: Node[];
@@ -17,9 +18,8 @@ export const useLayerStats = ({
   fetcherType,
   scalingMode,
   setLayerAbsMax,
-  modelAlias = "example-model",
-  inputAlias = "first-input"
 }: UseLayerStatsParams) => {
+  const { modelAlias, inputAlias } = useAliases();
   useEffect(() => {
     if (scalingMode !== 'global' || nodes.length === 0) {
       return;

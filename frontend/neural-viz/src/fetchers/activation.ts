@@ -7,12 +7,12 @@ export interface ActivationData {
 
 export async function loadActivationFromFile(
   coordinate: string,
+  modelAlias: string,
+  inputAlias: string,
   workAlias?: string,
   graphAlias?: string
 ): Promise<ActivationData> {
   try {
-    const modelAlias = "example-model";
-    const inputAlias = "first-input";
     const apiBaseUrl = "http://localhost:8000";
 
     const headers = { 'Content-Type': 'application/json' }

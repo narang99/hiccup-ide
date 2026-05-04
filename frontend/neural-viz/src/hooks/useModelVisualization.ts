@@ -9,9 +9,11 @@ import { toggleDirection, type Direction } from '../types/direction';
 import { useModelData } from './useModelData';
 import { type ModelData } from '../types/model';
 import { useGlobalStateControl } from './useGlobalStateControl';
+import { useAliases } from './useAliases';
 
 export const useModelVisualization = (fetcherType: FetcherType = "activation", directionOfPage: Direction = "LR") => {
-  const { modelData } = useModelData("example-model");
+  const { modelAlias, inputAlias, workAlias } = useAliases();
+  const { modelData } = useModelData(modelAlias);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   // const [layerAbsMax, setLayerAbsMax] = useState<Record<string, number>>({});
@@ -43,7 +45,7 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
       
       switch (modelNode.type) {
         case 'Conv2d':
-          layerNodes = createConv2dLayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock, absMax);
+          layerNodes = createConv2dLayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, modelAlias, inputAlias, workAlias, directionInsideLayerBlock, absMax);
           break;
         case 'ReLU':
           layerNodes = createReLULayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock, absMax);

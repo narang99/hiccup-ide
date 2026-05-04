@@ -4,6 +4,7 @@ import { type FetcherType } from '../fetchers';
 import { updateNodeAbsMax } from '../utils/nodeUpdates';
 import { useLayerStats } from './useLayerStats';
 import { useColormap } from './useColormap';
+import { useAliases } from './useAliases';
 
 interface UseGlobalStateControlProps {
     nodes: Node[];
@@ -17,9 +18,8 @@ export const useGlobalStateControl = ({
     nodes,
     fetcherType,
     setNodes,
-    modelAlias = "example-model",
-    inputAlias = "first-input"
 }: UseGlobalStateControlProps) => {
+    const { modelAlias, inputAlias } = useAliases();
     // tracks the scaling mode and scales the nodes automatically
     // make sure setNodes is simply the function you use for setting the nodes state of react flow
     const [layerAbsMax, setLayerAbsMax] = useState<Record<string, number>>({});

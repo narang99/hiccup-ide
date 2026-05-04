@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { listPOIs, savePOI } from '../fetchers/poi';
+import { useAliases } from '../hooks/useAliases';
 
 interface AnnotationDialogProps {
     isOpen: boolean;
@@ -12,7 +13,6 @@ interface AnnotationDialogProps {
 export default function AnnotationDialog({ 
     isOpen, 
     gridCoord, 
-    workAlias, 
     weightCoordinate, 
     onClose 
 }: AnnotationDialogProps) {
@@ -20,15 +20,12 @@ export default function AnnotationDialog({
     const [note, setNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Hardcoded aliases for now
-    const MODEL_ALIAS = "example-model";
-    const INPUT_ALIAS = "first-input";
-    const WORK_ALIAS = workAlias || "default-workflow";
+    const { modelAlias, inputAlias, workAlias } = useAliases();
 
     useEffect(() => {
-        if (isOpen && gridCoord && WORK_ALIAS && weightCoordinate) {
+        if (isOpen && gridCoord && workAlias && weightCoordinate) {
             // Load existing POIs for this slice
-            listPOIs(MODEL_ALIAS, INPUT_ALIAS, WORK_ALIAS, weightCoordinate).then(pois => {
+            listPOIs(modelAlias, inputAlias, workAlias, weightCoordinate).then(pois => {
                 const existing = pois.find(p => p.x === gridCoord[0] && p.y === gridCoord[1]);
                 if (existing) {
                     setLabel(existing.label);
@@ -43,20 +40,20 @@ export default function AnnotationDialog({
                 setNote('');
             });
         }
-    }, [isOpen, gridCoord, WORK_ALIAS, weightCoordinate]);
+    }, [isOpen, gridCoord, workAlias, weightCoordinate, modelAlias, inputAlias]);
 
     const handleSave = async (e: React.MouseEvent) => {
         e.stopPropagation();
         
-        if (!gridCoord || !WORK_ALIAS || !weightCoordinate) {
+        if (!gridCoord || !workAlias || !weightCoordinate) {
             console.warn("Missing required data for saving POI");
             return;
         }
 
         setIsSaving(true);
         try {
-            await savePOI(MODEL_ALIAS, INPUT_ALIAS, WORK_ALIAS, {
-                work_alias: WORK_ALIAS,
+            await savePOI(modelAlias, inputAlias, workAlias, {
+                work_alias: workAlias,
                 weight_coordinate: weightCoordinate,
                 x: gridCoord[0],
                 y: gridCoord[1],

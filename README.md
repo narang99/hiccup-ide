@@ -23,12 +23,26 @@ Good progress now
   - first prune last layer, recalculate for earlier layers
   - see the recalculated part, prune again, and so on
   - Gives a fully pruned graph
-
-Next steps:
 - Adding notes on each POI. Checking then in the final view how something was made
   - Labelling each POI (a cluster label for the top level pattern)
   - the actual meaning and extra notes
   - keep saving in backend
+
+Next steps:
+- model alias, work alias, input alias should not be hard-coded
+  - change in BE main code
+  - change in FE (urls)
+  - change in load_data
+    - figure out the format of load_data to directly take a model and a set of inputs, for which it can load data (type = SimpleMNIST works for setting model)
+    - each input needs a label too
+    - a folder
+      - model.pt
+      - inputs
+        - ip1.pt
+        - ip2.pt
+      - meta.json
+    - meta.json contains each inputs label
+
 - I would also like a view to show all the inputs of the kernel with high contribs 
   - this would need some work in load data only right now (im not going to put a lot of interactivity in this)
   - basically load all inputs, with their contribs

@@ -11,6 +11,8 @@ import type { SelectedNode } from '../types/node';
 import { PruneHistogramPreview } from './prune_preview/PruneHistogramPreview';
 import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
 
+import { useAliases } from '../hooks/useAliases';
+
 export default function PruneGraphView() {
   const [status, setStatus] = useState<PruningStatusResponse | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
@@ -18,10 +20,7 @@ export default function PruneGraphView() {
   const [isSaving, setIsSaving] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
 
-  // Hardcoded values as specified in requirements
-  const modelAlias = 'example-model';
-  const inputAlias = 'first-input';
-  const workflowName = 'default-workflow';
+  const { modelAlias, inputAlias, workAlias } = useAliases();
   const graphAlias = 'default_pruned_graph';
   const pageDirection = 'TB';
 
@@ -29,12 +28,12 @@ export default function PruneGraphView() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const data = await getPruningStatus(modelAlias, inputAlias, workflowName, graphAlias);
+      const data = await getPruningStatus(modelAlias, inputAlias, workAlias, graphAlias);
       setStatus(data);
       
       // Update global context so fetchers know to look in the scratchpad if a session is active
       if (data.session_active) {
-        setWorkGraph(workflowName, graphAlias);
+        setWorkGraph(workAlias, graphAlias);
       } else {
         setWorkGraph(null, null);
       }
@@ -44,7 +43,7 @@ export default function PruneGraphView() {
     } finally {
       setStatusLoading(false);
     }
-  }, [modelAlias, inputAlias, workflowName, graphAlias, setWorkGraph]);
+  }, [modelAlias, inputAlias, workAlias, graphAlias, setWorkGraph]);
 
   useEffect(() => {
     const load = async () => {
@@ -56,7 +55,7 @@ export default function PruneGraphView() {
   const handleStartPruning = async () => {
     setIsSaving(true);
     try {
-      await startPruning(modelAlias, inputAlias, workflowName, graphAlias);
+      await startPruning(modelAlias, inputAlias, workAlias, graphAlias);
       await fetchStatus();
     } catch (err) {
       console.error('Failed to start pruning:', err);
@@ -69,7 +68,7 @@ export default function PruneGraphView() {
   const handleFinalizePruning = async () => {
     setIsFinalizing(true);
     try {
-      await finalizePruning(modelAlias, inputAlias, workflowName, graphAlias);
+      await finalizePruning(modelAlias, inputAlias, workAlias, graphAlias);
       await fetchStatus();
     } catch (err) {
       console.error('Failed to finalize pruning:', err);
@@ -94,7 +93,7 @@ export default function PruneGraphView() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const { scalingMode } = useGlobalStateControl({ nodes, fetcherType, setNodes, modelAlias, inputAlias });
+  const { scalingMode } = useGlobalStateControl({ nodes, fetcherType, setNodes });
 
   // Sync state when hook returns new nodes (e.g. after data fetch)
   useEffect(() => {
@@ -117,7 +116,7 @@ export default function PruneGraphView() {
       }));
 
     try {
-      await saveWorkSaliencyMaps(modelAlias, inputAlias, workflowName, graphAlias, items);
+      await saveWorkSaliencyMaps(modelAlias, inputAlias, workAlias, graphAlias, items);
       
       // Refresh status to move to next layer
       await fetchStatus();

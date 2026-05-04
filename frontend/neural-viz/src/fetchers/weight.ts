@@ -8,11 +8,11 @@ export interface WeightData {
 
 export async function loadWeightFromFile(
   coordinate: string,
+  modelAlias: string,
   workAlias?: string,
   graphAlias?: string
 ): Promise<WeightData> {
   try {
-    const modelAlias = "example-model";
     const apiBaseUrl = "http://localhost:8000";
 
     const headers = { 'Content-Type': 'application/json' };

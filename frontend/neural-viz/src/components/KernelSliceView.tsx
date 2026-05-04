@@ -13,6 +13,8 @@ import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { type OverlayAlgorithm } from '../types/overlay';
 
+import { useAliases } from '../hooks/useAliases';
+
 const getActivationNode = (
     id: string,
     position: { x: number, y: number },
@@ -213,8 +215,8 @@ const generateKernelSliceView = (
 export default function KernelSliceView() {
     const { nodeId, kernelIndex, inputIndex } = useParams<{ nodeId: string; kernelIndex: string; inputIndex: string }>();
     const navigate = useNavigate();
-    const { modelData } = useModelData("example-model");
-    const workAlias = "default-workflow";
+    const { modelAlias, inputAlias, workAlias } = useAliases();
+    const { modelData } = useModelData(modelAlias);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
@@ -285,7 +287,7 @@ export default function KernelSliceView() {
     }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay]);
 
     const handleBackClick = () => {
-        navigate(`/kernel/${nodeId}/${kernelIndex}`);
+        navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${nodeId}/${kernelIndex}`);
     };
 
     if (!modelData) {

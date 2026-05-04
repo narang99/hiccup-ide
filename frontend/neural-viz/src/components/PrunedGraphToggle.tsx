@@ -1,19 +1,20 @@
 import { useFetcherType } from '../hooks/useFetcherType';
+import { useAliases } from '../hooks/useAliases';
 
 export const PrunedGraphToggle = () => {
-  const { workAlias, setWorkGraph } = useFetcherType();
+  const { workAlias: currentWorkAlias, setWorkGraph } = useFetcherType();
+  const { workAlias } = useAliases();
 
   // Hardcoded values as specified in requirements
-  const workflowName = 'default-workflow';
   const graphAlias = 'default_pruned_graph';
 
-  const isPruned = workAlias === workflowName;
+  const isPruned = currentWorkAlias === workAlias;
 
   const handleToggle = () => {
     if (isPruned) {
       setWorkGraph(null, null);
     } else {
-      setWorkGraph(workflowName, graphAlias);
+      setWorkGraph(workAlias, graphAlias);
     }
   };
 

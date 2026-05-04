@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useNodes, useReactFlow } from '@xyflow/react';
 import { DebouncedSlider } from '../DebouncedSlider';
 import { useFetcherType } from '../../hooks/useFetcherType';
+import { useAliases } from '../../hooks/useAliases';
 import type { SelectedNode } from '../../types/node';
 import type { ActivationFilterAlgorithm } from '../../types/activationFiltering';
 import type { LayerThreshold } from '../../types/threshold';
@@ -189,6 +190,7 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
     const { fetcherType } = useFetcherType();
     const { getLayerSettings, updateSliderValue, loadSliderValuesFromThresholds } = useLayerSettingsStore();
     const { fetchAndCacheBatchSaliency, clearCache } = useSaliencyCacheStore();
+    const { modelAlias, inputAlias } = useAliases();
     const { setNodes } = useReactFlow();
     const nodes = useNodes();
 
@@ -246,8 +248,8 @@ export const TopKSumSliderPreview = ({ selectedNode, onChangeThreshold, onLoadIn
             // Fetch saliency data for specific child coordinates using cache store
             // We use nodeId as the cache key
             const saliencyData = await fetchAndCacheBatchSaliency(
-                'example-model',
-                'first-input',
+                modelAlias,
+                inputAlias,
                 childCoordinates,
                 nodeId
             );

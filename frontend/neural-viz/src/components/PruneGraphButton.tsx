@@ -1,22 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createOrUpdateWorkGraph } from '../fetchers/graph';
+import { useAliases } from '../hooks/useAliases';
 
 export const PruneGraphButton = () => {
   const [isPruning, setIsPruning] = useState(false);
   const navigate = useNavigate();
+  const { modelAlias, inputAlias, workAlias } = useAliases();
 
   // Hardcoded values as specified in requirements
-  const modelAlias = 'example-model';
-  const inputAlias = 'first-input';
-  const workflowName = 'default-workflow';
   const graphAlias = 'default_pruned_graph';
 
   const handlePruneGraph = async () => {
     setIsPruning(true);
     try {
-      await createOrUpdateWorkGraph(modelAlias, inputAlias, workflowName, graphAlias);
-      navigate('/prune-graph/');
+      await createOrUpdateWorkGraph(modelAlias, inputAlias, workAlias, graphAlias);
+      navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/prune-graph/`);
     } catch (error) {
       console.error('Failed to prune graph:', error);
     } finally {

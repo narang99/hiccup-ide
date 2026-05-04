@@ -16,6 +16,8 @@ import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
 
+import { useAliases } from '../hooks/useAliases';
+
 const getNodeShowingActivation = (
     id: string,
     position: { x: number, y: number },
@@ -67,6 +69,9 @@ const generateKernelSliceContribsView = (
     kernelIdx: number,
     fetcherType: FetcherType,
     pageDirection: Direction,
+    modelAlias: string,
+    inputAlias: string,
+    workAlias: string,
     absMaxMap: Record<string, number> = {}
 ): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
@@ -111,7 +116,7 @@ const generateKernelSliceContribsView = (
             childHeight,
             null,
             absMaxMap[sliceParentLayerId],
-            `/kernel-slice/${nodeId}/${kernelIdx}/${i}`,
+            `/models/${modelAlias}/${inputAlias}/${workAlias}/kernel-slice/${nodeId}/${kernelIdx}/${i}`,
         ));
     }
 
@@ -165,7 +170,8 @@ export default function KernelSliceContribsView() {
     const pageDirection: Direction = "TB";
     const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
     const navigate = useNavigate();
-    const { modelData } = useModelData("example-model");
+    const { modelAlias, inputAlias, workAlias } = useAliases();
+    const { modelData } = useModelData(modelAlias);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [layerAbsMax, setLayerAbsMax] = useState<Record<string, number>>({});
@@ -177,9 +183,9 @@ export default function KernelSliceContribsView() {
         kernelIdx: number,
         absMaxMap: Record<string, number> = {}
     ) => {
-        const result = generateKernelSliceContribsView(data, nodeId, kernelIdx, fetcherType, pageDirection, absMaxMap);
+        const result = generateKernelSliceContribsView(data, nodeId, kernelIdx, fetcherType, pageDirection, modelAlias, inputAlias, workAlias, absMaxMap);
         return result || { nodes: [], edges: [] };
-    }, [fetcherType, pageDirection]);
+    }, [fetcherType, pageDirection, modelAlias, inputAlias, workAlias]);
 
     // Update nodes and edges when model data changes
     useEffect(() => {
@@ -211,7 +217,7 @@ export default function KernelSliceContribsView() {
     });
 
     const handleBackClick = () => {
-        navigate('/');
+        navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/`);
     };
 
     if (!modelData) {

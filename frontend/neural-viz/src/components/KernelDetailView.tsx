@@ -148,7 +148,9 @@ const createSumGroup = (
   ];
 };
 
-const createSliceToSumEdges = (inChannels: number, sumLayerId: string): Edge[] => {
+import { useAliases } from '../hooks/useAliases';
+
+const createSliceToSumEdges = (inChannels: number, targetLayerId: string): Edge[] => {
   const edges: Edge[] = [];
   for (let i = 0; i < inChannels; i++) {
     edges.push({
@@ -167,7 +169,8 @@ export default function KernelDetailView() {
   const pageDirection: Direction = "LR";
   const { nodeId, kernelIndex } = useParams<{ nodeId: string; kernelIndex: string }>();
   const navigate = useNavigate();
-  const { modelData } = useModelData("example-model");
+  const { modelAlias, inputAlias, workAlias } = useAliases();
+  const { modelData } = useModelData(modelAlias);
 
   const generateKernelDetailView = useCallback((data: ModelData, nodeId: string, kernelIdx: number): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
@@ -216,7 +219,7 @@ export default function KernelDetailView() {
   }, [modelData, nodeId, kernelIndex, generateKernelDetailView]);
 
   const handleBackClick = () => {
-    navigate('/');
+    navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/`);
   };
 
   if (!modelData) {
