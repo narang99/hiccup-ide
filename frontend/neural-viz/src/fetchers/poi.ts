@@ -23,7 +23,7 @@ export interface UniqueActivationId {
 export interface HighActivatedPOIOut {
   output_activation: UniqueActivationId;
   input_activations: UniqueActivationId[];
-  points: POIPoint[];
+  point: POIPoint;
 }
 
 export interface HighActivatedPOIsResponse {

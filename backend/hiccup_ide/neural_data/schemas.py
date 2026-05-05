@@ -171,8 +171,8 @@ class UniqueActivationId(Schema):
 
 class HighActivatedPOIOut(Schema):
     output_activation: UniqueActivationId
-    input_activations: List[UniqueActivationId]
-    points: List[POIPoint]
+    input_activations: list[UniqueActivationId]
+    point: POIPoint
 
 
 class HighActivatedPOIsResponse(Schema):

@@ -206,7 +206,7 @@ def _create_poi_from_contribution(
                 coordinate=coordinate,
             ),
             input_activations=input_activations,
-            points=[POIPoint(row=row, col=col, value=value)],
+            point=POIPoint(row=row, col=col, value=value),
         )
     except Activation.DoesNotExist:
         print(

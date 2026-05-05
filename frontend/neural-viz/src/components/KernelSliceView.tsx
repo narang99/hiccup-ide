@@ -14,7 +14,7 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { type OverlayAlgorithm } from '../types/overlay';
 
 import { useAliases } from '../hooks/useAliases';
-import { getHighActivatedPOIs, type HighActivatedPOIsResponse, type UniqueActivationId } from '../fetchers/poi';
+import { getHighActivatedPOIs, type HighActivatedPOIsResponse, type POIPoint, type UniqueActivationId } from '../fetchers/poi';
 
 const getActivationNode = (
     id: string,
@@ -34,6 +34,7 @@ const getActivationNode = (
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
     onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
+    overlayAlgorithm?: OverlayAlgorithm,
 ): Node => {
     return ({
         id: id,
@@ -47,14 +48,15 @@ const getActivationNode = (
             title: title,
             handleDirection,
             absMax,
-            clickAction: link 
-                ? { type: 'link', link } 
+            clickAction: link
+                ? { type: 'link', link }
                 : (onPixelClick ? { type: 'callback', callback: onPixelClick } : undefined),
             onPixelHover,
             onPixelLeave,
             modelAlias,
             inputAlias,
             workAlias,
+            overlayAlgorithm,
         },
         width: width,
         height: height,
@@ -71,28 +73,59 @@ const getActivationNode = (
     });
 };
 
+const getReceptiveFieldCoords = (
+    x: number, y: number, kernel_size: number, padding: number, stride: number
+): [[number, number], [number, number]] => {
+    const x_in_start = x * stride - padding;
+    const y_in_start = y * stride - padding;
+    const x_in_end = x_in_start + kernel_size;
+    const y_in_end = y_in_start + kernel_size;
+
+    return [[x_in_start, y_in_start], [x_in_end, y_in_end]]
+}
+
+const getRectOverlayWithReceptiveField = (
+    x: number, y: number, kernel_size: number, padding: number, stride: number
+): OverlayAlgorithm => {
+    const [start, end] = getReceptiveFieldCoords(x, y, kernel_size, padding, stride);
+    return {
+        type: 'DrawRect',
+        start: start,
+        end: end,
+        color: "#f59e0b"
+    }
+}
+
+interface PoiPayloadForRender {
+    activation: UniqueActivationId;
+    point: POIPoint;
+}
+
 const makeNodesForPoiData = (
     poiData: HighActivatedPOIsResponse | undefined,
     childHeight: number,
     childWidth: number,
     padding: number,
     pageDirection: Direction,
+    kernel_size: number,
+    kernel_padding: number,
+    kernel_stride: number,
 ): [string | null, Node[]] => {
     const nodes: Node[] = [];
 
     let poiLayerIdWeMade = null;
     if (poiData && poiData.pois.length > 0) {
-        const allInputActivations: UniqueActivationId[] = [];
+        const poiPayload: PoiPayloadForRender[] = [];
         poiData.pois.forEach(poi => {
             poi.input_activations.forEach(inputAct => {
-                allInputActivations.push(inputAct);
+                poiPayload.push({ activation: inputAct, point: poi.point });
             });
         });
 
-        if (allInputActivations.length > 0) {
+        if (poiPayload.length > 0) {
             const poiLayerId = "poi-input-layer";
             poiLayerIdWeMade = poiLayerId;
-            const poiLayout = makeEvenlySpacedLayout(allInputActivations.length, childHeight, childWidth, padding, "TB", 5);
+            const poiLayout = makeEvenlySpacedLayout(poiPayload.length, childHeight, childWidth, padding, "TB", 5);
             nodes.push({
                 id: poiLayerId,
                 type: 'LayerNode',
@@ -102,13 +135,15 @@ const makeNodesForPoiData = (
                 data: {
                     label: "POI Input Activations",
                     layerType: 'Input',
-                    nodeCount: allInputActivations.length,
+                    nodeCount: poiPayload.length,
                     handleDirection: pageDirection,
                 },
             });
 
             // Add nodes for each input activation
-            allInputActivations.forEach((inputAct, index) => {
+            poiPayload.forEach((payload, index) => {
+                const inputAct = payload.activation;
+                const point = payload.point;
                 nodes.push(getActivationNode(
                     `poi-input-${index}`,
                     poiLayout.children[index],
@@ -121,7 +156,15 @@ const makeNodesForPoiData = (
                     poiLayerId,
                     childWidth,
                     childHeight,
-                    null
+                    null,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    getRectOverlayWithReceptiveField(
+                        point.row, point.col, kernel_size, kernel_padding, kernel_stride
+                    )
                 ));
             });
         }
@@ -138,6 +181,9 @@ const generateKernelSliceView = (
     modelAlias: string,
     inputAlias: string,
     workAlias: string,
+    kernelSize: number,
+    kernelPadding: number,
+    kernelStride: number,
     poiData?: HighActivatedPOIsResponse,
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
@@ -275,7 +321,7 @@ const generateKernelSliceView = (
 
     // 4. POI Input Activations Layer
     const [poiLayerId, poiNodes] = makeNodesForPoiData(
-        poiData, childHeight, childWidth, padding, pageDirection
+        poiData, childHeight, childWidth, padding, pageDirection, kernelSize, kernelPadding, kernelStride,
     );
     nodes.push(...poiNodes);
 
@@ -321,7 +367,7 @@ export default function KernelSliceView() {
     const [poiData, setPOIData] = useState<HighActivatedPOIsResponse | null>(null);
     const pageDirection: Direction = "LR";
 
-    const weightCoordinate = nodeId && kernelIndex && inputIndex 
+    const weightCoordinate = nodeId && kernelIndex && inputIndex
         ? `${nodeId}.out_${kernelIndex}.in_${inputIndex}`
         : null;
 
@@ -342,17 +388,9 @@ export default function KernelSliceView() {
     const handlePixelHover = useCallback((id: string, _: string, gridCoord: [number, number]) => {
         const [x, y] = gridCoord;
         if (id === 'output-act' || id === 'output-saliency') {
-            const x_in_start = x * STRIDE - PADDING;
-            const y_in_start = y * STRIDE - PADDING;
-            const x_in_end = x_in_start + KERNEL_SIZE;
-            const y_in_end = y_in_start + KERNEL_SIZE;
-
-            setInputOverlay({
-                type: 'DrawRect',
-                start: [x_in_start, y_in_start],
-                end: [x_in_end, y_in_end],
-                color: "#f59e0b"
-            });
+            setInputOverlay(
+                getRectOverlayWithReceptiveField(x, y, KERNEL_SIZE, PADDING, STRIDE)
+            );
         }
     }, [STRIDE, PADDING, KERNEL_SIZE]);
 
@@ -385,6 +423,9 @@ export default function KernelSliceView() {
                 modelAlias,
                 inputAlias,
                 workAlias,
+                KERNEL_SIZE,
+                PADDING,
+                STRIDE,
                 poiData || undefined,
                 handlePixelHover,
                 handlePixelLeave,
@@ -446,7 +487,7 @@ export default function KernelSliceView() {
                 </Panel>
             </SharedCanvas>
 
-            <AnnotationDialog 
+            <AnnotationDialog
                 isOpen={isDialogOpen}
                 gridCoord={dialogInfo?.gridCoord ?? null}
                 workAlias={workAlias}
