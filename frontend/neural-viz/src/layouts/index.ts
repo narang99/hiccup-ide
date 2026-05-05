@@ -14,7 +14,7 @@ export const makeEvenlySpacedLayout = (
     if (numChannels > gridThreshold) {
         // Use grid layout when number of channels exceeds threshold
         const directionFn = direction === "LR" ? makeGridHorizontalLayout : makeGridVerticalLayout;
-        const layout = directionFn(numChannels, childHeight, childWidth, padding)
+        const layout = directionFn(numChannels, childHeight, childWidth, padding, gridThreshold)
         return layout;
     } else {
         // Use evenly spaced layout for smaller numbers of channels
