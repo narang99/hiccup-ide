@@ -231,7 +231,6 @@ def _contributions_to_high_activated_pois(
     top_contributions, input_mapping, coordinate, input_coordinates
 ):
     results = []
-    stuff_added = set()
     for row, col, value, saliency_map in top_contributions:
         poi = _create_poi_from_contribution(
             row,
@@ -243,7 +242,6 @@ def _contributions_to_high_activated_pois(
             input_coordinates,
         )
         if poi:
-            stuff_added.add(input_mapping[saliency_map.pk].pk)
             results.append(poi)
     return results
 
