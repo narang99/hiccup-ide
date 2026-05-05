@@ -147,7 +147,7 @@ const makeNodesForPoiData = (
                 nodes.push(getActivationNode(
                     `poi-input-${index}`,
                     poiLayout.children[index],
-                    `Input ${inputAct.coordinate}`,
+                    `Input ${inputAct.input_alias}`,
                     inputAct.coordinate,
                     "activation",
                     inputAct.model_alias,
@@ -163,7 +163,7 @@ const makeNodesForPoiData = (
                     undefined,
                     undefined,
                     getRectOverlayWithReceptiveField(
-                        point.row, point.col, kernelSize, kernelPadding, kernelStride
+                        point.col, point.row, kernelSize, kernelPadding, kernelStride
                     )
                 ));
             });
