@@ -1,8 +1,9 @@
 from ninja import Router
 from django.shortcuts import get_object_or_404
-from typing import List
+from typing import List, Optional
 from ..models import POI, Work, Weight, Input
-from ..schemas import POIIn, POIOut
+from ..schemas import POIIn, POIOut, HighActivatedPOIsResponse
+from .high_activated_pois import get_high_activated_pois_for_slice_coordinate
 
 router = Router()
 
@@ -54,4 +55,25 @@ def create_or_update_poi(request, model_alias: str, input_alias: str, work_alias
         y=poi.y,
         label=poi.label,
         note=poi.note
+    )
+
+
+@router.get("/models/{model_alias}/coordinates/{coordinate}/high_pois/", response=HighActivatedPOIsResponse)
+def get_high_activated_pois_for_slice_coordinate_endpoint(
+    request,
+    model_alias: str,
+    coordinate: str,
+    k: int = 10
+):
+    """
+    Get high-activated POIs for a slice coordinate.
+    
+    This endpoint finds the highest K contributions from saliency maps across all inputs
+    for the same coordinate, then returns the corresponding input/output activations
+    and grid coordinates.
+    """
+    return get_high_activated_pois_for_slice_coordinate(
+        model_alias=model_alias,
+        coordinate=coordinate,
+        k=k
     )

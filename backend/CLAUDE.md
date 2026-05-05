@@ -100,6 +100,41 @@ def test_feature_with_edge_case():
 
 **Important**: Always use function-based tests, never class-based tests. This keeps tests simple and focused.
 
+## Code Organization Guidelines
+
+### Function Size and Modularity
+**Always keep functions small and readable**. When a function becomes large or complex:
+
+1. **Break it down**: Extract pieces of logic into smaller sub-functions
+2. **Single responsibility**: Each function should have one clear purpose
+3. **Separate files for features**: If there are too many functions for a single feature, organize them in a separate module
+
+### Example of Good Function Organization
+```python
+# Instead of one large function
+def process_complex_data(data):
+    # 50+ lines of mixed logic
+    pass
+
+# Break it down into focused functions
+def validate_input_data(data):
+    # 5-10 lines of validation logic
+    pass
+
+def transform_data(data):
+    # 10-15 lines of transformation
+    pass
+
+def save_processed_data(data):
+    # 5-10 lines of persistence logic
+    pass
+
+def process_complex_data(data):
+    validated_data = validate_input_data(data)
+    transformed_data = transform_data(validated_data)
+    return save_processed_data(transformed_data)
+```
+
 ## Documentation
 
 - [Graph Pruning Flow](./docs/graph-pruning.md): Conceptual overview and API workflow for the graph pruning feature.
