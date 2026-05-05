@@ -22,6 +22,9 @@ const getActivationNode = (
     title: string,
     coordinate: string,
     fetcherType: FetcherType = "activation",
+    modelAlias: string,
+    inputAlias: string,
+    workAlias?: string,
     parentId?: string,
     width?: number,
     height?: number,
@@ -49,6 +52,9 @@ const getActivationNode = (
                 : (onPixelClick ? { type: 'callback', callback: onPixelClick } : undefined),
             onPixelHover,
             onPixelLeave,
+            modelAlias,
+            inputAlias,
+            workAlias,
         },
         width: width,
         height: height,
@@ -71,6 +77,9 @@ const makeNodesForPoiData = (
     childWidth: number,
     padding: number,
     pageDirection: Direction,
+    modelAlias: string,
+    inputAlias: string,
+    workAlias: string,
 ): [string | null, Node[]] => {
     const nodes: Node[] = [];
 
@@ -109,6 +118,9 @@ const makeNodesForPoiData = (
                     `Input ${inputAct.coordinate}`,
                     inputAct.coordinate,
                     "activation",
+                    modelAlias,
+                    inputAlias,
+                    workAlias,
                     poiLayerId,
                     childWidth,
                     childHeight,
@@ -126,6 +138,9 @@ const generateKernelSliceView = (
     kernelIdx: number,
     inputIdx: number,
     pageDirection: Direction,
+    modelAlias: string,
+    inputAlias: string,
+    workAlias: string,
     poiData?: HighActivatedPOIsResponse,
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
@@ -165,6 +180,9 @@ const generateKernelSliceView = (
         `Channel ${inputIdx}`,
         `${inputNodeId}.out_${inputIdx}`,
         "activation",
+        modelAlias,
+        inputAlias,
+        workAlias,
         inputLayerId,
         childWidth,
         childHeight,
@@ -195,6 +213,9 @@ const generateKernelSliceView = (
         `W[${kernelIdx}][${inputIdx}]`,
         `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
         "weight",
+        modelAlias,
+        inputAlias,
+        workAlias,
         weightLayerId,
         childWidth,
         childHeight,
@@ -223,6 +244,9 @@ const generateKernelSliceView = (
         "Activation",
         `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
         "activation",
+        modelAlias,
+        inputAlias,
+        workAlias,
         outputLayerId,
         childWidth,
         childHeight,
@@ -238,6 +262,9 @@ const generateKernelSliceView = (
         "Saliency",
         `${nodeId}.out_${kernelIdx}.in_${inputIdx}`,
         "saliency_map",
+        modelAlias,
+        inputAlias,
+        workAlias,
         outputLayerId,
         childWidth,
         childHeight,
@@ -251,7 +278,7 @@ const generateKernelSliceView = (
 
     // 4. POI Input Activations Layer
     const [poiLayerId, poiNodes] = makeNodesForPoiData(
-        poiData, childHeight, childWidth, padding, pageDirection
+        poiData, childHeight, childWidth, padding, pageDirection, modelAlias, inputAlias, workAlias
     );
     nodes.push(...poiNodes);
 
@@ -358,6 +385,9 @@ export default function KernelSliceView() {
                 parseInt(kernelIndex),
                 parseInt(inputIndex),
                 pageDirection,
+                modelAlias,
+                inputAlias,
+                workAlias,
                 poiData || undefined,
                 handlePixelHover,
                 handlePixelLeave,
@@ -369,7 +399,7 @@ export default function KernelSliceView() {
                 setEdges(result.edges);
             }
         }
-    }, [modelData, nodeId, kernelIndex, inputIndex, poiData, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay]);
+    }, [modelData, nodeId, kernelIndex, inputIndex, poiData, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay, modelAlias, inputAlias, workAlias]);
 
     const handleBackClick = () => {
         navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${nodeId}/${kernelIndex}`);
