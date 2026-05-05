@@ -222,3 +222,5 @@ __marimo__/
 
 /hiccup_ide/db.sqlite3
 /test_load
+
+/folder_with_all_inputs
