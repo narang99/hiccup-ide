@@ -8,6 +8,7 @@ import KernelSliceContribsView from './components/KernelSliceContribsView';
 import KernelSliceView from './components/KernelSliceView';
 import SingleLayerVisualization from './components/SingleLayerVisualization';
 import PruneGraphView from './components/PruneGraphView';
+import LandingPage from './components/LandingPage';
 
 const AliasLayout = () => (
   <AliasProvider>
@@ -16,13 +17,12 @@ const AliasLayout = () => (
 );
 
 function App() {
-  const defaultPath = "/models/example-model/first-input/default-workflow";
-
   return (
     <FetcherTypeProvider>
       <ColormapProvider>
         <Router>
           <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/models/:modelAlias/:inputAlias/:workAlias" element={<AliasLayout />}>
               <Route index element={<ModelVisualization />} />
               <Route path="kernel/:nodeId/:kernelIndex" element={<KernelSliceContribsView />} />
@@ -30,9 +30,8 @@ function App() {
               <Route path="single-layer" element={<SingleLayerVisualization />} />
               <Route path="prune-graph/" element={<PruneGraphView />} />
             </Route>
-            {/* Fallback for when aliases are missing - redirect to default path */}
-            <Route path="/" element={<Navigate to={defaultPath} replace />} />
-            <Route path="*" element={<Navigate to={defaultPath} replace />} />
+            {/* Fallback for when aliases are missing - redirect to landing page */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
       </ColormapProvider>

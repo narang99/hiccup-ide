@@ -19,6 +19,23 @@ class ModelDefinition(Schema):
     edges: List[ModelEdge]
 
 
+class WorkTreeOut(Schema):
+    alias: str
+    name: str
+
+class WorkIn(Schema):
+    name: str
+
+class InputTreeOut(Schema):
+    alias: str
+    name: str
+    works: List[WorkTreeOut]
+
+class ModelTreeOut(Schema):
+    alias: str
+    name: str
+    inputs: List[InputTreeOut]
+
 class ModelOut(Schema):
     id: int
     alias: str
@@ -133,3 +150,24 @@ class POIOut(Schema):
     y: int
     label: str
     note: str
+
+
+class InputLayerMeta(Schema):
+    type: str
+    layer_name: str
+
+
+class POIPoint(Schema):
+    row: int
+    col: int
+    value: float
+
+
+class HighActivatedPOIOut(Schema):
+    output_activation: ActivationOut
+    input_activations: List[ActivationOut]
+    points: List[POIPoint]
+
+
+class HighActivatedPOIsResponse(Schema):
+    pois: List[HighActivatedPOIOut]
