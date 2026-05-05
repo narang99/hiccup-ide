@@ -36,10 +36,10 @@ def get_workspace(request):
                     name=input_obj.name,
                     works=[
                         WorkTreeOut(alias=work.name, name=work.name)
-                        for work in input_obj.works.all()
+                        for work in Work.objects.filter(input=input_obj)
                     ]
                 )
-                for input_obj in model.inputs.all()
+                for input_obj in Input.objects.filter(model=model)
             ]
         )
         result.append(model_data)
