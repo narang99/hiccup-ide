@@ -107,9 +107,9 @@ const makeNodesForPoiData = (
     childWidth: number,
     padding: number,
     pageDirection: Direction,
-    kernel_size: number,
-    kernel_padding: number,
-    kernel_stride: number,
+    kernelSize: number,
+    kernelPadding: number,
+    kernelStride: number,
 ): [string | null, Node[]] => {
     const nodes: Node[] = [];
 
@@ -163,7 +163,7 @@ const makeNodesForPoiData = (
                     undefined,
                     undefined,
                     getRectOverlayWithReceptiveField(
-                        point.row, point.col, kernel_size, kernel_padding, kernel_stride
+                        point.row, point.col, kernelSize, kernelPadding, kernelStride
                     )
                 ));
             });
