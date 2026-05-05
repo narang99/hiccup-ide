@@ -77,9 +77,6 @@ const makeNodesForPoiData = (
     childWidth: number,
     padding: number,
     pageDirection: Direction,
-    modelAlias: string,
-    inputAlias: string,
-    workAlias: string,
 ): [string | null, Node[]] => {
     const nodes: Node[] = [];
 
@@ -118,9 +115,9 @@ const makeNodesForPoiData = (
                     `Input ${inputAct.coordinate}`,
                     inputAct.coordinate,
                     "activation",
-                    modelAlias,
-                    inputAlias,
-                    workAlias,
+                    inputAct.model_alias,
+                    inputAct.input_alias,
+                    undefined,
                     poiLayerId,
                     childWidth,
                     childHeight,
@@ -278,7 +275,7 @@ const generateKernelSliceView = (
 
     // 4. POI Input Activations Layer
     const [poiLayerId, poiNodes] = makeNodesForPoiData(
-        poiData, childHeight, childWidth, padding, pageDirection, modelAlias, inputAlias, workAlias
+        poiData, childHeight, childWidth, padding, pageDirection
     );
     nodes.push(...poiNodes);
 
