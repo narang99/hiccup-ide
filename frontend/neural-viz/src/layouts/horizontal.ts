@@ -31,3 +31,32 @@ export const makeEvenlySpacedHorizontalLayout = (
 
   return { parent, children };
 }
+
+export const makeGridHorizontalLayout = (
+  numChannels: number,
+  childHeight: number,
+  childWidth: number,
+  padding: number,
+  cols: number = 10,
+): LayerGroupLayout => {
+  // Grid layout with fixed columns (horizontal direction)
+  // Calculate rows needed
+  const rows = Math.ceil(numChannels / cols);
+  
+  // Calculate parent dimensions
+  const width = cols * childWidth + (cols + 1) * padding;
+  const height = rows * childHeight + (rows + 1) * padding;
+  const parent = { height, width };
+
+  const children = [];
+  for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
+    const row = Math.floor(channelIndex / cols);
+    const col = channelIndex % cols;
+    
+    const x = col * childWidth + (col + 1) * padding;
+    const y = row * childHeight + (row + 1) * padding;
+    children.push({ x, y });
+  }
+
+  return { parent, children };
+}
