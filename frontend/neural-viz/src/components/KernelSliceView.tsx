@@ -14,6 +14,7 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { type OverlayAlgorithm } from '../types/overlay';
 
 import { useAliases } from '../hooks/useAliases';
+import { getHighActivatedPOIs, type HighActivatedPOIsResponse, type UniqueActivationId } from '../fetchers/poi';
 
 const getActivationNode = (
     id: string,
@@ -64,12 +65,68 @@ const getActivationNode = (
     });
 };
 
+const makeNodesForPoiData = (
+    poiData: HighActivatedPOIsResponse | undefined,
+    childHeight: number,
+    childWidth: number,
+    padding: number,
+    pageDirection: Direction,
+): [string | null, Node[]] => {
+    const nodes: Node[] = [];
+
+    let poiLayerIdWeMade = null;
+    if (poiData && poiData.pois.length > 0) {
+        const allInputActivations: UniqueActivationId[] = [];
+        poiData.pois.forEach(poi => {
+            poi.input_activations.forEach(inputAct => {
+                allInputActivations.push(inputAct);
+            });
+        });
+
+        if (allInputActivations.length > 0) {
+            const poiLayerId = "poi-input-layer";
+            poiLayerIdWeMade = poiLayerId;
+            const poiLayout = makeEvenlySpacedLayout(allInputActivations.length, childHeight, childWidth, padding, "TB", 5);
+            nodes.push({
+                id: poiLayerId,
+                type: 'LayerNode',
+                position: { x: 0, y: 0 },
+                width: poiLayout.parent.width,
+                height: poiLayout.parent.height,
+                data: {
+                    label: "POI Input Activations",
+                    layerType: 'Input',
+                    nodeCount: allInputActivations.length,
+                    handleDirection: pageDirection,
+                },
+            });
+
+            // Add nodes for each input activation
+            allInputActivations.forEach((inputAct, index) => {
+                nodes.push(getActivationNode(
+                    `poi-input-${index}`,
+                    poiLayout.children[index],
+                    `Input ${inputAct.coordinate}`,
+                    inputAct.coordinate,
+                    "activation",
+                    poiLayerId,
+                    childWidth,
+                    childHeight,
+                    null
+                ));
+            });
+        }
+    }
+    return [poiLayerIdWeMade, nodes];
+}
+
 const generateKernelSliceView = (
     data: ModelData,
     nodeId: string,
     kernelIdx: number,
     inputIdx: number,
     pageDirection: Direction,
+    poiData?: HighActivatedPOIsResponse,
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
     onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
@@ -192,6 +249,12 @@ const generateKernelSliceView = (
         onPixelClick
     ));
 
+    // 4. POI Input Activations Layer
+    const [poiLayerId, poiNodes] = makeNodesForPoiData(
+        poiData, childHeight, childWidth, padding, pageDirection
+    );
+    nodes.push(...poiNodes);
+
     const edges: Edge[] = [
         {
             id: "input-to-weight",
@@ -209,6 +272,17 @@ const generateKernelSliceView = (
         }
     ];
 
+    // Add edge from output layer to POI input layer if it exists
+    if (poiLayerId) {
+        edges.push({
+            id: "output-to-poi",
+            source: outputLayerId,
+            target: poiLayerId,
+            type: "default",
+            style: { stroke: '#10b981', strokeWidth: 2 },
+        });
+    }
+
     return { nodes, edges };
 };
 
@@ -220,6 +294,7 @@ export default function KernelSliceView() {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
+    const [poiData, setPOIData] = useState<HighActivatedPOIsResponse | null>(null);
     const pageDirection: Direction = "LR";
 
     const weightCoordinate = nodeId && kernelIndex && inputIndex 
@@ -266,6 +341,15 @@ export default function KernelSliceView() {
         setIsDialogOpen(true);
     }, []);
 
+    // Fetch POI data when weight coordinate changes
+    useEffect(() => {
+        if (modelAlias && weightCoordinate) {
+            getHighActivatedPOIs(modelAlias, weightCoordinate, 10)
+                .then(setPOIData)
+                .catch(console.error);
+        }
+    }, [modelAlias, weightCoordinate]);
+
     useEffect(() => {
         if (modelData && nodeId && kernelIndex && inputIndex) {
             const result = generateKernelSliceView(
@@ -274,6 +358,7 @@ export default function KernelSliceView() {
                 parseInt(kernelIndex),
                 parseInt(inputIndex),
                 pageDirection,
+                poiData || undefined,
                 handlePixelHover,
                 handlePixelLeave,
                 handlePixelClick,
@@ -284,7 +369,7 @@ export default function KernelSliceView() {
                 setEdges(result.edges);
             }
         }
-    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay]);
+    }, [modelData, nodeId, kernelIndex, inputIndex, poiData, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay]);
 
     const handleBackClick = () => {
         navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${nodeId}/${kernelIndex}`);

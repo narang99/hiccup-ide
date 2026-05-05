@@ -1,3 +1,4 @@
+from fontTools.varLib.instancer.names import _updateUniqueIdNameRecord
 from typing import Optional
 from django.shortcuts import get_object_or_404
 from ..models import Model, Input, SaliencyMap, Activation, Weight
@@ -7,6 +8,7 @@ from ..schemas import (
     HighActivatedPOIOut,
     HighActivatedPOIsResponse,
     ActivationOut,
+    UniqueActivationId,
 )
 
 
@@ -34,6 +36,24 @@ def _get_input_layers(
                 )
 
     return input_layers
+
+
+def _get_input_slice_coordinate_of_conv_kernel_slice_v2(
+    input_layer_meta: InputLayerMeta,
+    weight: Weight,
+) -> str:
+    if (
+        weight.coordinate_type != "input_output_channel"
+        or weight.layer_type != "Conv2d"
+    ):
+        raise ValueError(
+            f"This function only supports Conv2d input_output_channel coordinates, got {weight.layer_type} {weight.coordinate_type}"
+        )
+    if weight.output_channel is None or weight.input_channel is None:
+        raise ValueError(
+            f"Weight has null output or input channel. output_channel={weight.output_channel} input_channel={weight.input_channel}, coordinate={weight.coordinate}"
+        )
+    return f"{input_layer_meta.layer_name}.out_{weight.input_channel}"
 
 
 def _get_input_slice_coordinate_of_conv_kernel_slice(
@@ -136,8 +156,7 @@ def _create_activation_out(activation: Activation) -> ActivationOut:
 def _get_input_activations_for_poi(
     input_obj: Input,
     input_coordinates: list[str],
-    coordinate: str,
-) -> Optional[list[ActivationOut]]:
+) -> Optional[list[UniqueActivationId]]:
     """
     Get all input activations for a given POI coordinate.
     None if any of the input activations are not found for all input layers
@@ -146,13 +165,16 @@ def _get_input_activations_for_poi(
 
     for input_coordinate in input_coordinates:
         try:
-            input_activation = Activation.objects.get(
-                input=input_obj, coordinate=input_coordinate
+            input_activations.append(
+                UniqueActivationId(
+                    input_alias=input_obj.alias,
+                    model_alias=input_obj.model.alias,
+                    coordinate=input_coordinate,
+                )
             )
-            input_activations.append(_create_activation_out(input_activation))
         except Activation.DoesNotExist:
             print(
-                f"WARN: activation not found for input={input_obj.alias} coordinate={coordinate}"
+                f"WARN: activation not found for input={input_obj.alias} coordinate={input_coordinate}"
             )
             return None
 
@@ -172,16 +194,17 @@ def _create_poi_from_contribution(
     input_obj = input_mapping[saliency_map.pk]
 
     try:
-        output_activation = Activation.objects.get(
-            input=input_obj, coordinate=coordinate
-        )
         input_activations = _get_input_activations_for_poi(
-            input_obj, input_coordinates, coordinate
+            input_obj, input_coordinates
         )
         if input_activations is None:
             return None
         return HighActivatedPOIOut(
-            output_activation=_create_activation_out(output_activation),
+            output_activation=UniqueActivationId(
+                input_alias=input_obj.alias,
+                model_alias=input_obj.model.alias,
+                coordinate=coordinate,
+            ),
             input_activations=input_activations,
             points=[POIPoint(row=row, col=col, value=value)],
         )
@@ -196,12 +219,9 @@ def _get_input_coordinates(model: Model, coordinate: str):
     weight = get_object_or_404(Weight, model=model, coordinate=coordinate)
     input_layers = _get_input_layers(model.definition, weight.layer_name)
     return [
-        _get_input_slice_coordinate_of_conv_kernel_slice(
+        _get_input_slice_coordinate_of_conv_kernel_slice_v2(
             input_layer,
-            weight.coordinate,
-            weight.layer_name,
-            weight.coordinate_type,
-            weight.layer_type,
+            weight,
         )
         for input_layer in input_layers
     ]
@@ -211,6 +231,7 @@ def _contributions_to_high_activated_pois(
     top_contributions, input_mapping, coordinate, input_coordinates
 ):
     results = []
+    stuff_added = set()
     for row, col, value, saliency_map in top_contributions:
         poi = _create_poi_from_contribution(
             row,
@@ -222,6 +243,7 @@ def _contributions_to_high_activated_pois(
             input_coordinates,
         )
         if poi:
+            stuff_added.add(input_mapping[saliency_map.pk].pk)
             results.append(poi)
     return results
 
@@ -244,6 +266,7 @@ def get_high_activated_pois_for_slice_coordinate(
     saliency_maps, input_mapping = _collect_saliency_maps_for_coordinate(
         model, coordinate
     )
+    print("unique inputs", set([i.pk for i in input_mapping.values()]))
     if not saliency_maps:
         return HighActivatedPOIsResponse(pois=[])
     input_coordinates = _get_input_coordinates(model, coordinate)

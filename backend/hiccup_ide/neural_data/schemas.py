@@ -163,9 +163,15 @@ class POIPoint(Schema):
     value: float
 
 
+class UniqueActivationId(Schema):
+    input_alias: str
+    model_alias: str
+    coordinate: str
+
+
 class HighActivatedPOIOut(Schema):
-    output_activation: ActivationOut
-    input_activations: List[ActivationOut]
+    output_activation: UniqueActivationId
+    input_activations: List[UniqueActivationId]
     points: List[POIPoint]
 
 
