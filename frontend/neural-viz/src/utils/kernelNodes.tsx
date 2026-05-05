@@ -57,6 +57,9 @@ export const createOutputKernelNode = (
       handleDirection,
       clickAction: { type: 'link', link: `/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${parentNode.id}/${kernelIndex}` },
       absMax,
+      modelAlias,
+      inputAlias,
+      workAlias,
     },
     style: {
       background: 'transparent',

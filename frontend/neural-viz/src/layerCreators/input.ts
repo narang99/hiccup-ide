@@ -10,6 +10,9 @@ export const createInputLayer = (
     basePosition: { x: number; y: number },
     fetcherType: FetcherType,
     layerBlockHandleDirection: Direction,
+    modelAlias: string,
+    inputAlias: string,
+    workAlias: string,
     directionInsideLayerBlock: Direction = "LR",
     absMax?: number,
 ): Node[] => {
@@ -32,7 +35,7 @@ export const createInputLayer = (
     for (let channelIndex = 0; channelIndex < numChannels; channelIndex++) {
         const childPosition = layout.children[channelIndex];
         nodes.push(makeInputChannelNode(
-            modelNode.id, childPosition, childHeight, childWidth, channelIndex, fetcherType, handleDirection, absMax
+            modelNode.id, childPosition, childHeight, childWidth, channelIndex, fetcherType, handleDirection, modelAlias, inputAlias, workAlias, absMax
         ))
     }
 
@@ -58,7 +61,7 @@ const makeParentLayerNode = (modelId: string, position: XYPosition, width: numbe
 
 
 const makeInputChannelNode = (
-    modelId: string, position: XYPosition, height: number, width: number, channelIndex: number, fetcherType: FetcherType, handleDirection: HandleDirection, absMax?: number,
+    modelId: string, position: XYPosition, height: number, width: number, channelIndex: number, fetcherType: FetcherType, handleDirection: HandleDirection, modelAlias: string, inputAlias: string, workAlias: string, absMax?: number,
 ): Node => {
     return {
         id: `${modelId}-channel-${channelIndex}`,
@@ -75,6 +78,9 @@ const makeInputChannelNode = (
             handleDirection: handleDirection,
             badgeColor: '#3b82f6', // A blue color for input
             absMax,
+            modelAlias,
+            inputAlias,
+            workAlias,
         },
         width: width,
         height: height,

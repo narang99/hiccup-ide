@@ -16,6 +16,9 @@ const getNodeShowingActivation = (
   title: string, 
   coordinate: string, 
   fetcherType: FetcherType = "activation", 
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
   parentId?: string, 
   width?: number, 
   height?: number,
@@ -32,6 +35,9 @@ const getNodeShowingActivation = (
       maxSize: 84,
       title: title,
       handleDirection,
+      modelAlias,
+      inputAlias,
+      workAlias,
     },
     width: width,
     height: height,
@@ -61,6 +67,9 @@ const createChannelSlice = (
   kernelIdx: number,
   fetcherType: FetcherType,
   config: LayoutConfig,
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
 ): Node[] => {
   const sliceLayerId = `slice-${i}`;
   const sliceLayout = makeEvenlySpacedLayout(3, config.childHeight, config.childWidth, config.padding, config.direction);
@@ -85,9 +94,13 @@ const createChannelSlice = (
       "Input",
       `${nodeId}.out_${kernelIdx}.in_${i}.input`,
       fetcherType,
+      modelAlias,
+      inputAlias,
+      workAlias,
       sliceLayerId,
       config.childWidth,
       config.childHeight,
+      null,
     ),
     getNodeShowingActivation(
       `kernel-slice-${i}`,
@@ -95,9 +108,13 @@ const createChannelSlice = (
       `K${kernelIdx}:${i}`,
       `${nodeId}.out_${kernelIdx}.in_${i}`,
       'weight',
+      modelAlias,
+      inputAlias,
+      workAlias,
       sliceLayerId,
       config.childWidth,
       config.childHeight,
+      null,
     ),
     getNodeShowingActivation(
       `output-${i}`,
@@ -105,9 +122,13 @@ const createChannelSlice = (
       "Output",
       `${nodeId}.out_${kernelIdx}.in_${i}`,
       fetcherType,
+      modelAlias,
+      inputAlias,
+      workAlias,
       sliceLayerId,
       config.childWidth,
       config.childHeight,
+      null,
     ),
   ];
 };
@@ -117,6 +138,9 @@ const createSumGroup = (
   kernelIdx: number,
   fetcherType: FetcherType,
   config: LayoutConfig,
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
 ): Node[] => {
   const sumLayerId = 'sum-layer';
   const sumLayout = makeEvenlySpacedLayout(1, config.childHeight, config.childWidth, config.padding, config.direction);
@@ -141,9 +165,13 @@ const createSumGroup = (
       "Sum",
       `${nodeId}.out_${kernelIdx}`,
       fetcherType,
+      modelAlias,
+      inputAlias,
+      workAlias,
       sumLayerId,
       config.childWidth,
-      config.childHeight
+      config.childHeight,
+      null,
     ),
   ];
 };
@@ -172,7 +200,7 @@ export default function KernelDetailView() {
   const { modelAlias, inputAlias, workAlias } = useAliases();
   const { modelData } = useModelData(modelAlias);
 
-  const generateKernelDetailView = useCallback((data: ModelData, nodeId: string, kernelIdx: number): { nodes: Node[], edges: Edge[] } | null => {
+  const generateKernelDetailView = useCallback((data: ModelData, nodeId: string, kernelIdx: number, modelAlias: string, inputAlias: string, workAlias: string): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
     if (!targetNode || targetNode.type !== 'Conv2d') return null;
 
@@ -188,7 +216,7 @@ export default function KernelDetailView() {
 
     // 1. Create each input→kernel→output group
     for (let i = 0; i < inChannels; i++) {
-      nodes = nodes.concat(createChannelSlice(i, nodeId, kernelIdx, fetcherType, sliceConfig));
+      nodes = nodes.concat(createChannelSlice(i, nodeId, kernelIdx, fetcherType, sliceConfig, modelAlias, inputAlias, workAlias));
     }
 
     const sumConfig: LayoutConfig = {
@@ -199,7 +227,7 @@ export default function KernelDetailView() {
     };
 
     // 2. Create sum group
-    nodes = nodes.concat(createSumGroup(nodeId, kernelIdx, fetcherType, sumConfig));
+    nodes = nodes.concat(createSumGroup(nodeId, kernelIdx, fetcherType, sumConfig, modelAlias, inputAlias, workAlias));
 
 
     // 3. Create edges between LayerNodes
@@ -210,13 +238,13 @@ export default function KernelDetailView() {
 
   const { kernelNodes, kernelEdges } = useMemo(() => {
     if (modelData && nodeId && kernelIndex) {
-      const result = generateKernelDetailView(modelData, nodeId, parseInt(kernelIndex));
+      const result = generateKernelDetailView(modelData, nodeId, parseInt(kernelIndex), modelAlias, inputAlias, workAlias);
       if (result) {
         return { kernelNodes: result.nodes, kernelEdges: result.edges };
       }
     }
     return { kernelNodes: [], kernelEdges: [] };
-  }, [modelData, nodeId, kernelIndex, generateKernelDetailView]);
+  }, [modelData, nodeId, kernelIndex, generateKernelDetailView, modelAlias, inputAlias, workAlias]);
 
   const handleBackClick = () => {
     navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/`);

@@ -53,7 +53,10 @@ export const useSingleLayer = (
           modelNode, 
           basePosition, 
           fetcherType, 
-          layerBlockHandleDirection, 
+          layerBlockHandleDirection,
+          modelAlias,
+          inputAlias,
+          workAlias,
           directionInsideLayerBlock
         );
         break;
@@ -62,7 +65,10 @@ export const useSingleLayer = (
           modelNode, 
           basePosition, 
           fetcherType, 
-          layerBlockHandleDirection, 
+          layerBlockHandleDirection,
+          modelAlias,
+          inputAlias,
+          workAlias,
           directionInsideLayerBlock
         );
         break;

@@ -35,7 +35,7 @@ def get_work_graph_context(input_obj: Input, work_alias: Optional[str]):
 
     try:
         work = Work.objects.get(input=input_obj, name=work_alias)
-        work_graph = work.graph  # OneToOne relationship
+        work_graph = WorkGraph.objects.get(work=work)
         return work_graph, WorkGraphMeta(work_alias=work_alias)
     except (Work.DoesNotExist, WorkGraph.DoesNotExist):
         return None, None

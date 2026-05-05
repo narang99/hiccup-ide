@@ -25,6 +25,9 @@ export interface ActivationNodeData extends Record<string, unknown> {
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void;
     onPixelLeave?: (nodeId: string, coordinate: string) => void;
     overlayAlgorithm?: OverlayAlgorithm;
+    modelAlias: string;
+    inputAlias: string;
+    workAlias?: string;
 }
 
 export type ActivationNodeType = Node<ActivationNodeData, 'ActivationNode'>;
@@ -39,6 +42,9 @@ export const ActivationFlowNode = ({ data }: NodeProps) => {
             clickAction={typedData.clickAction} 
             filterAlgorithm={typedData.filterAlgorithm}
             absMax={typedData.absMax}
+            modelAlias={typedData.modelAlias}
+            inputAlias={typedData.inputAlias}
+            workAlias={typedData.workAlias}
         />
     );
 };

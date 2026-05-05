@@ -48,10 +48,10 @@ export const useModelVisualization = (fetcherType: FetcherType = "activation", d
           layerNodes = createConv2dLayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, modelAlias, inputAlias, workAlias, directionInsideLayerBlock, absMax);
           break;
         case 'ReLU':
-          layerNodes = createReLULayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock, absMax);
+          layerNodes = createReLULayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, modelAlias, inputAlias, workAlias, directionInsideLayerBlock, absMax);
           break;
         case 'Input':
-          layerNodes = createInputLayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, directionInsideLayerBlock, absMax);
+          layerNodes = createInputLayer(modelNode, basePosition, fetcherType, layerBlockHandleDirection, modelAlias, inputAlias, workAlias, directionInsideLayerBlock, absMax);
           break;
         default:
           layerNodes = createOtherLayer(modelNode, basePosition, layerBlockHandleDirection);

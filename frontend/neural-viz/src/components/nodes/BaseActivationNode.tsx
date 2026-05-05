@@ -9,7 +9,6 @@ import type { OverlayAlgorithm } from "../../types/overlay";
 import { useCallback } from "react";
 import { useNodeId } from "@xyflow/react";
 
-import { useAliases } from "../../hooks/useAliases";
 import { usePruned } from "../../hooks/usePruned";
 
 interface BaseActivationNodeProps {
@@ -28,6 +27,9 @@ interface BaseActivationNodeProps {
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void;
     onPixelLeave?: (nodeId: string, coordinate: string) => void;
     overlayAlgorithm?: OverlayAlgorithm;
+    modelAlias: string;
+    inputAlias: string;
+    workAlias?: string;
 }
 
 export default function BaseActivationNode({
@@ -45,10 +47,12 @@ export default function BaseActivationNode({
     absMax,
     onPixelHover,
     onPixelLeave,
-    overlayAlgorithm
+    overlayAlgorithm,
+    modelAlias,
+    inputAlias,
+    workAlias
 }: BaseActivationNodeProps) {
     const nodeId = useNodeId();
-    const { modelAlias, inputAlias, workAlias } = useAliases();
     const { isPruned } = usePruned();
 
     const fetcher = useCallback((coord: string) => {
