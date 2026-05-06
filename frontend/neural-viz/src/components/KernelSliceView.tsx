@@ -6,7 +6,9 @@ import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useModelData } from '../hooks/useModelData';
 import SharedCanvas from './SharedCanvas';
 import AnnotationDialog from './AnnotationDialog';
-import KernelLabelsDialog from './KernelLabelsDialog';
+import CosmeticButton from './shared/CosmeticButton';
+import CosmeticLink from './shared/CosmeticLink';
+import KernelLabelsManager from './shared/KernelLabelsManager';
 import { type HandleDirection } from './nodes/ActivationFlowNode';
 import { makeEvenlySpacedLayout } from '../layouts';
 import { type Direction } from '../types/direction';
@@ -15,7 +17,6 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { type OverlayAlgorithm } from '../types/overlay';
 
 import { useAliases } from '../hooks/useAliases';
-import { getHighActivatedPOIs, type HighActivatedPOIsResponse, type POIPoint, type UniqueActivationId } from '../fetchers/poi';
 
 const getActivationNode = (
     id: string,
@@ -97,81 +98,6 @@ const getRectOverlayWithReceptiveField = (
     }
 }
 
-interface PoiPayloadForRender {
-    activation: UniqueActivationId;
-    point: POIPoint;
-}
-
-const makeNodesForPoiData = (
-    poiData: HighActivatedPOIsResponse | undefined,
-    childHeight: number,
-    childWidth: number,
-    padding: number,
-    pageDirection: Direction,
-    kernelSize: number,
-    kernelPadding: number,
-    kernelStride: number,
-): [string | null, Node[]] => {
-    const nodes: Node[] = [];
-
-    let poiLayerIdWeMade = null;
-    if (poiData && poiData.pois.length > 0) {
-        const poiPayload: PoiPayloadForRender[] = [];
-        poiData.pois.forEach(poi => {
-            poi.input_activations.forEach(inputAct => {
-                poiPayload.push({ activation: inputAct, point: poi.point });
-            });
-        });
-
-        if (poiPayload.length > 0) {
-            const poiLayerId = "poi-input-layer";
-            poiLayerIdWeMade = poiLayerId;
-            const poiLayout = makeEvenlySpacedLayout(poiPayload.length, childHeight, childWidth, padding, "TB", 5);
-            nodes.push({
-                id: poiLayerId,
-                type: 'LayerNode',
-                position: { x: 0, y: 0 },
-                width: poiLayout.parent.width,
-                height: poiLayout.parent.height,
-                data: {
-                    label: "POI Input Activations",
-                    layerType: 'Input',
-                    nodeCount: poiPayload.length,
-                    handleDirection: pageDirection,
-                },
-            });
-
-            // Add nodes for each input activation
-            poiPayload.forEach((payload, index) => {
-                const inputAct = payload.activation;
-                const point = payload.point;
-                nodes.push(getActivationNode(
-                    `poi-input-${index}`,
-                    poiLayout.children[index],
-                    `Input ${inputAct.input_alias}`,
-                    inputAct.coordinate,
-                    "activation",
-                    inputAct.model_alias,
-                    inputAct.input_alias,
-                    undefined,
-                    poiLayerId,
-                    childWidth,
-                    childHeight,
-                    null,
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined,
-                    getRectOverlayWithReceptiveField(
-                        point.col, point.row, kernelSize, kernelPadding, kernelStride
-                    )
-                ));
-            });
-        }
-    }
-    return [poiLayerIdWeMade, nodes];
-}
 
 const generateKernelSliceView = (
     data: ModelData,
@@ -185,7 +111,6 @@ const generateKernelSliceView = (
     kernelSize: number,
     kernelPadding: number,
     kernelStride: number,
-    poiData?: HighActivatedPOIsResponse,
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
     onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
@@ -320,11 +245,6 @@ const generateKernelSliceView = (
         onPixelClick
     ));
 
-    // 4. POI Input Activations Layer
-    const [poiLayerId, poiNodes] = makeNodesForPoiData(
-        poiData, childHeight, childWidth, padding, pageDirection, kernelSize, kernelPadding, kernelStride,
-    );
-    nodes.push(...poiNodes);
 
     const edges: Edge[] = [
         {
@@ -343,16 +263,6 @@ const generateKernelSliceView = (
         }
     ];
 
-    // Add edge from output layer to POI input layer if it exists
-    if (poiLayerId) {
-        edges.push({
-            id: "output-to-poi",
-            source: outputLayerId,
-            target: poiLayerId,
-            type: "default",
-            style: { stroke: '#10b981', strokeWidth: 2 },
-        });
-    }
 
     return { nodes, edges };
 };
@@ -365,7 +275,6 @@ export default function KernelSliceView() {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
-    const [poiData, setPOIData] = useState<HighActivatedPOIsResponse | null>(null);
     const pageDirection: Direction = "LR";
 
     const weightCoordinate = nodeId && kernelIndex && inputIndex
@@ -380,8 +289,6 @@ export default function KernelSliceView() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogInfo, setDialogInfo] = useState<{ gridCoord: [number, number] | null } | null>(null);
 
-    // Kernel Labels Dialog state
-    const [isLabelsDialogOpen, setIsLabelsDialogOpen] = useState(false);
 
     // Receptive field params hardcoded: ((3,3), 1, 2, 0)
     // kernel_size, stride, padding, dilation
@@ -407,14 +314,6 @@ export default function KernelSliceView() {
         setIsDialogOpen(true);
     }, []);
 
-    // Fetch POI data when weight coordinate changes
-    useEffect(() => {
-        if (modelAlias && weightCoordinate) {
-            getHighActivatedPOIs(modelAlias, weightCoordinate, 40)
-                .then(setPOIData)
-                .catch(console.error);
-        }
-    }, [modelAlias, weightCoordinate]);
 
     useEffect(() => {
         if (modelData && nodeId && kernelIndex && inputIndex) {
@@ -430,7 +329,6 @@ export default function KernelSliceView() {
                 KERNEL_SIZE,
                 PADDING,
                 STRIDE,
-                poiData || undefined,
                 handlePixelHover,
                 handlePixelLeave,
                 handlePixelClick,
@@ -441,11 +339,12 @@ export default function KernelSliceView() {
                 setEdges(result.edges);
             }
         }
-    }, [modelData, nodeId, kernelIndex, inputIndex, poiData, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay, modelAlias, inputAlias, workAlias]);
+    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay, modelAlias, inputAlias, workAlias]);
 
     const handleBackClick = () => {
         navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${nodeId}/${kernelIndex}`);
     };
+
 
     if (!modelData) {
         return <div className="flex items-center justify-center h-screen">Loading slice details...</div>;
@@ -464,46 +363,16 @@ export default function KernelSliceView() {
                 pageDirection={pageDirection}
             >
                 <Panel position="top-left" style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                        onClick={handleBackClick}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '7px 12px',
-                            background: 'rgba(13, 13, 20, 0.88)',
-                            border: '1px solid rgba(255,255,255,0.09)',
-                            borderRadius: 10,
-                            backdropFilter: 'blur(10px)',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                            color: 'rgba(255,255,255,0.75)',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                        }}
-                    >
+                    <CosmeticButton onClick={handleBackClick}>
                         ← Kernel View
-                    </button>
-                    <button
-                        onClick={() => setIsLabelsDialogOpen(true)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '7px 12px',
-                            background: 'rgba(13, 13, 20, 0.88)',
-                            border: '1px solid rgba(255,255,255,0.09)',
-                            borderRadius: 10,
-                            backdropFilter: 'blur(10px)',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                            color: 'rgba(255,255,255,0.75)',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                        }}
+                    </CosmeticButton>
+                    <KernelLabelsManager weightCoordinate={weightCoordinate} />
+                    <CosmeticLink 
+                        to={`/models/${modelAlias}/${inputAlias}/${workAlias}/poi-viewer/${nodeId}/${kernelIndex}/${inputIndex}`}
+                        target="_blank"
                     >
-                        🏷️ Labels
-                    </button>
+                        👁️ View All POIs
+                    </CosmeticLink>
                 </Panel>
                 <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                     <DataTypeSelector />
@@ -519,12 +388,6 @@ export default function KernelSliceView() {
                 onClose={() => setIsDialogOpen(false)}
             />
 
-            <KernelLabelsDialog
-                key={weightCoordinate}
-                isOpen={isLabelsDialogOpen}
-                weightCoordinate={weightCoordinate as string}
-                onClose={() => setIsLabelsDialogOpen(false)}
-            />
         </div>
     );
 }

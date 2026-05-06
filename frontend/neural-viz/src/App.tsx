@@ -6,6 +6,7 @@ import ModelVisualization from './components/ModelVisualization';
 // import KernelDetailView from './components/KernelDetailView';
 import KernelSliceContribsView from './components/KernelSliceContribsView';
 import KernelSliceView from './components/KernelSliceView';
+import HighlyActivatedPOIsPage from './components/HighlyActivatedPOIsPage';
 import SingleLayerVisualization from './components/SingleLayerVisualization';
 import PruneGraphView from './components/PruneGraphView';
 import LandingPage from './components/LandingPage';
@@ -27,6 +28,7 @@ function App() {
               <Route index element={<ModelVisualization />} />
               <Route path="kernel/:nodeId/:kernelIndex" element={<KernelSliceContribsView />} />
               <Route path="kernel-slice/:nodeId/:kernelIndex/:inputIndex" element={<KernelSliceView />} />
+              <Route path="poi-viewer/:nodeId/:kernelIndex/:inputIndex" element={<HighlyActivatedPOIsPage />} />
               <Route path="single-layer" element={<SingleLayerVisualization />} />
               <Route path="prune-graph/" element={<PruneGraphView />} />
             </Route>
