@@ -4,7 +4,8 @@ The goal is to be as minimal as possible, with all the tools i use.
 The first major concern is to get started with the minimum number of tools I need, the amount I use for analysis right now atleast using jupyter notebooks. I think I can do pretty fast development.   
 
 # TODO
-- add support to mark a poi as spurious
+- A lot of nodes is very useful but the graph view gets slower with it
+- might be good to just create a new view for this
 
 
 # Progress
@@ -32,6 +33,7 @@ Good progress now
   - keep saving in backend
 - landing page
 - showing other input activations on the kernel 
+- add support to mark a poi as spurious
 
 
 # Solution to pixels=0 being important and worth considering

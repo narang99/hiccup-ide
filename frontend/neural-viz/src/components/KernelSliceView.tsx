@@ -410,7 +410,7 @@ export default function KernelSliceView() {
     // Fetch POI data when weight coordinate changes
     useEffect(() => {
         if (modelAlias && weightCoordinate) {
-            getHighActivatedPOIs(modelAlias, weightCoordinate, 10)
+            getHighActivatedPOIs(modelAlias, weightCoordinate, 40)
                 .then(setPOIData)
                 .catch(console.error);
         }
