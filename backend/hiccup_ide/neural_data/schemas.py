@@ -177,3 +177,16 @@ class HighActivatedPOIOut(Schema):
 
 class HighActivatedPOIsResponse(Schema):
     pois: List[HighActivatedPOIOut]
+
+
+class KernelLabelsIn(Schema):
+    weight_coordinate: str
+    labels: List[str]
+
+
+class KernelLabelsOut(Schema):
+    id: int
+    weight_coordinate: str
+    labels: List[str]
+    created_at: str
+    updated_at: str

@@ -6,6 +6,7 @@ import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
 import { useModelData } from '../hooks/useModelData';
 import SharedCanvas from './SharedCanvas';
 import AnnotationDialog from './AnnotationDialog';
+import KernelLabelsDialog from './KernelLabelsDialog';
 import { type HandleDirection } from './nodes/ActivationFlowNode';
 import { makeEvenlySpacedLayout } from '../layouts';
 import { type Direction } from '../types/direction';
@@ -379,6 +380,9 @@ export default function KernelSliceView() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogInfo, setDialogInfo] = useState<{ gridCoord: [number, number] | null } | null>(null);
 
+    // Kernel Labels Dialog state
+    const [isLabelsDialogOpen, setIsLabelsDialogOpen] = useState(false);
+
     // Receptive field params hardcoded: ((3,3), 1, 2, 0)
     // kernel_size, stride, padding, dilation
     const KERNEL_SIZE = 3;
@@ -459,7 +463,7 @@ export default function KernelSliceView() {
                 maxZoom={2}
                 pageDirection={pageDirection}
             >
-                <Panel position="top-left">
+                <Panel position="top-left" style={{ display: 'flex', gap: '8px' }}>
                     <button
                         onClick={handleBackClick}
                         style={{
@@ -480,6 +484,26 @@ export default function KernelSliceView() {
                     >
                         ← Kernel View
                     </button>
+                    <button
+                        onClick={() => setIsLabelsDialogOpen(true)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '7px 12px',
+                            background: 'rgba(13, 13, 20, 0.88)',
+                            border: '1px solid rgba(255,255,255,0.09)',
+                            borderRadius: 10,
+                            backdropFilter: 'blur(10px)',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                            color: 'rgba(255,255,255,0.75)',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        🏷️ Labels
+                    </button>
                 </Panel>
                 <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                     <DataTypeSelector />
@@ -493,6 +517,13 @@ export default function KernelSliceView() {
                 workAlias={workAlias}
                 weightCoordinate={weightCoordinate as string}
                 onClose={() => setIsDialogOpen(false)}
+            />
+
+            <KernelLabelsDialog
+                key={weightCoordinate}
+                isOpen={isLabelsDialogOpen}
+                weightCoordinate={weightCoordinate as string}
+                onClose={() => setIsLabelsDialogOpen(false)}
             />
         </div>
     );

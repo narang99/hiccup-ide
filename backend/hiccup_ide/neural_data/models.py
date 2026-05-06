@@ -166,3 +166,16 @@ class POI(models.Model):
     class Meta:
         db_table = "pois"
         unique_together = ['work', 'weight', 'x', 'y']
+
+
+class KernelLabels(models.Model):
+    weight = models.OneToOneField(Weight, on_delete=models.CASCADE)
+    labels = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Labels for {self.weight.coordinate}: {self.labels}"
+
+    class Meta:
+        db_table = "kernel_labels"

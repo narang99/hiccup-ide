@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { listPOIs, savePOI } from '../fetchers/poi';
+import { getKernelLabels } from '../fetchers/kernel_labels';
 import { useAliases } from '../hooks/useAliases';
 
 interface AnnotationDialogProps {
@@ -19,11 +20,20 @@ export default function AnnotationDialog({
     const [label, setLabel] = useState('');
     const [note, setNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [availableLabels, setAvailableLabels] = useState<string[]>(['spurious']);
 
     const { modelAlias, inputAlias, workAlias } = useAliases();
 
     useEffect(() => {
         if (isOpen && gridCoord && workAlias && weightCoordinate) {
+            // Load available labels for this kernel
+            getKernelLabels(weightCoordinate).then(response => {
+                setAvailableLabels(response.labels);
+            }).catch(err => {
+                console.error("Failed to load kernel labels:", err);
+                setAvailableLabels(['spurious']);
+            });
+
             // Load existing POIs for this slice
             listPOIs(modelAlias, inputAlias, workAlias, weightCoordinate).then(pois => {
                 const existing = pois.find(p => p.x === gridCoord[0] && p.y === gridCoord[1]);
@@ -104,8 +114,7 @@ export default function AnnotationDialog({
                 
                 <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '4px' }}>Label</label>
-                    <input 
-                        type="text" 
+                    <select 
                         value={label}
                         onChange={(e) => setLabel(e.target.value)}
                         style={{
@@ -119,9 +128,15 @@ export default function AnnotationDialog({
                             fontSize: '14px',
                             outline: 'none',
                         }}
-                        placeholder="Enter label..."
                         autoFocus
-                    />
+                    >
+                        <option value="">Select a label...</option>
+                        {availableLabels.map(availableLabel => (
+                            <option key={availableLabel} value={availableLabel}>
+                                {availableLabel}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
