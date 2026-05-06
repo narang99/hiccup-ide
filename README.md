@@ -4,9 +4,8 @@ The goal is to be as minimal as possible, with all the tools i use.
 The first major concern is to get started with the minimum number of tools I need, the amount I use for analysis right now atleast using jupyter notebooks. I think I can do pretty fast development.   
 
 # TODO
-- some input activations in KernelSliceView are in random places (like on red background fully), this can be 0 activation lol
-- are there not enough pois? or is the rect wrong? need to debug this
-  - start by clearing everything and add all 9s i guess
+- add support to mark a poi as spurious
+
 
 # Progress
 Good progress now
