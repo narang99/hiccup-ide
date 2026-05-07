@@ -122,3 +122,90 @@ export async function loadSaliencyMapFromFile(
     throw error;
   }
 }
+
+export async function markSliceDone(
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
+  coordinate: string
+): Promise<{ success: boolean; coordinate: string; is_done: boolean }> {
+  try {
+    const apiBaseUrl = "http://localhost:8000";
+    const headers = {'Content-Type': 'application/json'};
+    
+    const url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workAlias}/mark-done/`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ coordinate })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to mark slice as done for coordinate: ${coordinate}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Marked slice as done for ${coordinate}`);
+    return data;
+  } catch (error) {
+    console.error(`Error marking slice as done for ${coordinate}:`, error);
+    throw error;
+  }
+}
+
+export async function unmarkSliceDone(
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
+  coordinate: string
+): Promise<{ success: boolean; coordinate: string; is_done: boolean }> {
+  try {
+    const apiBaseUrl = "http://localhost:8000";
+    const headers = {'Content-Type': 'application/json'};
+    
+    const url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workAlias}/unmark-done/`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ coordinate })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to unmark slice as done for coordinate: ${coordinate}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Unmarked slice as done for ${coordinate}`);
+    return data;
+  } catch (error) {
+    console.error(`Error unmarking slice as done for ${coordinate}:`, error);
+    throw error;
+  }
+}
+
+export async function getSliceStatus(
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
+  coordinate: string
+): Promise<{ coordinate: string; is_done: boolean }> {
+  try {
+    const apiBaseUrl = "http://localhost:8000";
+    
+    const url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workAlias}/slice-status/${coordinate}/`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to get slice status for coordinate: ${coordinate}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`Error getting slice status for ${coordinate}:`, error);
+    throw error;
+  }
+}

@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge, useNodesState, useEdgesState } from '@xyflow/react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { type ModelData } from '../types/model';
-import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
+import { DEFAULT_FETCHERS, type FetcherType, markSliceDone, unmarkSliceDone, getSliceStatus } from '../fetchers';
 import { useModelData } from '../hooks/useModelData';
 import SharedCanvas from './SharedCanvas';
 import AnnotationDialog from './AnnotationDialog';
@@ -108,9 +109,6 @@ const generateKernelSliceView = (
     modelAlias: string,
     inputAlias: string,
     workAlias: string,
-    kernelSize: number,
-    kernelPadding: number,
-    kernelStride: number,
     onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
     onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
@@ -288,6 +286,34 @@ export default function KernelSliceView() {
     // Annotation Dialog state
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogInfo, setDialogInfo] = useState<{ gridCoord: [number, number] | null } | null>(null);
+    
+    const queryClient = useQueryClient();
+
+    // Query to get the current done status
+    const { data: sliceStatus, isLoading: isLoadingStatus } = useQuery({
+        queryKey: ['slice-status', modelAlias, inputAlias, workAlias, weightCoordinate],
+        queryFn: () => weightCoordinate ? getSliceStatus(modelAlias, inputAlias, workAlias, weightCoordinate) : null,
+        enabled: !!weightCoordinate,
+    });
+
+    // Mutation to mark slice as done
+    const markDoneMutation = useMutation({
+        mutationFn: () => markSliceDone(modelAlias, inputAlias, workAlias, weightCoordinate!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['slice-status', modelAlias, inputAlias, workAlias, weightCoordinate] });
+        },
+    });
+
+    // Mutation to unmark slice as done
+    const unmarkDoneMutation = useMutation({
+        mutationFn: () => unmarkSliceDone(modelAlias, inputAlias, workAlias, weightCoordinate!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['slice-status', modelAlias, inputAlias, workAlias, weightCoordinate] });
+        },
+    });
+
+    const isDone = sliceStatus?.is_done ?? false;
+    const isMarking = markDoneMutation.isPending || unmarkDoneMutation.isPending;
 
 
     // Receptive field params hardcoded: ((3,3), 1, 2, 0)
@@ -326,9 +352,6 @@ export default function KernelSliceView() {
                 modelAlias,
                 inputAlias,
                 workAlias,
-                KERNEL_SIZE,
-                PADDING,
-                STRIDE,
                 handlePixelHover,
                 handlePixelLeave,
                 handlePixelClick,
@@ -343,6 +366,16 @@ export default function KernelSliceView() {
 
     const handleBackClick = () => {
         navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${nodeId}/${kernelIndex}`);
+    };
+
+    const handleToggleDone = () => {
+        if (!weightCoordinate || isMarking) return;
+        
+        if (isDone) {
+            unmarkDoneMutation.mutate();
+        } else {
+            markDoneMutation.mutate();
+        }
     };
 
 
@@ -367,6 +400,33 @@ export default function KernelSliceView() {
                         ← Kernel View
                     </CosmeticButton>
                     <KernelLabelsManager weightCoordinate={weightCoordinate} />
+                    <button
+                        onClick={handleToggleDone}
+                        disabled={isMarking || isLoadingStatus}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '7px 12px',
+                            background: isDone ? '#10b981' : 'rgba(13, 13, 20, 0.88)',
+                            border: '1px solid rgba(255,255,255,0.09)',
+                            borderRadius: 10,
+                            backdropFilter: 'blur(10px)',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                            color: 'white',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: (isMarking || isLoadingStatus) ? 'not-allowed' : 'pointer',
+                            opacity: (isMarking || isLoadingStatus) ? 0.8 : 1,
+                        }}
+                    >
+                        {isMarking 
+                            ? (isDone ? 'Unmarking...' : 'Marking...') 
+                            : isDone 
+                                ? '✓ Done (click to unmark)' 
+                                : '✓ Mark Done'
+                        }
+                    </button>
                     <CosmeticLink 
                         to={`/models/${modelAlias}/${inputAlias}/${workAlias}/poi-viewer/${nodeId}/${kernelIndex}/${inputIndex}`}
                         target="_blank"
