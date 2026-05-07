@@ -3,10 +3,8 @@ import torch
 import os
 from django.test import Client
 from pt_to_api.contrib_processor import process_contribs_to_coordinates
-from neural_data.api.prune import reconstruct_layer_tensor
+from neural_data.api.prune.update_batch import reconstruct_layer_tensor
 from neural_data.models import (
-    Model,
-    Input,
     Work,
     WorkGraph,
     SaliencyMap,
@@ -343,7 +341,7 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
     graph = WorkGraph.objects.get(work=work)
     work_map = WorkSaliencyMap.objects.get(graph=graph, coordinate=target_coordinate)
 
-    from neural_data.api.helpers import apply_algorithm
+    from neural_data.api.prune.helpers import apply_algorithm
 
     # Get original data for verification
     original_sm = SaliencyMap.objects.get(input=input_obj, coordinate=target_coordinate)

@@ -9,6 +9,7 @@ The first major concern is to get started with the minimum number of tools I nee
 - when i do prune for some conv (which recalculates the values for upstream, it should also set slices)
   - basically, re calculation is not setting contribs for slices i think (its not creating new saliency maps only)
   - what is the point of is-modified? im not sure
+  - temp-prune exist for our things, its just not updated i think
 
 
 
