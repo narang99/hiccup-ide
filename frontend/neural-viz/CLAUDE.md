@@ -30,6 +30,10 @@ npm run typecheck    # TypeScript checking only
 
 **Important**: Always use `npm run lint` - do not use `eslint .` directly.
 
+## Testing Guidelines
+
+**Do not start servers for testing** - assume the user has already started any necessary development servers (frontend dev server, backend Django server). Focus on code implementation and validation through linting/typechecking only.
+
 ## React Query usage
 Going forward, prefer using react query (also called tanstack query) for fetching data from backend.  
 **DON'T CHANGE EXISTING CODE UNLESS EXPLICITLY ASKED TO REFACTOR**

@@ -5,7 +5,11 @@ The first major concern is to get started with the minimum number of tools I nee
 
 # TODO
 
-
+- in many places, the kernel is giving contribs to stuff caught which wasnt what it was catching
+  - as an example, locally the patch is a vertical line, but we can see its part of a larger diagonal line. This seems like an important detail which keeps coming up
+  - So a larger pattern also needs to be added, along with the actual value
+  - We will have breaks in them (like the larger pattern is diagonal, but the kernel is not aligning perfectly, for now its best to add them as notes). Then analyse the data to add more context
+- It is important to note the larger pattern it seems with convolutions
 
 # Progress
 Good progress now

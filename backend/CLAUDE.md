@@ -53,6 +53,8 @@ This prevents 404 routing issues and ensures consistency across the API.
 
 This project uses pytest with pytest-django for testing.
 
+**Do not start servers for testing** - assume the user has already started any necessary development servers (frontend dev server, backend Django server). Focus on code implementation and validation through linting/typechecking only.
+
 ### Test Structure
 - **Function-based tests only**: Use `def test_*()` functions, not test classes
 - **Clear test names**: Use descriptive function names that explain what's being tested
