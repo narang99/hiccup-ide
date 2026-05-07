@@ -2,6 +2,7 @@ import { type Node, type XYPosition } from '@xyflow/react';
 import { DEFAULT_FETCHERS, type FetcherType } from "../fetchers";
 import type { ModelNode } from "../types/model";
 import { createOutputKernelNode } from '../utils/kernelNodes';
+import { getConvOutputChannelStatus } from '../fetchers/sliceStatus';
 import { type HandleDirection } from '../components/nodes/ActivationFlowNode';
 import type { LayerGroupLayout } from '../layouts/common';
 import type { Direction } from '../types/direction';
@@ -20,6 +21,7 @@ export const createConv2dLayer = (
 ): Node[] => {
     const nodes: Node[] = [];
     const outChannels = modelNode.params.out_channels as number;
+    const inChannels = modelNode.params.in_channels as number;
     const childWidth = 130;
     const childHeight = 150;
     const padding = 10;
@@ -44,7 +46,18 @@ export const createConv2dLayer = (
             DEFAULT_FETCHERS,
             fetcherType,
             handleDirection,
-            absMax
+            absMax,
+            async () => {
+                const status = await getConvOutputChannelStatus(
+                    modelAlias,
+                    inputAlias,
+                    workAlias,
+                    modelNode.id,
+                    kernelIndex,
+                    inChannels
+                );
+                return status.is_done;
+            }
         ))
     }
     return nodes;

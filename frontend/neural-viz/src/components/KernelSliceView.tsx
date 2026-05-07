@@ -18,6 +18,7 @@ import { type OverlayAlgorithm } from '../types/overlay';
 
 import { useAliases } from '../hooks/useAliases';
 import MarkDoneButton from './MarkDoneButton';
+import { getConvInputSliceStatus } from '../fetchers/sliceStatus';
 
 const getActivationNode = (
     id: string,
@@ -38,6 +39,7 @@ const getActivationNode = (
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
     onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
     overlayAlgorithm?: OverlayAlgorithm,
+    showGreenIndicatorIfTrue?: () => Promise<boolean>,
 ): Node => {
     return ({
         id: id,
@@ -60,6 +62,7 @@ const getActivationNode = (
             inputAlias,
             workAlias,
             overlayAlgorithm,
+            showGreenIndicatorIfTrue,
         },
         width: width,
         height: height,
@@ -240,7 +243,13 @@ const generateKernelSliceView = (
         undefined,
         onPixelHover,
         onPixelLeave,
-        onPixelClick
+        onPixelClick,
+        undefined,
+        async () => {
+            const coordinate = `${nodeId}.out_${kernelIdx}.in_${inputIdx}`;
+            const status = await getConvInputSliceStatus(modelAlias, inputAlias, workAlias, coordinate);
+            return status.is_done;
+        }
     ));
 
 

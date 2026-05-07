@@ -34,6 +34,7 @@ export const createOutputKernelNode = (
   fetcherType?: FetcherType,
   handleDirection: HandleDirection = null,
   absMax?: number,
+  showGreenIndicatorIfTrue?: () => Promise<boolean>,
 ): Node => {
   const kernelId = `${parentNode.id}-kernel-${kernelIndex}`;
   const coordinate = `${parentNode.id}.out_${kernelIndex}`;
@@ -60,6 +61,7 @@ export const createOutputKernelNode = (
       modelAlias,
       inputAlias,
       workAlias,
+      showGreenIndicatorIfTrue,
     },
     style: {
       background: 'transparent',

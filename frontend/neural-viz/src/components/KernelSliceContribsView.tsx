@@ -17,6 +17,7 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
 
 import { useAliases } from '../hooks/useAliases';
+import { getConvInputSliceStatus } from '../fetchers/sliceStatus';
 
 const getNodeShowingActivation = (
     id: string,
@@ -33,6 +34,7 @@ const getNodeShowingActivation = (
     handleDirection: HandleDirection = null,
     absMax?: number,
     link?: string,
+    showGreenIndicatorIfTrue?: () => Promise<boolean>,
 ): Node => {
     return ({
         id: id,
@@ -50,6 +52,7 @@ const getNodeShowingActivation = (
             modelAlias,
             inputAlias,
             workAlias,
+            showGreenIndicatorIfTrue,
         },
         width: width,
         height: height,
@@ -126,6 +129,11 @@ const generateKernelSliceContribsView = (
             null,
             absMaxMap[sliceParentLayerId],
             `/models/${modelAlias}/${inputAlias}/${workAlias}/kernel-slice/${nodeId}/${kernelIdx}/${i}`,
+            async () => {
+                const coordinate = `${nodeId}.out_${kernelIdx}.in_${i}`;
+                const status = await getConvInputSliceStatus(modelAlias, inputAlias, workAlias, coordinate);
+                return status.is_done;
+            }
         ));
     }
 
@@ -162,6 +170,7 @@ const generateKernelSliceContribsView = (
             childHeight,
             null,
             absMaxMap[sumLayerId],
+            undefined,
             undefined,
         )
     )
