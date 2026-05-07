@@ -7,9 +7,14 @@ import type { ActivationFilterAlgorithm } from "../../types/activationFiltering"
 import type { OverlayAlgorithm } from "../../types/overlay";
 
 import { useCallback } from "react";
+import { useQuery } from '@tanstack/react-query';
 import { useNodeId } from "@xyflow/react";
 
 import { usePruned } from "../../hooks/usePruned";
+import { type ActivationData } from '../../fetchers/activation';
+import { type LayerSaliencyMap } from '../../fetchers/saliency_map';
+
+type BaseData = ActivationData | LayerSaliencyMap;
 
 interface BaseActivationNodeProps {
     coordinate: string;
@@ -69,6 +74,12 @@ export default function BaseActivationNode({
         
         return f(coord, modelAlias, inputAlias, isPruned ? workAlias : undefined, isPruned);
     }, [fetchers, fetcherType, modelAlias, inputAlias, workAlias, isPruned]);
+
+    const { data: activationData, isLoading, error } = useQuery<BaseData>({
+        queryKey: [fetcherType, coordinate, modelAlias, inputAlias, workAlias, isPruned],
+        queryFn: () => fetcher(coordinate),
+        enabled: !!fetchers,
+    });
 
     const handleHover = useCallback((gridCoord: [number, number], position: [number, number]) => {
         if (onPixelHover && nodeId) {
@@ -137,6 +148,16 @@ export default function BaseActivationNode({
                 }}>
                     {title}
                 </span>
+                {activationData && typeof activationData === 'object' && 'work_graph' in activationData && activationData.work_graph != null && (
+                    <div style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
+                        marginLeft: 'auto'
+                    }} />
+                )}
             </div>
             {/* ── Activation map (main area) ── */}
             <div style={{
@@ -148,10 +169,11 @@ export default function BaseActivationNode({
                 borderRadius: '0 0 5px 5px',
                 cursor: 'pointer',
             }}>
-                {fetcher ? (
+                {fetchers ? (
                     <ActivationDisplay
-                        coordinate={coordinate}
-                        fetcher={fetcher}
+                        activationData={activationData ?? null}
+                        isLoading={isLoading}
+                        error={error?.message || (error ? String(error) : null)}
                         maxSize={maxSize}
                         filterAlgorithm={filterAlgorithm}
                         absMax={absMax}

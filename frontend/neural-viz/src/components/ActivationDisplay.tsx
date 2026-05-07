@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import chroma from 'chroma-js';
 import { type ActivationData } from '../fetchers/activation';
 import { type LayerSaliencyMap } from '../fetchers/saliency_map';
@@ -11,8 +11,9 @@ import type { OverlayAlgorithm } from '../types/overlay';
 type BaseData = ActivationData | LayerSaliencyMap;
 
 interface ActivationDisplayProps {
-  coordinate: string;
-  fetcher: (coordinate: string) => Promise<BaseData>;
+  activationData: BaseData | null;
+  isLoading: boolean;
+  error: string | null;
   className?: string;
   maxSize?: number;
   /** Explicit override. If omitted, the global colormap from context is used. */
@@ -27,8 +28,9 @@ interface ActivationDisplayProps {
 }
 
 export const ActivationDisplay = ({
-  coordinate,
-  fetcher,
+  activationData,
+  isLoading,
+  error,
   className = '',
   colormap,
   filterAlgorithm = { type: 'Id' },
@@ -38,39 +40,12 @@ export const ActivationDisplay = ({
   onPixelClick,
   overlayAlgorithm = { type: 'NoOverlay' },
 }: ActivationDisplayProps) => {
-  const [activationData, setActivationData] = useState<BaseData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Fall back to global context colormap when no explicit prop is passed
   const { colormap: globalColormap } = useColormap();
   const resolvedColormap: ColormapName = colormap ?? globalColormap;
   const scale = COLORMAPS[resolvedColormap];
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadActivation = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const data = await fetcher(coordinate);
-        if (!cancelled) setActivationData(data);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load activation');
-          setActivationData(null);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    loadActivation();
-    return () => { cancelled = true; };
-  }, [coordinate, fetcher]);
 
   const getCoordinates = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || !activationData) return null;
@@ -182,8 +157,6 @@ export const ActivationDisplay = ({
         (flatData.length > 0 ? computeAbsMax(flatData) : 1)
       );
 
-      const hasWorkGraph = 'work_graph' in activationData && activationData.work_graph != null;
-
       return (
         <div style={{ 
           width: "100%", 
@@ -193,19 +166,6 @@ export const ActivationDisplay = ({
           position: 'relative',
           boxSizing: 'border-box'
         }}>
-          {hasWorkGraph && (
-            <div style={{
-              position: 'absolute',
-              top: 4,
-              right: 4,
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#ef4444',
-              boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
-              zIndex: 10
-            }} />
-          )}
           <svg 
             ref={svgRef}
             width={"100%"} 
@@ -251,7 +211,6 @@ export const ActivationDisplay = ({
       const t = normalizeSymmetric(value, 3); // ±3 as default range
       const bg = scale(t).hex();
       const textColor = chroma(bg).luminance() > 0.35 ? '#000' : '#fff';
-      const hasWorkGraph = 'work_graph' in activationData && activationData.work_graph != null;
 
       return (
         <div
@@ -274,26 +233,12 @@ export const ActivationDisplay = ({
             onPixelClick?.(null, null);
           }}
         >
-          {hasWorkGraph && (
-            <div style={{
-              position: 'absolute',
-              top: 4,
-              right: 4,
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#ef4444',
-              boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
-              zIndex: 10
-            }} />
-          )}
           {value.toFixed(2)}
         </div>
       );
     }
 
     // ── Fallback ────────────────────────────────────────────────────────────
-    const hasWorkGraph = 'work_graph' in activationData && activationData.work_graph != null;
     return (
       <div
         style={{
@@ -315,19 +260,6 @@ export const ActivationDisplay = ({
           onPixelClick?.(null, null);
         }}
       >
-        {hasWorkGraph && (
-          <div style={{
-            position: 'absolute',
-            top: 4,
-            right: 4,
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: '#ef4444',
-            boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
-            zIndex: 10
-          }} />
-        )}
         ?
       </div>
     );
