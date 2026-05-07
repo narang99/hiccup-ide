@@ -24,7 +24,7 @@ export default function SharedCanvas({ children, pageDirection, ...props }: Shar
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow {...layoutedProps} nodeTypes={nodeTypes} onNodeClick={handleNodeClick} onPaneClick={handlePaneClick}>
+      <ReactFlow {...layoutedProps} nodeTypes={nodeTypes} onNodeClick={handleNodeClick} onPaneClick={handlePaneClick} nodesDraggable={false}>
         <Controls />
         <Background />
 
