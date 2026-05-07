@@ -133,12 +133,13 @@ class WorkSaliencyMap(SaliencyMapData):
     input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='work_saliency_maps')
     coordinate = models.CharField(max_length=200, db_index=True)
     graph = models.ForeignKey(WorkGraph, on_delete=models.CASCADE)
+    is_done = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.input} - {self.coordinate} (saliency)"
 
     class Meta:
-        unique_together = ['input', 'coordinate', 'graph']
+        unique_together = ['coordinate', 'graph']
 
 class TempPruneSaliencyMap(SaliencyMapData):
     input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='temp_saliency_maps')

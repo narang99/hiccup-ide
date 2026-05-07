@@ -16,6 +16,7 @@ from ..schemas import (
     BatchSaliencyMapsIn,
     NodeStatsOut,
     WorkGraphMeta,
+    MarkSliceDoneIn,
 )
 from .helpers import get_min_max
 
@@ -227,4 +228,57 @@ def create_or_update_work_graph(
     return {"id": work_graph.pk, "created": created}
 
 
+@router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/mark-done/"
+)
+def mark_slice_done(
+    request, 
+    model_alias: str, 
+    input_alias: str, 
+    work_alias: str, 
+    data: MarkSliceDoneIn
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    work = get_object_or_404(Work, input=input_obj, name=work_alias)
+    work_graph = get_object_or_404(WorkGraph, work=work)
+    saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=data.coordinate)
+    saliency_map.is_done = True
+    saliency_map.save()
+    return {"success": True, "coordinate": data.coordinate, "is_done": True}
+    
+
+@router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/unmark-done/"
+)
+def unmark_slice_done(
+    request, 
+    model_alias: str, 
+    input_alias: str, 
+    work_alias: str, 
+    data: MarkSliceDoneIn
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    work = get_object_or_404(Work, input=input_obj, name=work_alias)
+    work_graph = get_object_or_404(WorkGraph, work=work)
+    saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=data.coordinate)
+    saliency_map.is_done = False
+    saliency_map.save()
+    return {"success": True, "coordinate": data.coordinate, "is_done": False}
+    
+
+@router.get(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/slice-status/{coordinate}/"
+)
+def get_slice_status(
+    request,
+    model_alias: str,
+    input_alias: str,
+    work_alias: str,
+    coordinate: str
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    work = get_object_or_404(Work, input=input_obj, name=work_alias)
+    work_graph = get_object_or_404(WorkGraph, work=work)
+    saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=coordinate)
+    return {"coordinate": coordinate, "is_done": saliency_map.is_done}
 

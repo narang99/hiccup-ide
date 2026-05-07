@@ -190,3 +190,7 @@ class KernelLabelsOut(Schema):
     labels: List[str]
     created_at: str
     updated_at: str
+
+
+class MarkSliceDoneIn(Schema):
+    coordinate: str

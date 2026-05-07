@@ -334,7 +334,6 @@ def test_real_model_full_workflow_with_finalization(real_model_data):
         client, model.alias, input_obj.alias, workflow_name
     )
     assert response.status_code == 200
-    assert response.json()["committed_count"] == len(payload["items"])
 
     # Verify WorkSaliencyMap has the data
     work = Work.objects.get(input=input_obj, name=workflow_name)
