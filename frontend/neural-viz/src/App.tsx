@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ColormapProvider } from './contexts/ColormapContext';
 import { FetcherTypeProvider } from './contexts/FetcherTypeContext';
 import { AliasProvider } from './contexts/AliasContext';
@@ -11,6 +12,8 @@ import SingleLayerVisualization from './components/SingleLayerVisualization';
 import PruneGraphView from './components/PruneGraphView';
 import LandingPage from './components/LandingPage';
 
+const queryClient = new QueryClient();
+
 const AliasLayout = () => (
   <AliasProvider>
     <Outlet />
@@ -19,25 +22,27 @@ const AliasLayout = () => (
 
 function App() {
   return (
-    <FetcherTypeProvider>
-      <ColormapProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/models/:modelAlias/:inputAlias/:workAlias" element={<AliasLayout />}>
-              <Route index element={<ModelVisualization />} />
-              <Route path="kernel/:nodeId/:kernelIndex" element={<KernelSliceContribsView />} />
-              <Route path="kernel-slice/:nodeId/:kernelIndex/:inputIndex" element={<KernelSliceView />} />
-              <Route path="poi-viewer/:nodeId/:kernelIndex/:inputIndex" element={<HighlyActivatedPOIsPage />} />
-              <Route path="single-layer" element={<SingleLayerVisualization />} />
-              <Route path="prune-graph/" element={<PruneGraphView />} />
-            </Route>
-            {/* Fallback for when aliases are missing - redirect to landing page */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </ColormapProvider>
-    </FetcherTypeProvider>
+    <QueryClientProvider client={queryClient}>
+      <FetcherTypeProvider>
+        <ColormapProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/models/:modelAlias/:inputAlias/:workAlias" element={<AliasLayout />}>
+                <Route index element={<ModelVisualization />} />
+                <Route path="kernel/:nodeId/:kernelIndex" element={<KernelSliceContribsView />} />
+                <Route path="kernel-slice/:nodeId/:kernelIndex/:inputIndex" element={<KernelSliceView />} />
+                <Route path="poi-viewer/:nodeId/:kernelIndex/:inputIndex" element={<HighlyActivatedPOIsPage />} />
+                <Route path="single-layer" element={<SingleLayerVisualization />} />
+                <Route path="prune-graph/" element={<PruneGraphView />} />
+              </Route>
+              {/* Fallback for when aliases are missing - redirect to landing page */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </ColormapProvider>
+      </FetcherTypeProvider>
+    </QueryClientProvider>
   );
 }
 
