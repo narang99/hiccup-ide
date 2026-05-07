@@ -10,6 +10,8 @@ The first major concern is to get started with the minimum number of tools I nee
   - basically, re calculation is not setting contribs for slices i think (its not creating new saliency maps only)
   - what is the point of is-modified? im not sure
   - temp-prune exist for our things, its just not updated i think
+- ohk stuff is not updating because is-modified is a problem, we ll stop using that for now, slice contribs should now update i think
+- other than this, it is useful to track this in workgraph instead of normal things
 
 
 

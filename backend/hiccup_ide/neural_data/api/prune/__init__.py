@@ -28,7 +28,7 @@ def finalize_pruning_session(
     graph = get_object_or_404(WorkGraph, work=work)
 
     # Only commit modified temp maps to WorkSaliencyMap
-    temp_maps = TempPruneSaliencyMap.objects.filter(graph=graph, is_modified=True)
+    temp_maps = TempPruneSaliencyMap.objects.filter(graph=graph)
 
     if not temp_maps.exists():
         # Clean up anyway if no modifications were made
