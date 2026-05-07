@@ -52,6 +52,19 @@ export default function AnnotationDialog({
         }
     }, [isOpen, gridCoord, workAlias, weightCoordinate, modelAlias, inputAlias]);
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isOpen) {
+                onClose();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleKeyDown);
+            return () => document.removeEventListener('keydown', handleKeyDown);
+        }
+    }, [isOpen, onClose]);
+
     const handleSave = async (e: React.MouseEvent) => {
         e.stopPropagation();
         
