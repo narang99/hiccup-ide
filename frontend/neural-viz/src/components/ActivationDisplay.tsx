@@ -45,6 +45,7 @@ export const ActivationDisplay = ({
   // Fall back to global context colormap when no explicit prop is passed
   const { colormap: globalColormap } = useColormap();
   const resolvedColormap: ColormapName = colormap ?? globalColormap;
+  const defaultRectColor = resolvedColormap === "rd_bk_gn" ? "#f59e0b" : "#000000";
   const scale = COLORMAPS[resolvedColormap];
 
   const getCoordinates = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -195,7 +196,7 @@ export const ActivationDisplay = ({
                 width={overlayAlgorithm.end[0] - overlayAlgorithm.start[0]}
                 height={overlayAlgorithm.end[1] - overlayAlgorithm.start[1]}
                 fill="none"
-                stroke={overlayAlgorithm.color || "#f59e0b"}
+                stroke={overlayAlgorithm.color || defaultRectColor}
                 strokeWidth={0.5}
                 style={{ vectorEffect: 'non-scaling-stroke' }}
               />

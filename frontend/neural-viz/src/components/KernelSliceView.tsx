@@ -98,7 +98,6 @@ const getRectOverlayWithReceptiveField = (
         type: 'DrawRect',
         start: start,
         end: end,
-        color: "#f59e0b"
     }
 }
 
