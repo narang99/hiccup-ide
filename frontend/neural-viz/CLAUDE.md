@@ -30,6 +30,10 @@ npm run typecheck    # TypeScript checking only
 
 **Important**: Always use `npm run lint` - do not use `eslint .` directly.
 
+## React Query usage
+Going forward, prefer using react query (also called tanstack query) for fetching data from backend.  
+**DON'T CHANGE EXISTING CODE UNLESS EXPLICITLY ASKED TO REFACTOR**
+
 ## Data Loading Architecture
 
 The frontend consumes model data via REST API calls to the Django backend:

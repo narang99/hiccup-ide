@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge, useNodesState, useEdgesState } from '@xyflow/react';
 import { useAliases } from '../hooks/useAliases';
@@ -12,6 +12,7 @@ import { type OverlayAlgorithm } from '../types/overlay';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { DEFAULT_FETCHERS } from '../fetchers';
+import { useQuery } from '@tanstack/react-query';
 
 interface PoiPayloadForRender {
     activation: UniqueActivationId;
@@ -84,8 +85,6 @@ export default function HighlyActivatedPOIsPage() {
     const { modelAlias, inputAlias, workAlias } = useAliases();
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-    const [poiData, setPOIData] = useState<HighActivatedPOIsResponse | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
     const pageDirection: Direction = "TB";
 
     const weightCoordinate = nodeId && kernelIndex && inputIndex
@@ -101,16 +100,18 @@ export default function HighlyActivatedPOIsPage() {
     const STRIDE = 2;
     const PADDING = 1;
 
-    // Fetch POI data
-    useEffect(() => {
-        if (modelAlias && weightCoordinate) {
-            setIsLoading(true);
-            getHighActivatedPOIs(modelAlias, weightCoordinate, 100) // Fetch more POIs for the dedicated page
-                .then(setPOIData)
-                .catch(console.error)
-                .finally(() => setIsLoading(false));
+    // Fetch POI data using React Query
+    const NUM_SAMPLES_TO_FETCH = 100;
+    const { data: poiData, isLoading, error } = useQuery<HighActivatedPOIsResponse>({
+        queryKey: ['highActivatedPOIs', modelAlias, weightCoordinate],
+        queryFn: () => {
+        if (!modelAlias || !weightCoordinate) {
+            throw new Error('Model alias and coordinate are required');
         }
-    }, [modelAlias, weightCoordinate]);
+        return getHighActivatedPOIs(modelAlias, weightCoordinate, NUM_SAMPLES_TO_FETCH);
+        },
+        enabled: !!modelAlias && !!weightCoordinate,
+    });
 
     // Generate nodes from POI data
     useEffect(() => {
@@ -188,6 +189,10 @@ export default function HighlyActivatedPOIsPage() {
 
     if (isLoading) {
         return <div className="flex items-center justify-center h-screen">Loading highly activated POIs...</div>;
+    }
+
+    if (error) {
+        return <div className="flex items-center justify-center h-screen">Error loading POIs: {error.message}</div>;
     }
 
     return (
