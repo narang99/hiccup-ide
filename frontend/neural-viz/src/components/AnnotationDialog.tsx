@@ -113,30 +113,64 @@ export default function AnnotationDialog({
                 </h3>
                 
                 <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '4px' }}>Label</label>
-                    <select 
-                        value={label}
-                        onChange={(e) => setLabel(e.target.value)}
-                        style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            background: '#0d0d14',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '6px',
-                            padding: '8px 12px',
-                            color: '#fff',
-                            fontSize: '14px',
-                            outline: 'none',
-                        }}
-                        autoFocus
-                    >
-                        <option value="">Select a label...</option>
-                        {availableLabels.map(availableLabel => (
-                            <option key={availableLabel} value={availableLabel}>
-                                {availableLabel}
-                            </option>
-                        ))}
-                    </select>
+                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '8px' }}>Label</label>
+                    
+                    {availableLabels.length < 4 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {availableLabels.map(availableLabel => (
+                                <label 
+                                    key={availableLabel} 
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        color: '#fff',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        padding: '4px 0'
+                                    }}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="label"
+                                        value={availableLabel}
+                                        checked={label === availableLabel}
+                                        onChange={(e) => setLabel(e.target.value)}
+                                        style={{
+                                            margin: 0,
+                                            accentColor: '#3b82f6'
+                                        }}
+                                        autoFocus={availableLabel === availableLabels[0]}
+                                    />
+                                    {availableLabel}
+                                </label>
+                            ))}
+                        </div>
+                    ) : (
+                        <select 
+                            value={label}
+                            onChange={(e) => setLabel(e.target.value)}
+                            style={{
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                background: '#0d0d14',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '6px',
+                                padding: '8px 12px',
+                                color: '#fff',
+                                fontSize: '14px',
+                                outline: 'none',
+                            }}
+                            autoFocus
+                        >
+                            <option value="">Select a label...</option>
+                            {availableLabels.map(availableLabel => (
+                                <option key={availableLabel} value={availableLabel}>
+                                    {availableLabel}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
