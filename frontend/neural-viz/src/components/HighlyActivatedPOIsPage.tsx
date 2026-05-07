@@ -101,7 +101,7 @@ export default function HighlyActivatedPOIsPage() {
     const PADDING = 1;
 
     // Fetch POI data using React Query
-    const NUM_SAMPLES_TO_FETCH = 100;
+    const NUM_SAMPLES_TO_FETCH = 60;
     const { data: poiData, isLoading, error } = useQuery<HighActivatedPOIsResponse>({
         queryKey: ['highActivatedPOIs', modelAlias, weightCoordinate],
         queryFn: () => {

@@ -1,4 +1,3 @@
-import { type ModelData, type ModelNode } from '../types/model';
 import { getSliceStatus } from './saliency_map';
 
 export interface SliceStatusResult {
@@ -89,20 +88,3 @@ export async function getConvInputSliceStatus(
 
   return getSingleSliceStatus(modelAlias, inputAlias, workAlias, inputSliceCoordinate);
 }
-
-/**
- * Helper function to extract input channels count from a layer node
- */
-function getInputChannelsForLayer(layerNode: ModelNode): number {
-  const { type, params } = layerNode;
-  
-  if (type === 'Conv2d' || type === 'Conv1d' || type === 'Conv3d') {
-    const inChannels = params.in_channels;
-    if (typeof inChannels === 'number') {
-      return inChannels;
-    }
-  }
-  
-  throw new Error(`Unable to determine input channels for layer type: ${type}`);
-}
-
