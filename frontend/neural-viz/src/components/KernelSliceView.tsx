@@ -18,6 +18,7 @@ import { type OverlayAlgorithm } from '../types/overlay';
 
 import { useAliases } from '../hooks/useAliases';
 import MarkDoneButton from './MarkDoneButton';
+import KernelNotesWidget from './KernelNotesWidget';
 import { getConvInputSliceStatus } from '../fetchers/sliceStatus';
 
 const getActivationNode = (
@@ -395,6 +396,8 @@ export default function KernelSliceView() {
                 weightCoordinate={weightCoordinate as string}
                 onClose={() => setIsDialogOpen(false)}
             />
+
+            <KernelNotesWidget weightCoordinate={weightCoordinate as string} />
 
         </div>
     );

@@ -8,6 +8,7 @@ from .weights import router as weights_router
 from .saliency import router as saliency_router
 from .poi import router as poi_router
 from .kernel_labels import router as kernel_labels_router
+from .kernel_notes import router as kernel_notes_router
 from .prune import router as prune_router
 
 router = Router()
@@ -19,6 +20,7 @@ router.add_router("", saliency_router)
 router.add_router("", poi_router)
 router.add_router("", prune_router)
 router.add_router("kernel-labels", kernel_labels_router)
+router.add_router("kernel-notes", kernel_notes_router)
 
 
 @router.get("/")

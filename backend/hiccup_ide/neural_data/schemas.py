@@ -192,5 +192,17 @@ class KernelLabelsOut(Schema):
     updated_at: str
 
 
+class KernelNoteIn(Schema):
+    notes: str
+
+
+class KernelNoteOut(Schema):
+    id: int
+    weight_coordinate: str
+    notes: str
+    created_at: str
+    updated_at: str
+
+
 class MarkSliceDoneIn(Schema):
     coordinate: str

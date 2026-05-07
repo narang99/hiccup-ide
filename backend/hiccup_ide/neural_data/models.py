@@ -180,3 +180,16 @@ class KernelLabels(models.Model):
 
     class Meta:
         db_table = "kernel_labels"
+
+
+class KernelNote(models.Model):
+    weight_coordinate = models.CharField(max_length=200, unique=True, db_index=True)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Note for {self.weight_coordinate}: {self.notes[:50]}{'...' if len(self.notes) > 50 else ''}"
+
+    class Meta:
+        db_table = "kernel_notes"
