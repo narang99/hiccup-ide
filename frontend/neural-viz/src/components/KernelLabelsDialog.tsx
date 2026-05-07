@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     getKernelLabels, 
     addKernelLabel, 
-    removeKernelLabel
+    removeKernelLabel,
+    type KernelLabelsResponse
 } from '../fetchers/kernel_labels';
 
 interface KernelLabelsDialogProps {
@@ -16,76 +18,58 @@ export default function KernelLabelsDialog({
     weightCoordinate, 
     onClose 
 }: KernelLabelsDialogProps) {
-    const [labels, setLabels] = useState<string[]>([]);
     const [newLabel, setNewLabel] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const queryClient = useQueryClient();
 
-    useEffect(() => {
-        if (!isOpen || !weightCoordinate) {
-            return;
+    const { data: labelsData, isLoading } = useQuery({
+        queryKey: ['kernelLabels', weightCoordinate],
+        queryFn: () => getKernelLabels(weightCoordinate),
+        enabled: isOpen && !!weightCoordinate,
+        retry: false,
+    });
+
+    const labels = labelsData?.labels || ['spurious'];
+
+    const addLabelMutation = useMutation({
+        mutationFn: (label: string) => addKernelLabel(weightCoordinate, label),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['kernelLabels', weightCoordinate], (oldData: KernelLabelsResponse | undefined) => ({
+                ...oldData,
+                labels: data.labels
+            } as KernelLabelsResponse));
+            setNewLabel('');
+        },
+        onError: (error) => {
+            console.error("Failed to add label:", error);
         }
-
-        let cancelled = false;
-        
-        const loadLabels = async () => {
-            setIsLoading(true);
-            try {
-                const response = await getKernelLabels(weightCoordinate);
-                if (!cancelled) {
-                    setLabels(response.labels);
-                }
-            } catch (err) {
-                if (!cancelled) {
-                    console.error("Failed to load kernel labels:", err);
-                    setLabels(['spurious']);
-                }
-            } finally {
-                if (!cancelled) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        loadLabels();
-        
-        return () => {
-            cancelled = true;
-        };
-    }, [isOpen, weightCoordinate]);
+    });
 
     const handleAddLabel = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newLabel.trim() || labels.includes(newLabel.trim())) {
             return;
         }
-
-        setIsSaving(true);
-        try {
-            const response = await addKernelLabel(weightCoordinate, newLabel.trim());
-            setLabels(response.labels);
-            setNewLabel('');
-        } catch (error) {
-            console.error("Failed to add label:", error);
-        } finally {
-            setIsSaving(false);
-        }
+        addLabelMutation.mutate(newLabel.trim());
     };
+
+    const removeLabelMutation = useMutation({
+        mutationFn: (label: string) => removeKernelLabel(weightCoordinate, label),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['kernelLabels', weightCoordinate], (oldData: KernelLabelsResponse | undefined) => ({
+                ...oldData,
+                labels: data.labels
+            } as KernelLabelsResponse));
+        },
+        onError: (error) => {
+            console.error("Failed to remove label:", error);
+        }
+    });
 
     const handleRemoveLabel = async (labelToRemove: string) => {
         if (labelToRemove === 'spurious') {
             return;
         }
-
-        setIsSaving(true);
-        try {
-            const response = await removeKernelLabel(weightCoordinate, labelToRemove);
-            setLabels(response.labels);
-        } catch (error) {
-            console.error("Failed to remove label:", error);
-        } finally {
-            setIsSaving(false);
-        }
+        removeLabelMutation.mutate(labelToRemove);
     };
 
     const handleClose = (e: React.MouseEvent) => {
@@ -97,7 +81,7 @@ export default function KernelLabelsDialog({
 
     return (
         <div style={{
-            position: 'absolute',
+            position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
@@ -151,7 +135,7 @@ export default function KernelLabelsDialog({
                                         {label !== 'spurious' && (
                                             <button
                                                 onClick={() => handleRemoveLabel(label)}
-                                                disabled={isSaving}
+                                                disabled={removeLabelMutation.isPending}
                                                 style={{
                                                     background: 'transparent',
                                                     border: 'none',
@@ -195,11 +179,11 @@ export default function KernelLabelsDialog({
                                         outline: 'none',
                                     }}
                                     placeholder="Enter new label..."
-                                    disabled={isSaving}
+                                    disabled={addLabelMutation.isPending}
                                 />
                                 <button 
                                     type="submit"
-                                    disabled={isSaving || !newLabel.trim()}
+                                    disabled={addLabelMutation.isPending || !newLabel.trim()}
                                     style={{
                                         padding: '8px 16px',
                                         background: '#10b981',
@@ -209,7 +193,7 @@ export default function KernelLabelsDialog({
                                         cursor: 'pointer',
                                         fontSize: '13px',
                                         fontWeight: 600,
-                                        opacity: (isSaving || !newLabel.trim()) ? 0.5 : 1,
+                                        opacity: (addLabelMutation.isPending || !newLabel.trim()) ? 0.5 : 1,
                                     }}
                                 >
                                     Add
@@ -222,7 +206,7 @@ export default function KernelLabelsDialog({
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button 
                         onClick={handleClose}
-                        disabled={isSaving}
+                        disabled={addLabelMutation.isPending || removeLabelMutation.isPending}
                         style={{
                             padding: '8px 16px',
                             background: '#3b82f6',
@@ -232,7 +216,7 @@ export default function KernelLabelsDialog({
                             cursor: 'pointer',
                             fontSize: '13px',
                             fontWeight: 600,
-                            opacity: isSaving ? 0.7 : 1,
+                            opacity: (addLabelMutation.isPending || removeLabelMutation.isPending) ? 0.7 : 1,
                         }}
                     >
                         Done
