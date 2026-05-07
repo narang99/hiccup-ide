@@ -11,6 +11,19 @@ The first major concern is to get started with the minimum number of tools I nee
   - We will have breaks in them (like the larger pattern is diagonal, but the kernel is not aligning perfectly, for now its best to add them as notes). Then analyse the data to add more context
 - It is important to note the larger pattern it seems with convolutions
 
+- I dont think i still have the most clear picture.
+  - Why do some contribs look spurious? So many of them?
+  - Some have extremely weird detection patterns, which are kind of easy to understand when you look at the trend across many inputs
+  - Some have bad alignment
+  - I feel spurious and bad alignment might be because the final layers have specific configurations which say "9". So anything that puts something there, no matter how spurious, adds a point for 9, kinda
+    - currently the last layer is extremely simple so this is plausible
+- Next questions of importance?
+  - Check my assumption about final layer having the same kinda configuration for all inputs for a specific class
+  - Check how each meaning looks across different inputs
+- I might need to add differentiation to my contrib calculation too 
+  - Local differentiation infact (some values have a higher impact on contrib, we might wanna have a formula for that)
+- I still dont know how im going to compose my meanings lol
+
 # Progress
 Good progress now
 - full visualisation on main screen

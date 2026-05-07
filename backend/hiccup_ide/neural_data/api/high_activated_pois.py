@@ -81,13 +81,25 @@ def _get_input_slice_coordinate_of_conv_kernel_slice(
 
 
 def _flattened_contribs_of_one_saliency_map(saliency_map: SaliencyMap):
-    all_contributions = []
+    try:
+        activation = Activation.objects.get(coordinate=saliency_map.coordinate, input=saliency_map.input)
+    except Activation.DoesNotExist:
+        print(
+            f"WARN: activation does not exist corresponding to saliency map. coordinate={saliency_map.coordinate} input={saliency_map.input.alias}"
+        )
+        return None
     if not isinstance(saliency_map.data, list):
         print(
             f"WARN: Saliency map input={saliency_map.input.pk} coordinate={saliency_map.coordinate}, `data` attribute is not a list, type={type(saliency_map.data)}"
         )
         return None
+    if not isinstance(activation.data, list):
+        print(
+            f"WARN: Activation input={activation.input.pk} coordinate={activation.coordinate}, `data` attribute is not a list, type={type(activation.data)}"
+        )
+        return None
 
+    all_contributions = []
     for row_idx, row in enumerate(saliency_map.data):
         if not isinstance(row, list):
             print(
@@ -95,7 +107,8 @@ def _flattened_contribs_of_one_saliency_map(saliency_map: SaliencyMap):
             )
             return None
         for col_idx, value in enumerate(row):
-            if isinstance(value, (int, float)):
+            act_val = activation.data[row_idx][col_idx]
+            if isinstance(value, (int, float)) and value > 0 and act_val > 0:
                 all_contributions.append((row_idx, col_idx, float(value), saliency_map))
     return all_contributions
 

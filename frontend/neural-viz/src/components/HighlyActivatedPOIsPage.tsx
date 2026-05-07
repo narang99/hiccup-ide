@@ -157,14 +157,16 @@ export default function HighlyActivatedPOIsPage() {
             },
         });
 
+        const sortedPoiPayload = poiPayload.sort((p1, p2) => p2.point.value - p1.point.value);
+
         // Add nodes for each POI
-        poiPayload.forEach((payload, index) => {
+        sortedPoiPayload.forEach((payload, index) => {
             const inputAct = payload.activation;
             const point = payload.point;
             nodes.push(getActivationNode(
                 `poi-${index}`,
                 poiLayout.children[index],
-                `${inputAct.input_alias} (${point.col}, ${point.row})`,
+                `${inputAct.input_alias} (${point.value.toFixed(3)})`,
                 inputAct.coordinate,
                 inputAct.model_alias,
                 inputAct.input_alias,
