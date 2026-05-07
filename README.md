@@ -6,6 +6,10 @@ The first major concern is to get started with the minimum number of tools I nee
 # TODO
 - A lot of nodes is very useful but the graph view gets slower with it
 - might be good to just create a new view for this
+- when i do prune for some conv (which recalculates the values for upstream, it should also set slices)
+  - basically, re calculation is not setting contribs for slices i think (its not creating new saliency maps only)
+  - what is the point of is-modified? im not sure
+
 
 
 # Progress

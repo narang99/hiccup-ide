@@ -3,7 +3,7 @@ import torch
 import os
 from django.test import Client
 from pt_to_api.contrib_processor import process_contribs_to_coordinates
-from neural_data.api.saliency import reconstruct_layer_tensor
+from neural_data.api.prune import reconstruct_layer_tensor
 from neural_data.models import (
     Model,
     Input,
