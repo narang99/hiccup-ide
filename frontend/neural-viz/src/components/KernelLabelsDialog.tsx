@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     getKernelLabels, 
@@ -20,6 +20,7 @@ export default function KernelLabelsDialog({
 }: KernelLabelsDialogProps) {
     const [newLabel, setNewLabel] = useState('');
     const queryClient = useQueryClient();
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const { data: labelsData, isLoading } = useQuery({
         queryKey: ['kernelLabels', weightCoordinate],
@@ -30,6 +31,22 @@ export default function KernelLabelsDialog({
 
     const labels = labelsData?.labels || ['spurious'];
 
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen, onClose]);
+
     const addLabelMutation = useMutation({
         mutationFn: (label: string) => addKernelLabel(weightCoordinate, label),
         onSuccess: (data) => {
@@ -38,6 +55,7 @@ export default function KernelLabelsDialog({
                 labels: data.labels
             } as KernelLabelsResponse));
             setNewLabel('');
+            inputRef.current?.focus();
         },
         onError: (error) => {
             console.error("Failed to add label:", error);
@@ -165,6 +183,7 @@ export default function KernelLabelsDialog({
                             </label>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <input 
+                                    ref={inputRef}
                                     type="text" 
                                     value={newLabel}
                                     onChange={(e) => setNewLabel(e.target.value)}
