@@ -4,14 +4,6 @@ The goal is to be as minimal as possible, with all the tools i use.
 The first major concern is to get started with the minimum number of tools I need, the amount I use for analysis right now atleast using jupyter notebooks. I think I can do pretty fast development.   
 
 # TODO
-- A lot of nodes is very useful but the graph view gets slower with it
-- might be good to just create a new view for this
-- when i do prune for some conv (which recalculates the values for upstream, it should also set slices)
-  - basically, re calculation is not setting contribs for slices i think (its not creating new saliency maps only)
-  - what is the point of is-modified? im not sure
-  - temp-prune exist for our things, its just not updated i think
-- ohk stuff is not updating because is-modified is a problem, we ll stop using that for now, slice contribs should now update i think
-- other than this, it is useful to track this in workgraph instead of normal things
 
 
 
@@ -41,6 +33,8 @@ Good progress now
 - landing page
 - showing other input activations on the kernel 
 - add support to mark a poi as spurious
+- Different view for high activated poi examples for a kernel
+- indicator for "done"
 
 
 # Solution to pixels=0 being important and worth considering

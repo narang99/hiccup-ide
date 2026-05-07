@@ -28,6 +28,7 @@ export interface ActivationNodeData extends Record<string, unknown> {
     modelAlias: string;
     inputAlias: string;
     workAlias?: string;
+    showGreenIndicatorIfTrue?: () => Promise<boolean>;
 }
 
 export type ActivationNodeType = Node<ActivationNodeData, 'ActivationNode'>;
@@ -45,6 +46,7 @@ export const ActivationFlowNode = ({ data }: NodeProps) => {
             modelAlias={typedData.modelAlias}
             inputAlias={typedData.inputAlias}
             workAlias={typedData.workAlias}
+            showGreenIndicatorIfTrue={typedData.showGreenIndicatorIfTrue}
         />
     );
 };

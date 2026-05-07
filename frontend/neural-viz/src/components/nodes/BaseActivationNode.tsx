@@ -35,6 +35,7 @@ interface BaseActivationNodeProps {
     modelAlias: string;
     inputAlias: string;
     workAlias?: string;
+    showGreenIndicatorIfTrue?: () => Promise<boolean>;
 }
 
 export default function BaseActivationNode({
@@ -55,7 +56,8 @@ export default function BaseActivationNode({
     overlayAlgorithm,
     modelAlias,
     inputAlias,
-    workAlias
+    workAlias,
+    showGreenIndicatorIfTrue
 }: BaseActivationNodeProps) {
     const nodeId = useNodeId();
     const { isPruned } = usePruned();
@@ -79,6 +81,12 @@ export default function BaseActivationNode({
         queryKey: [fetcherType, coordinate, modelAlias, inputAlias, workAlias, isPruned],
         queryFn: () => fetcher(coordinate),
         enabled: !!fetchers,
+    });
+
+    const { data: showGreenIndicator } = useQuery<boolean>({
+        queryKey: ['greenIndicator', coordinate, modelAlias, inputAlias, workAlias],
+        queryFn: () => showGreenIndicatorIfTrue?.() || Promise.resolve(false),
+        enabled: !!showGreenIndicatorIfTrue,
     });
 
     const handleHover = useCallback((gridCoord: [number, number], position: [number, number]) => {
@@ -148,16 +156,26 @@ export default function BaseActivationNode({
                 }}>
                     {title}
                 </span>
-                {activationData && typeof activationData === 'object' && 'work_graph' in activationData && activationData.work_graph != null && (
-                    <div style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        background: '#ef4444',
-                        boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)',
-                        marginLeft: 'auto'
-                    }} />
-                )}
+                <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                    {showGreenIndicator && (
+                        <div style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            background: '#22c55e',
+                            boxShadow: '0 0 4px rgba(34, 197, 94, 0.6)'
+                        }} />
+                    )}
+                    {activationData && typeof activationData === 'object' && 'work_graph' in activationData && activationData.work_graph != null && (
+                        <div style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            background: '#ef4444',
+                            boxShadow: '0 0 4px rgba(239, 68, 68, 0.6)'
+                        }} />
+                    )}
+                </div>
             </div>
             {/* ── Activation map (main area) ── */}
             <div style={{
