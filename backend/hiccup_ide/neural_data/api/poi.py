@@ -67,7 +67,12 @@ def get_unique_categories(request, model_alias: str):
     Get all unique categories for inputs of a given model.
     """
     model = get_object_or_404(Model, alias=model_alias)
-    categories = Input.objects.filter(model=model).values_list('category', flat=True).distinct().order_by('category')
+    categories = (
+        Input.objects.filter(model=model)
+        .values_list("category", flat=True)
+        .distinct()
+        .order_by("category")
+    )
     return list(categories)
 
 @router.get("/models/{model_alias}/coordinates/{coordinate}/high_pois/", response=HighActivatedPOIsResponse)

@@ -21,9 +21,9 @@ interface ActivationDisplayProps {
   filterAlgorithm?: ActivationFilterAlgorithm;
   // color map, maximum value for opacity scaling
   absMax?: number;
-  onPixelHover?: (gridCoord: [number, number], position: [number, number]) => void;
+  onPixelHover?: (gridCoord: [number, number], position: [number, number], value?: number) => void;
   onPixelLeave?: () => void;
-  onPixelClick?: (gridCoord: [number, number] | null, position: [number, number] | null) => void;
+  onPixelClick?: (gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void;
   overlayAlgorithm?: OverlayAlgorithm;
 }
 
@@ -81,11 +81,23 @@ export const ActivationDisplay = ({
     if (!coords) return;
 
     if (coords.isWithinBounds) {
-      onPixelHover([coords.gridX, coords.gridY], coords.position);
+      let value: number | undefined;
+      // Extract value from 2D activation data
+      if (activationData && Array.isArray(activationData.data) && activationData.shape.length === 2) {
+        const data = activationData.data as number[][];
+        if (coords.gridY < data.length && coords.gridX < data[coords.gridY].length) {
+          value = data[coords.gridY][coords.gridX];
+        }
+      }
+      // Extract value from scalar data
+      else if (activationData && typeof activationData.data === 'number') {
+        value = activationData.data;
+      }
+      onPixelHover([coords.gridX, coords.gridY], coords.position, value);
     } else if (onPixelLeave) {
       onPixelLeave();
     }
-  }, [getCoordinates, onPixelHover, onPixelLeave]);
+  }, [getCoordinates, onPixelHover, onPixelLeave, activationData]);
 
   const handleMouseClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!onPixelClick) return;
@@ -99,11 +111,23 @@ export const ActivationDisplay = ({
     }
 
     if (coords.isWithinBounds) {
-        onPixelClick([coords.gridX, coords.gridY], coords.position);
+        let value: number | undefined;
+        // Extract value from 2D activation data
+        if (activationData && Array.isArray(activationData.data) && activationData.shape.length === 2) {
+          const data = activationData.data as number[][];
+          if (coords.gridY < data.length && coords.gridX < data[coords.gridY].length) {
+            value = data[coords.gridY][coords.gridX];
+          }
+        }
+        // Extract value from scalar data
+        else if (activationData && typeof activationData.data === 'number') {
+          value = activationData.data;
+        }
+        onPixelClick([coords.gridX, coords.gridY], coords.position, value);
     } else {
         onPixelClick(null, coords.position);
     }
-  }, [getCoordinates, onPixelClick]);
+  }, [getCoordinates, onPixelClick, activationData]);
 
   const renderActivation = (absMax?: number) => {
     if (isLoading) {
@@ -135,7 +159,7 @@ export const ActivationDisplay = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            onPixelClick?.(null, null);
+            onPixelClick?.(null, null, undefined);
           }}
         >
           ⚠️
@@ -231,7 +255,7 @@ export const ActivationDisplay = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            onPixelClick?.(null, null);
+            onPixelClick?.(null, null, value);
           }}
         >
           {value.toFixed(2)}
@@ -258,7 +282,7 @@ export const ActivationDisplay = ({
         }}
         onClick={(e) => {
           e.stopPropagation();
-          onPixelClick?.(null, null);
+          onPixelClick?.(null, null, undefined);
         }}
       >
         ?

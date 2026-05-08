@@ -8,7 +8,7 @@ interface MarkDoneButtonProps {
     weightCoordinate: string;
 }
 
-const STATE_CYCLE: SliceState[] = ['not_done', 'skip', 'review', 'done'];
+const STATE_CYCLE: SliceState[] = ['not_done', 'done', 'skip', 'review'];
 
 const getStateConfig = (state: SliceState) => {
     switch (state) {

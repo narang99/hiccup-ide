@@ -29,7 +29,7 @@ interface BaseActivationNodeProps {
     clickAction?: ClickAction;
     filterAlgorithm?: ActivationFilterAlgorithm;
     absMax?: number;
-    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void;
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number], value?: number) => void;
     onPixelLeave?: (nodeId: string, coordinate: string) => void;
     overlayAlgorithm?: OverlayAlgorithm;
     modelAlias: string;
@@ -89,9 +89,9 @@ export default function BaseActivationNode({
         enabled: !!showGreenIndicatorIfTrue,
     });
 
-    const handleHover = useCallback((gridCoord: [number, number], position: [number, number]) => {
+    const handleHover = useCallback((gridCoord: [number, number], position: [number, number], value?: number) => {
         if (onPixelHover && nodeId) {
-            onPixelHover(nodeId, coordinate, gridCoord, position);
+            onPixelHover(nodeId, coordinate, gridCoord, position, value);
         }
     }, [onPixelHover, nodeId, coordinate]);
 
@@ -101,9 +101,9 @@ export default function BaseActivationNode({
         }
     }, [onPixelLeave, nodeId, coordinate]);
 
-    const handlePixelClick = useCallback((gridCoord: [number, number] | null, position: [number, number] | null) => {
+    const handlePixelClick = useCallback((gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => {
         if (clickAction?.type === 'callback' && nodeId) {
-            clickAction.callback(nodeId, coordinate, gridCoord, position);
+            clickAction.callback(nodeId, coordinate, gridCoord, position, value);
         }
     }, [clickAction, nodeId, coordinate]);
 
@@ -111,7 +111,7 @@ export default function BaseActivationNode({
         if (clickAction?.type === 'callback' && nodeId) {
             // Check if this was a click on the ActivationDisplay by checking if it was handled
             // If we use stopPropagation in ActivationDisplay, we don't need to check anything here.
-            clickAction.callback(nodeId, coordinate, null, null);
+            clickAction.callback(nodeId, coordinate, null, null, undefined);
         }
     }, [clickAction, nodeId, coordinate]);
 

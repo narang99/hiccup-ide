@@ -8,7 +8,7 @@ export type HandleDirection = "TB" | "LR" | null;
 
 export type ClickAction = 
     | { type: 'link'; link: string }
-    | { type: 'callback'; callback: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void };
+    | { type: 'callback'; callback: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void };
 
 export interface ActivationNodeData extends Record<string, unknown> {
     coordinate: string;
@@ -22,7 +22,7 @@ export interface ActivationNodeData extends Record<string, unknown> {
     clickAction?: ClickAction;
     filterAlgorithm?: ActivationFilterAlgorithm;
     absMax?: number;
-    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void;
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number], value?: number) => void;
     onPixelLeave?: (nodeId: string, coordinate: string) => void;
     overlayAlgorithm?: OverlayAlgorithm;
     modelAlias: string;

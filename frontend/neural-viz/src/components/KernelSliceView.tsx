@@ -38,9 +38,9 @@ const getActivationNode = (
     handleDirection: HandleDirection = null,
     absMax?: number,
     link?: string,
-    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number], value?: number) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
-    onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
+    onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void,
     overlayAlgorithm?: OverlayAlgorithm,
     showGreenIndicatorIfTrue?: () => Promise<boolean>,
 ): Node => {
@@ -114,9 +114,9 @@ const generateKernelSliceView = (
     modelAlias: string,
     inputAlias: string,
     workAlias: string,
-    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number]) => void,
+    onPixelHover?: (nodeId: string, coordinate: string, gridCoord: [number, number], position: [number, number], value?: number) => void,
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
-    onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null) => void,
+    onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void,
     inputOverlay?: OverlayAlgorithm,
 ): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
@@ -285,6 +285,7 @@ export default function KernelSliceView() {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
+    const [hoveredValue, setHoveredValue] = useState<number | null>(null);
     const pageDirection: Direction = "LR";
 
     const weightCoordinate = nodeId && kernelIndex && inputIndex
@@ -305,17 +306,19 @@ export default function KernelSliceView() {
     const STRIDE = 2;
     const PADDING = 1;
 
-    const handlePixelHover = useCallback((id: string, _: string, gridCoord: [number, number]) => {
+    const handlePixelHover = useCallback((id: string, _: string, gridCoord: [number, number], _position: [number, number], value?: number) => {
         const [x, y] = gridCoord;
         if (id === 'output-act' || id === 'output-saliency') {
             setInputOverlay(
                 getRectOverlayWithReceptiveField(x, y, KERNEL_SIZE, PADDING, STRIDE)
             );
+            setHoveredValue(value ?? null);
         }
     }, [STRIDE, PADDING, KERNEL_SIZE]);
 
     const handlePixelLeave = useCallback(() => {
         setInputOverlay({ type: 'NoOverlay' });
+        setHoveredValue(null);
     }, []);
 
     const handlePixelClick = useCallback((_: string, __: string, gridCoord: [number, number] | null) => {
@@ -393,6 +396,18 @@ export default function KernelSliceView() {
                     >
                         👁️ View All POIs
                     </CosmeticLink>
+                    <div style={{
+                        padding: '4px 8px',
+                        background: 'rgba(0, 0, 0, 0.1)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        color: '#fff',
+                        minWidth: '60px',
+                        textAlign: 'center'
+                    }}>
+                        {hoveredValue !== null ? `${hoveredValue.toFixed(4)}` : '—'}
+                    </div>
                 </Panel>
                 <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                     <DataTypeSelector />
