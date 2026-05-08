@@ -107,15 +107,17 @@ class Command(BaseCommand):
             self.stdout.write(f"Processing input: {inp_alias} (label: {inp_label})")
 
             # Create/Update Input object
+            category = str(inp_label)
             input_obj, created = Input.objects.get_or_create(
                 model=model_obj,
                 alias=inp_alias,
-                defaults={"name": inp_alias, "data_path": str(inp_path_rel)},
+                defaults={"name": inp_alias, "data_path": str(inp_path_rel), "category": category},
             )
             
             if not created:
                 input_obj.data_path = str(inp_path_rel)
                 input_obj.name = inp_alias
+                input_obj.category = category
             
             # Save pt file
             with open(inp_pt_path, "rb") as f:

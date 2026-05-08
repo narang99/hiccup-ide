@@ -1,7 +1,7 @@
 from ninja import Router
 from django.shortcuts import get_object_or_404
-from typing import List
-from ..models import POI, Work, Weight, Input
+from typing import List, Optional
+from ..models import POI, Work, Weight, Input, Model
 from ..schemas import POIIn, POIOut, HighActivatedPOIsResponse
 from .high_activated_pois import get_high_activated_pois_for_slice_coordinate
 
@@ -61,12 +61,22 @@ def create_or_update_poi(request, model_alias: str, input_alias: str, work_alias
     )
 
 
+@router.get("/models/{model_alias}/categories/", response=List[str])
+def get_unique_categories(request, model_alias: str):
+    """
+    Get all unique categories for inputs of a given model.
+    """
+    model = get_object_or_404(Model, alias=model_alias)
+    categories = Input.objects.filter(model=model).values_list('category', flat=True).distinct().order_by('category')
+    return list(categories)
+
 @router.get("/models/{model_alias}/coordinates/{coordinate}/high_pois/", response=HighActivatedPOIsResponse)
 def get_high_activated_pois_for_slice_coordinate_endpoint(
     request,
     model_alias: str,
     coordinate: str,
-    k: int = 10
+    k: int = 10,
+    categories: Optional[str] = None
 ):
     """
     Get high-activated POIs for a slice coordinate.
@@ -74,9 +84,17 @@ def get_high_activated_pois_for_slice_coordinate_endpoint(
     This endpoint finds the highest K contributions from saliency maps across all inputs
     for the same coordinate, then returns the corresponding input/output activations
     and grid coordinates.
+    
+    Args:
+        categories: Comma-separated list of categories to filter by (e.g., "1,2,3")
     """
+    category_list = None
+    if categories:
+        category_list = [cat.strip() for cat in categories.split(',') if cat.strip()]
+    
     return get_high_activated_pois_for_slice_coordinate(
         model_alias=model_alias,
         coordinate=coordinate,
-        k=k
+        k=k,
+        categories=category_list
     )

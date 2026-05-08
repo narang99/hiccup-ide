@@ -36,7 +36,7 @@ export default function PatternSelector({
                 {label}
             </label>
             
-            {options.length < 4 ? (
+            {options.length < 5 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {options.map((option, index) => (
                         <label 

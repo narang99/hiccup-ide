@@ -134,15 +134,19 @@ def _flattened_highest_contribs_for_all_saliency_maps(
 
 
 def _collect_saliency_maps_for_coordinate(
-    model: Model, coordinate: str
+    model: Model, coordinate: str, categories: Optional[list[str]] = None
 ) -> tuple[list[SaliencyMap], dict]:
     "Collect all saliency maps for a coordinate across all inputs."
     # Query all saliency maps for this coordinate across all inputs of the model
-    saliency_maps = list(
-        SaliencyMap.objects.filter(
-            input__model=model, coordinate=coordinate
-        ).select_related("input")
+    query = SaliencyMap.objects.filter(
+        input__model=model, coordinate=coordinate
     )
+    
+    # Filter by categories if provided
+    if categories:
+        query = query.filter(input__category__in=categories)
+    
+    saliency_maps = list(query.select_related("input"))
 
     # Create mapping from saliency map id to input object
     input_mapping = {smap.pk: smap.input for smap in saliency_maps}
@@ -258,7 +262,7 @@ def _contributions_to_high_activated_pois(
 
 
 def get_high_activated_pois_for_slice_coordinate(
-    model_alias: str, coordinate: str, k: int = 10
+    model_alias: str, coordinate: str, k: int = 10, categories: Optional[list[str]] = None
 ) -> HighActivatedPOIsResponse:
     """
     Main function to get high-activated POIs for a slice coordinate.
@@ -267,20 +271,19 @@ def get_high_activated_pois_for_slice_coordinate(
         model_alias: Model alias
         coordinate: Slice coordinate
         k: Number of top contributions to return
+        categories: Optional list of categories to filter inputs by
 
     Returns:
         HighActivatedPOIsResponse object
     """
     model = get_object_or_404(Model, alias=model_alias)
     saliency_maps, input_mapping = _collect_saliency_maps_for_coordinate(
-        model, coordinate
+        model, coordinate, categories
     )
-    print("unique inputs", set([i.pk for i in input_mapping.values()]))
     if not saliency_maps:
         return HighActivatedPOIsResponse(pois=[])
     input_coordinates = _get_input_coordinates(model, coordinate)
     all_contributions = _flattened_highest_contribs_for_all_saliency_maps(saliency_maps)
-    # top_contributions = get_highest_contribs(all_contributions, k)
     top_contributions = get_stratified_contribs(all_contributions, k)
     results = _contributions_to_high_activated_pois(
         top_contributions, input_mapping, coordinate, input_coordinates

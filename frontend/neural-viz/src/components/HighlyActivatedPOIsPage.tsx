@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge, useNodesState, useEdgesState } from '@xyflow/react';
 import { useAliases } from '../hooks/useAliases';
-import { getHighActivatedPOIs, type HighActivatedPOIsResponse, type POIPoint, type UniqueActivationId } from '../fetchers/poi';
+import { getHighActivatedPOIs, getUniqueCategories, type HighActivatedPOIsResponse, type POIPoint, type UniqueActivationId } from '../fetchers/poi';
 import SharedCanvas from './SharedCanvas';
 import CosmeticButton from './shared/CosmeticButton';
 import KernelLabelsManager from './shared/KernelLabelsManager';
+import { CategoryFilter } from './CategoryFilter';
 import { makeEvenlySpacedLayout } from '../layouts';
 import { type Direction } from '../types/direction';
 import { type OverlayAlgorithm } from '../types/overlay';
@@ -84,6 +85,7 @@ export default function HighlyActivatedPOIsPage() {
     const { modelAlias, inputAlias, workAlias } = useAliases();
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const pageDirection: Direction = "TB";
 
     const weightCoordinate = nodeId && kernelIndex && inputIndex
@@ -99,15 +101,32 @@ export default function HighlyActivatedPOIsPage() {
     const STRIDE = 2;
     const PADDING = 1;
 
+    // Fetch categories
+    const { data: allCategories = [] } = useQuery<string[]>({
+        queryKey: ['uniqueCategories', modelAlias],
+        queryFn: () => {
+            if (!modelAlias) {
+                throw new Error('Model alias is required');
+            }
+            return getUniqueCategories(modelAlias);
+        },
+        enabled: !!modelAlias,
+    });
+
     // Fetch POI data using React Query
     const NUM_SAMPLES_TO_FETCH = 60;
     const { data: poiData, isLoading, error } = useQuery<HighActivatedPOIsResponse>({
-        queryKey: ['highActivatedPOIs', modelAlias, weightCoordinate],
+        queryKey: ['highActivatedPOIs', modelAlias, weightCoordinate, selectedCategories],
         queryFn: () => {
         if (!modelAlias || !weightCoordinate) {
             throw new Error('Model alias and coordinate are required');
         }
-        return getHighActivatedPOIs(modelAlias, weightCoordinate, NUM_SAMPLES_TO_FETCH);
+        return getHighActivatedPOIs(
+            modelAlias, 
+            weightCoordinate, 
+            NUM_SAMPLES_TO_FETCH, 
+            selectedCategories.length > 0 ? selectedCategories : undefined
+        );
         },
         enabled: !!modelAlias && !!weightCoordinate,
     });
@@ -215,6 +234,11 @@ export default function HighlyActivatedPOIsPage() {
                     <KernelLabelsManager weightCoordinate={weightCoordinate} />
                 </Panel>
                 <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                    <CategoryFilter 
+                        allCategories={allCategories}
+                        selectedCategories={selectedCategories}
+                        onCategoriesChange={setSelectedCategories}
+                    />
                     <DataTypeSelector />
                     <ColormapSelector />
                 </Panel>

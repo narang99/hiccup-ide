@@ -25,6 +25,7 @@ class Input(models.Model):
     model = models.ForeignKey(Model, on_delete=models.CASCADE, related_name='inputs')
     name = models.CharField(max_length=200)
     data_path = models.CharField(max_length=500)
+    category = models.CharField(max_length=10)
     pt_file = models.FileField(upload_to='inputs/pt/')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

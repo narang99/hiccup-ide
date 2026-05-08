@@ -80,10 +80,14 @@ export async function savePOI(
 export async function getHighActivatedPOIs(
   modelAlias: string,
   coordinate: string,
-  k: number = 10
+  k: number = 10,
+  categories?: string[]
 ): Promise<HighActivatedPOIsResponse> {
   try {
-    const url = `${apiBaseUrl}/api/models/${modelAlias}/coordinates/${coordinate}/high_pois/?k=${k}`;
+    let url = `${apiBaseUrl}/api/models/${modelAlias}/coordinates/${coordinate}/high_pois/?k=${k}`;
+    if (categories && categories.length > 0) {
+      url += `&categories=${categories.join(',')}`;
+    }
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: Failed to get high activated POIs`);
@@ -91,6 +95,22 @@ export async function getHighActivatedPOIs(
     return await response.json();
   } catch (error) {
     console.error("Error getting high activated POIs:", error);
+    throw error;
+  }
+}
+
+export async function getUniqueCategories(
+  modelAlias: string
+): Promise<string[]> {
+  try {
+    const url = `${apiBaseUrl}/api/models/${modelAlias}/categories/`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to get unique categories`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error getting unique categories:", error);
     throw error;
   }
 }
