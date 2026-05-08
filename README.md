@@ -29,9 +29,6 @@ The first major concern is to get started with the minimum number of tools I nee
 - Somehow visualise what an output pixel is showing, this is going to be slightly harder
   - I could show the poi in earlier layer affecting it, then poi in the layer before it affecting it, basically show the maximal part of its receptive field to understand its story, might be useful
 
-## Doing stuff together
-- This is not wokring that well actually, i should get back to doing one at a time
-- There are a lot of pois also i feel, best decrease the energy more
 
 
 
@@ -92,3 +89,4 @@ Current pruning strat:
 
 **NOTE** This can turn actually negative final contribs to positive contribs (since we are removing all negative contribs anyways after pruning)
 For now, this is okay for circuit analysis in the end, i would need to see if there are better algos though (or i could keep the max reds, basically thresholding with reds also). Lets see, for now this is fine
+

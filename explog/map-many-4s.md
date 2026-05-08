@@ -22,3 +22,10 @@ There are many reasons why I dont understand how the network is working:
 # Map 5 fours
 - Today I have to map 5 4s. Then I decide how to analyse the data.   
 - If you forget about your thought thread, look at the notes and questions above.  
+
+# Thoughts
+
+- We see many spurious / lucky activations coming when alignment is not good. 
+  - Say a kernel detects an L and gives a weaker activation for just a horizontal line
+  - I see many times that when it does not align with the L intersection, it gives a weaker activation just beside the intersection L
+  - What is remarkable is that the network considers this a high contribution
