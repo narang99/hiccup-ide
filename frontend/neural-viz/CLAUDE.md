@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-React + TypeScript frontend for visualizing neural network models and their activations/saliency data.
+React + TypeScript frontend for inspecting neural network models, their activations and saliency maps in detail.  
 
 **Tech Stack:**
 - React (UI framework)

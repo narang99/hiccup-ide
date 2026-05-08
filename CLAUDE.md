@@ -47,3 +47,18 @@ uv run [command]          # Run commands in virtual environment
 3. **Setup frontend**: `cd frontend/neural-viz && npm install`
 
 Each component has its own `CLAUDE.md` with detailed development instructions.
+
+# UI/UX
+
+The top level workflow of the project is
+- A model instance (identified by model alias)
+  - This is the blueprint of a model type. Currently we only have the model SimpleMNIST
+- An input instance (identified by input alias)
+  - An input tied to a single model run.  
+  - You can think of this abstraction as a single model run
+  - For each input, we store the internal activations and saliency maps in the backend
+- All data at this stage is generally immutable, the frontend does not allow users to modify it
+- A work instance (or a work bench)
+  - This is the current work bench of user
+  - They can take notes, prune graphs, every note and edit is related to a work bench
+  - A user can create multiple work instances for a single input.  
