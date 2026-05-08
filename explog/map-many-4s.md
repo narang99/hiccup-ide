@@ -17,3 +17,8 @@ There are many reasons why I dont understand how the network is working:
   - It seems the final activations that result in high contribs do follow a larger pattern. Like finding points across a diagonal.
   - Sometimes the kernel does not actually find good alignment for actual diagonal detection, but by luck (gradient descent though i guess) it is able to find alignment.
     - This seems a recurring theme in edge detectors, they are not perfect edge detectors, they luckily find varieties. A `/` detector flows across to a `|` detector sometimes (it gives activations for both) to cover a wide range of patterns. 
+
+
+# Map 5 fours
+- Today I have to map 5 4s. Then I decide how to analyse the data.   
+- If you forget about your thought thread, look at the notes and questions above.  
