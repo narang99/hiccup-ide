@@ -13,7 +13,8 @@
       "Bash(uv run python manage.py migrate)",
       "Bash(uv run python manage.py check)",
       "Bash(mkdir *)",
-      "Bash(uv run pytest *)"
+      "Bash(uv run pytest *)",
+      "Bash(find /Users/hariomnarang/Desktop/personal/hiccup-ide/backend -name \"*.py\" -exec grep -l \"is_done\" {} ;)"
     ],
     "deny": [],
     "ask": []
