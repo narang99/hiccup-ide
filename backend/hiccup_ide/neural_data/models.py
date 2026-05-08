@@ -133,8 +133,6 @@ class WorkSaliencyMap(SaliencyMapData):
     input = models.ForeignKey(Input, on_delete=models.CASCADE, related_name='work_saliency_maps')
     coordinate = models.CharField(max_length=200, db_index=True)
     graph = models.ForeignKey(WorkGraph, on_delete=models.CASCADE)
-    is_done = models.BooleanField(default=False)
-    # New field for extended state management
     slice_state = models.CharField(
         max_length=20, 
         choices=[

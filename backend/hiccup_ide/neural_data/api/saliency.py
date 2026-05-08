@@ -244,7 +244,7 @@ def mark_slice_done(
     work = get_object_or_404(Work, input=input_obj, name=work_alias)
     work_graph = get_object_or_404(WorkGraph, work=work)
     saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=data.coordinate)
-    saliency_map.is_done = True
+    saliency_map.slice_state = 'done'
     saliency_map.save()
     return {"success": True, "coordinate": data.coordinate, "is_done": True}
     
@@ -263,7 +263,7 @@ def unmark_slice_done(
     work = get_object_or_404(Work, input=input_obj, name=work_alias)
     work_graph = get_object_or_404(WorkGraph, work=work)
     saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=data.coordinate)
-    saliency_map.is_done = False
+    saliency_map.slice_state = 'not_done'
     saliency_map.save()
     return {"success": True, "coordinate": data.coordinate, "is_done": False}
     
@@ -284,10 +284,11 @@ def get_slice_status(
     work_graph = get_object_or_404(WorkGraph, work=work)
     saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=coordinate)
     
-    # Return both old is_done field and new state field
+    # Derive is_done from slice_state (true only when state is 'done')
+    is_done = saliency_map.slice_state == 'done'
     return {
         "coordinate": coordinate, 
-        "is_done": saliency_map.is_done,
+        "is_done": is_done,
         "state": saliency_map.slice_state
     }
 
@@ -310,15 +311,14 @@ def update_slice_state(
     
     # Update the slice state
     saliency_map.slice_state = data.state
-    
-    # Update is_done field based on the state (done only when state is 'done')
-    saliency_map.is_done = (data.state == 'done')
-    
     saliency_map.save()
+    
+    # Derive is_done from slice_state for API response
+    is_done = (data.state == 'done')
     
     return {
         "coordinate": data.coordinate,
-        "is_done": saliency_map.is_done,
+        "is_done": is_done,
         "state": saliency_map.slice_state
     }
 
