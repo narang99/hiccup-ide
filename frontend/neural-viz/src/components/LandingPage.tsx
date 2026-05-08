@@ -1,48 +1,54 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { fetchWorkspace, createWork, type ModelTree } from '../fetchers/workspace';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchWorkspace, createWork, pinWork, unpinWork } from '../fetchers/workspace';
 
 const LandingPage: React.FC = () => {
-  const [workspace, setWorkspace] = useState<ModelTree[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const loadWorkspace = () => {
-    setLoading(true);
-    fetchWorkspace()
-      .then(data => {
-        setWorkspace(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  };
+  const { data: workspace = [], isLoading: loading, error } = useQuery({
+    queryKey: ['workspace'],
+    queryFn: fetchWorkspace,
+  });
 
-  useEffect(() => {
-    fetchWorkspace()
-      .then(data => {
-        setWorkspace(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err instanceof Error ? err.message : String(err));
-        setLoading(false);
-      });
-  }, []);
-
-  const handleCreateWork = async (modelAlias: string, inputAlias: string) => {
-    const name = prompt("Enter a name for the new work:");
-    if (!name) return;
-
-    try {
-      await createWork(modelAlias, inputAlias, name);
-      loadWorkspace();
-    } catch (err) {
+  const createWorkMutation = useMutation({
+    mutationFn: ({ modelAlias, inputAlias, name }: { modelAlias: string, inputAlias: string, name: string }) => 
+      createWork(modelAlias, inputAlias, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workspace'] });
+    },
+    onError: (err) => {
       alert(`Failed to create work: ${err instanceof Error ? err.message : String(err)}`);
     }
+  });
+
+  const pinToggleMutation = useMutation({
+    mutationFn: async ({ modelAlias, inputAlias, workAlias, isPinned }: { modelAlias: string, inputAlias: string, workAlias: string, isPinned: boolean }) => {
+      if (isPinned) {
+        return unpinWork(modelAlias, inputAlias, workAlias);
+      } else {
+        return pinWork(modelAlias, inputAlias, workAlias);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workspace'] });
+    },
+    onError: (err, variables) => {
+      alert(`Failed to ${variables.isPinned ? 'unpin' : 'pin'} work: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
+
+  const handleCreateWork = (modelAlias: string, inputAlias: string) => {
+    const name = prompt("Enter a name for the new work:");
+    if (!name) return;
+    createWorkMutation.mutate({ modelAlias, inputAlias, name });
   };
+
+  const handlePinToggle = (modelAlias: string, inputAlias: string, workAlias: string, isPinned: boolean) => {
+    pinToggleMutation.mutate({ modelAlias, inputAlias, workAlias, isPinned });
+  };
+
+  const errorMessage = error instanceof Error ? error.message : (error ? String(error) : null);
 
   return (
     <div style={{ 
@@ -75,8 +81,8 @@ const LandingPage: React.FC = () => {
           border: '1px solid var(--border)'
         }}>
           {loading && <div>Loading workspace...</div>}
-          {error && <div style={{ color: 'red' }}>Error: {error}</div>}
-          {!loading && !error && workspace.length === 0 && (
+          {errorMessage && <div style={{ color: 'red' }}>Error: {errorMessage}</div>}
+          {!loading && !errorMessage && workspace.length === 0 && (
             <div>No models found. Register a new model to get started.</div>
           )}
 
@@ -112,6 +118,21 @@ const LandingPage: React.FC = () => {
                           <span style={{ color: 'var(--text)', whiteSpace: 'pre' }}>
                             {subPrefix}{isLastWork ? '└──' : '├──'} 
                           </span>
+                          <button
+                            onClick={() => handlePinToggle(model.alias, input.alias, work.alias, work.is_pinned)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: work.is_pinned ? '#ffd700' : '#666',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              padding: '2px 4px',
+                              marginRight: '4px'
+                            }}
+                            title={work.is_pinned ? 'Unpin work' : 'Pin work'}
+                          >
+                            {work.is_pinned ? '📌' : '📎'}
+                          </button>
                           <Link 
                             to={`/models/${model.alias}/${input.alias}/${work.alias}`}
                             style={{ 
@@ -121,7 +142,9 @@ const LandingPage: React.FC = () => {
                               margin: '2px 0',
                               borderRadius: '4px',
                               display: 'inline-block',
-                              transition: 'all 0.2s'
+                              transition: 'all 0.2s',
+                              borderLeft: work.is_pinned ? '2px solid #ffd700' : 'none',
+                              paddingLeft: work.is_pinned ? '8px' : '6px'
                             }}
                             className="explorer-item"
                           >
@@ -129,6 +152,7 @@ const LandingPage: React.FC = () => {
                             <span style={{ opacity: 0.5, fontSize: '0.85em', marginLeft: '8px' }}>
                               {work.alias}
                             </span>
+                            {work.is_pinned && <span style={{ color: '#ffd700', fontSize: '0.8em', marginLeft: '6px' }}>★</span>}
                           </Link>
                         </div>
                       );

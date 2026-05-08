@@ -5,6 +5,7 @@ import { loadWeightFromFile } from './weight';
 export * from './activation';
 export * from './saliency_map';
 export * from './weight';
+export * from './sliceStatus';
 
 export type FetcherType = "activation" | "saliency_map" | "weight";
 

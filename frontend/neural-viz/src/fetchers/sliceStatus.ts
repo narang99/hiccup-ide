@@ -1,8 +1,9 @@
-import { getSliceStatus } from './saliency_map';
+import { getSliceStatus, type SliceState } from './saliency_map';
 
 export interface SliceStatusResult {
   coordinate: string;
   is_done: boolean;
+  state: SliceState;
 }
 
 export interface AggregateSliceStatusResult {

@@ -17,6 +17,8 @@ from ..schemas import (
     NodeStatsOut,
     WorkGraphMeta,
     MarkSliceDoneIn,
+    UpdateSliceStateIn,
+    SliceStatusOut,
 )
 from .helpers import get_min_max
 
@@ -267,7 +269,8 @@ def unmark_slice_done(
     
 
 @router.get(
-    "/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/slice-status/{coordinate}/"
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/slice-status/{coordinate}/",
+    response=SliceStatusOut
 )
 def get_slice_status(
     request,
@@ -280,5 +283,42 @@ def get_slice_status(
     work = get_object_or_404(Work, input=input_obj, name=work_alias)
     work_graph = get_object_or_404(WorkGraph, work=work)
     saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=coordinate)
-    return {"coordinate": coordinate, "is_done": saliency_map.is_done}
+    
+    # Return both old is_done field and new state field
+    return {
+        "coordinate": coordinate, 
+        "is_done": saliency_map.is_done,
+        "state": saliency_map.slice_state
+    }
+
+
+@router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/update-slice-state/",
+    response=SliceStatusOut
+)
+def update_slice_state(
+    request,
+    model_alias: str,
+    input_alias: str,
+    work_alias: str,
+    data: UpdateSliceStateIn
+):
+    input_obj = get_object_or_404(Input, model__alias=model_alias, alias=input_alias)
+    work = get_object_or_404(Work, input=input_obj, name=work_alias)
+    work_graph = get_object_or_404(WorkGraph, work=work)
+    saliency_map = get_object_or_404(WorkSaliencyMap, graph=work_graph, coordinate=data.coordinate)
+    
+    # Update the slice state
+    saliency_map.slice_state = data.state
+    
+    # Update is_done field based on the state (done only when state is 'done')
+    saliency_map.is_done = (data.state == 'done')
+    
+    saliency_map.save()
+    
+    return {
+        "coordinate": data.coordinate,
+        "is_done": saliency_map.is_done,
+        "state": saliency_map.slice_state
+    }
 

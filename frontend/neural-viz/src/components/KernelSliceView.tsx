@@ -17,8 +17,10 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { type OverlayAlgorithm } from '../types/overlay';
 
 import { useAliases } from '../hooks/useAliases';
+import { usePinnedWorkflows, generatePinnedWorkflowLinks } from '../hooks/usePinnedWorkflows';
 import MarkDoneButton from './MarkDoneButton';
 import KernelNotesWidget from './KernelNotesWidget';
+import PinnedWorkflowsButton from './shared/PinnedWorkflowsButton';
 import { getConvInputSliceStatus } from '../fetchers/sliceStatus';
 
 const getActivationNode = (
@@ -248,7 +250,7 @@ const generateKernelSliceView = (
         async () => {
             const coordinate = `${nodeId}.out_${kernelIdx}.in_${inputIdx}`;
             const status = await getConvInputSliceStatus(modelAlias, inputAlias, workAlias, coordinate);
-            return status.is_done;
+            return status.state === 'done';
         }
     ));
 
@@ -279,6 +281,7 @@ export default function KernelSliceView() {
     const navigate = useNavigate();
     const { modelAlias, inputAlias, workAlias } = useAliases();
     const { modelData } = useModelData(modelAlias);
+    const { data: pinnedWorks = [], isLoading: pinnedWorksLoading } = usePinnedWorkflows(modelAlias);
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [inputOverlay, setInputOverlay] = useState<OverlayAlgorithm>({ type: 'NoOverlay' });
@@ -348,6 +351,10 @@ export default function KernelSliceView() {
         navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${nodeId}/${kernelIndex}`);
     };
 
+    const pinnedWorkflowLinks = nodeId && kernelIndex && inputIndex 
+        ? generatePinnedWorkflowLinks(pinnedWorks, modelAlias, nodeId, kernelIndex, inputIndex, inputAlias, workAlias)
+        : [];
+
 
     if (!modelData) {
         return <div className="flex items-center justify-center h-screen">Loading slice details...</div>;
@@ -375,6 +382,10 @@ export default function KernelSliceView() {
                         inputAlias={inputAlias}
                         workAlias={workAlias}
                         weightCoordinate={weightCoordinate}
+                    />
+                    <PinnedWorkflowsButton 
+                        links={pinnedWorkflowLinks}
+                        loading={pinnedWorksLoading}
                     />
                     <CosmeticLink 
                         to={`/models/${modelAlias}/${inputAlias}/${workAlias}/poi-viewer/${nodeId}/${kernelIndex}/${inputIndex}`}

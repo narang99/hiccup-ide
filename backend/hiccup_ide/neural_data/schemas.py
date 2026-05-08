@@ -1,5 +1,5 @@
 from ninja import Schema
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Literal
 
 
 class ModelNode(Schema):
@@ -22,6 +22,7 @@ class ModelDefinition(Schema):
 class WorkTreeOut(Schema):
     alias: str
     name: str
+    is_pinned: bool = False
 
 class WorkIn(Schema):
     name: str
@@ -209,3 +210,18 @@ class KernelNoteOut(Schema):
 
 class MarkSliceDoneIn(Schema):
     coordinate: str
+
+
+# New schemas for extended state management
+SliceStateType = Literal['not_done', 'skip', 'review', 'done']
+
+
+class UpdateSliceStateIn(Schema):
+    coordinate: str
+    state: SliceStateType
+
+
+class SliceStatusOut(Schema):
+    coordinate: str
+    is_done: bool
+    state: SliceStateType

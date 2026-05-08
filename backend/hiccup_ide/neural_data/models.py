@@ -134,6 +134,18 @@ class WorkSaliencyMap(SaliencyMapData):
     coordinate = models.CharField(max_length=200, db_index=True)
     graph = models.ForeignKey(WorkGraph, on_delete=models.CASCADE)
     is_done = models.BooleanField(default=False)
+    # New field for extended state management
+    slice_state = models.CharField(
+        max_length=20, 
+        choices=[
+            ('not_done', 'Not Done'),
+            ('skip', 'Skip'),
+            ('review', 'Review'),
+            ('done', 'Done'),
+        ],
+        default='not_done',
+        db_index=True
+    )
 
     def __str__(self):
         return f"{self.input} - {self.coordinate} (saliency)"
@@ -195,3 +207,14 @@ class KernelNote(models.Model):
 
     class Meta:
         db_table = "kernel_notes"
+
+
+class PinnedWork(models.Model):
+    work = models.OneToOneField(Work, on_delete=models.CASCADE, related_name='pinned')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Pinned: {self.work}"
+
+    class Meta:
+        db_table = "pinned_works"

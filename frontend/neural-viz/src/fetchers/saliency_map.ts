@@ -185,12 +185,20 @@ export async function unmarkSliceDone(
   }
 }
 
+export type SliceState = 'not_done' | 'skip' | 'review' | 'done';
+
+export interface SliceStatus {
+  coordinate: string;
+  is_done: boolean;
+  state: SliceState;
+}
+
 export async function getSliceStatus(
   modelAlias: string,
   inputAlias: string,
   workAlias: string,
   coordinate: string
-): Promise<{ coordinate: string; is_done: boolean }> {
+): Promise<SliceStatus> {
   try {
     const apiBaseUrl = "http://localhost:8000";
     
@@ -203,9 +211,45 @@ export async function getSliceStatus(
     }
     
     const data = await response.json();
+    // Handle backward compatibility - if state is not provided, infer from is_done
+    if (!data.state) {
+      data.state = data.is_done ? 'done' : 'not_done';
+    }
     return data;
   } catch (error) {
     console.error(`Error getting slice status for ${coordinate}:`, error);
+    throw error;
+  }
+}
+
+export async function updateSliceState(
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
+  coordinate: string,
+  state: SliceState
+): Promise<SliceStatus> {
+  try {
+    const apiBaseUrl = "http://localhost:8000";
+    const headers = {'Content-Type': 'application/json'};
+    
+    const url = `${apiBaseUrl}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workAlias}/update-slice-state/`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ coordinate, state })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: Failed to update slice state for coordinate: ${coordinate}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Updated slice state to ${state} for ${coordinate}`);
+    return data;
+  } catch (error) {
+    console.error(`Error updating slice state for ${coordinate}:`, error);
     throw error;
   }
 }
