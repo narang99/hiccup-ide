@@ -1,11 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     getKernelLabels, 
     addKernelLabel, 
     removeKernelLabel,
+    addLargerPattern,
+    removeLargerPattern,
     type KernelLabelsResponse
 } from '../fetchers/kernel_labels';
+import PatternTagList from './shared/PatternTagList';
+import PatternAddForm from './shared/PatternAddForm';
 
 interface KernelLabelsDialogProps {
     isOpen: boolean;
@@ -19,8 +23,8 @@ export default function KernelLabelsDialog({
     onClose 
 }: KernelLabelsDialogProps) {
     const [newLabel, setNewLabel] = useState('');
+    const [newLargerPattern, setNewLargerPattern] = useState('');
     const queryClient = useQueryClient();
-    const inputRef = useRef<HTMLInputElement>(null);
 
     const { data: labelsData, isLoading } = useQuery({
         queryKey: ['kernelLabels', weightCoordinate],
@@ -30,6 +34,7 @@ export default function KernelLabelsDialog({
     });
 
     const labels = labelsData?.labels || ['spurious'];
+    const largerPatterns = labelsData?.larger_patterns || [];
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -55,7 +60,6 @@ export default function KernelLabelsDialog({
                 labels: data.labels
             } as KernelLabelsResponse));
             setNewLabel('');
-            inputRef.current?.focus();
         },
         onError: (error) => {
             console.error("Failed to add label:", error);
@@ -83,11 +87,50 @@ export default function KernelLabelsDialog({
         }
     });
 
+    const addLargerPatternMutation = useMutation({
+        mutationFn: (pattern: string) => addLargerPattern(weightCoordinate, pattern),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['kernelLabels', weightCoordinate], (oldData: KernelLabelsResponse | undefined) => ({
+                ...oldData,
+                larger_patterns: data.larger_patterns
+            } as KernelLabelsResponse));
+            setNewLargerPattern('');
+        },
+        onError: (error) => {
+            console.error("Failed to add larger pattern:", error);
+        }
+    });
+
+    const removeLargerPatternMutation = useMutation({
+        mutationFn: (pattern: string) => removeLargerPattern(weightCoordinate, pattern),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['kernelLabels', weightCoordinate], (oldData: KernelLabelsResponse | undefined) => ({
+                ...oldData,
+                larger_patterns: data.larger_patterns
+            } as KernelLabelsResponse));
+        },
+        onError: (error) => {
+            console.error("Failed to remove larger pattern:", error);
+        }
+    });
+
     const handleRemoveLabel = async (labelToRemove: string) => {
         if (labelToRemove === 'spurious') {
             return;
         }
         removeLabelMutation.mutate(labelToRemove);
+    };
+
+    const handleAddLargerPattern = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newLargerPattern.trim() || largerPatterns.includes(newLargerPattern.trim())) {
+            return;
+        }
+        addLargerPatternMutation.mutate(newLargerPattern.trim());
+    };
+
+    const handleRemoveLargerPattern = async (patternToRemove: string) => {
+        removeLargerPatternMutation.mutate(patternToRemove);
     };
 
     const handleClose = (e: React.MouseEvent) => {
@@ -120,112 +163,60 @@ export default function KernelLabelsDialog({
                 boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
             }}>
                 <h3 style={{ margin: '0 0 16px 0', color: '#fff', fontSize: '16px' }}>
-                    Manage Labels for Kernel
+                    Manage Labels and Larger Patterns for Kernel
                 </h3>
                 
                 {isLoading ? (
                     <div style={{ color: 'rgba(255,255,255,0.7)', padding: '20px', textAlign: 'center' }}>
-                        Loading labels...
+                        Loading data...
                     </div>
                 ) : (
                     <>
-                        <div style={{ marginBottom: '20px' }}>
-                            <h4 style={{ margin: '0 0 12px 0', color: 'rgba(255,255,255,0.8)', fontSize: '14px' }}>
-                                Current Labels:
-                            </h4>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                {labels.map(label => (
-                                    <div
-                                        key={label}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            background: label === 'spurious' ? '#374151' : '#3b82f6',
-                                            color: '#fff',
-                                            padding: '4px 8px',
-                                            borderRadius: '16px',
-                                            fontSize: '12px',
-                                            fontWeight: 500,
-                                        }}
-                                    >
-                                        {label}
-                                        {label !== 'spurious' && (
-                                            <button
-                                                onClick={() => handleRemoveLabel(label)}
-                                                disabled={removeLabelMutation.isPending}
-                                                style={{
-                                                    background: 'transparent',
-                                                    border: 'none',
-                                                    color: 'rgba(255,255,255,0.8)',
-                                                    cursor: 'pointer',
-                                                    fontSize: '14px',
-                                                    padding: 0,
-                                                    marginLeft: '2px',
-                                                }}
-                                            >
-                                                ×
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <PatternTagList
+                            title="Current Patch Patterns"
+                            patterns={labels}
+                            onRemove={handleRemoveLabel}
+                            isRemoving={removeLabelMutation.isPending}
+                            color="#3b82f6"
+                            preventRemoval={(pattern) => pattern === 'spurious'}
+                        />
 
-                        <form onSubmit={handleAddLabel} style={{ marginBottom: '24px' }}>
-                            <label style={{ 
-                                display: 'block', 
-                                color: 'rgba(255,255,255,0.6)', 
-                                fontSize: '12px', 
-                                marginBottom: '4px' 
-                            }}>
-                                Add New Label
-                            </label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <input 
-                                    ref={inputRef}
-                                    type="text" 
-                                    value={newLabel}
-                                    onChange={(e) => setNewLabel(e.target.value)}
-                                    style={{
-                                        flex: 1,
-                                        background: '#0d0d14',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: '6px',
-                                        padding: '8px 12px',
-                                        color: '#fff',
-                                        fontSize: '14px',
-                                        outline: 'none',
-                                    }}
-                                    placeholder="Enter new label..."
-                                    disabled={addLabelMutation.isPending}
-                                />
-                                <button 
-                                    type="submit"
-                                    disabled={addLabelMutation.isPending || !newLabel.trim()}
-                                    style={{
-                                        padding: '8px 16px',
-                                        background: '#10b981',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        color: '#fff',
-                                        cursor: 'pointer',
-                                        fontSize: '13px',
-                                        fontWeight: 600,
-                                        opacity: (addLabelMutation.isPending || !newLabel.trim()) ? 0.5 : 1,
-                                    }}
-                                >
-                                    Add
-                                </button>
-                            </div>
-                        </form>
+                        <PatternAddForm
+                            label="Add New Patch Pattern"
+                            value={newLabel}
+                            onChange={setNewLabel}
+                            onSubmit={handleAddLabel}
+                            disabled={addLabelMutation.isPending}
+                            placeholder="Enter new patch pattern..."
+                            buttonColor="#10b981"
+                            autoFocus={true}
+                        />
+
+                        <PatternTagList
+                            title="Current Larger Patterns"
+                            patterns={largerPatterns}
+                            onRemove={handleRemoveLargerPattern}
+                            isRemoving={removeLargerPatternMutation.isPending}
+                            color="#f59e0b"
+                            emptyMessage="No larger patterns defined"
+                        />
+
+                        <PatternAddForm
+                            label="Add New Larger Pattern"
+                            value={newLargerPattern}
+                            onChange={setNewLargerPattern}
+                            onSubmit={handleAddLargerPattern}
+                            disabled={addLargerPatternMutation.isPending}
+                            placeholder="Enter new larger pattern..."
+                            buttonColor="#f59e0b"
+                        />
                     </>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button 
                         onClick={handleClose}
-                        disabled={addLabelMutation.isPending || removeLabelMutation.isPending}
+                        disabled={addLabelMutation.isPending || removeLabelMutation.isPending || addLargerPatternMutation.isPending || removeLargerPatternMutation.isPending}
                         style={{
                             padding: '8px 16px',
                             background: '#3b82f6',
@@ -235,7 +226,7 @@ export default function KernelLabelsDialog({
                             cursor: 'pointer',
                             fontSize: '13px',
                             fontWeight: 600,
-                            opacity: (addLabelMutation.isPending || removeLabelMutation.isPending) ? 0.7 : 1,
+                            opacity: (addLabelMutation.isPending || removeLabelMutation.isPending || addLargerPatternMutation.isPending || removeLargerPatternMutation.isPending) ? 0.7 : 1,
                         }}
                     >
                         Done

@@ -140,6 +140,7 @@ class POIIn(Schema):
     y: int
     label: str
     note: str
+    larger_pattern: str = ""
 
 
 class POIOut(Schema):
@@ -150,6 +151,7 @@ class POIOut(Schema):
     y: int
     label: str
     note: str
+    larger_pattern: str
 
 
 class InputLayerMeta(Schema):
@@ -188,6 +190,7 @@ class KernelLabelsOut(Schema):
     id: int
     weight_coordinate: str
     labels: List[str]
+    larger_patterns: List[str]
     created_at: str
     updated_at: str
 

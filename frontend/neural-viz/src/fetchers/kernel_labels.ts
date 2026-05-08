@@ -4,6 +4,7 @@ export interface KernelLabelsResponse {
     id: number;
     weight_coordinate: string;
     labels: string[];
+    larger_patterns: string[];
     created_at: string;
     updated_at: string;
 }
@@ -16,6 +17,12 @@ export interface KernelLabelsRequest {
 export interface AddRemoveLabelResponse {
     success: boolean;
     labels: string[];
+}
+
+
+export interface AddRemoveLargerPatternResponse {
+    success: boolean;
+    larger_patterns: string[];
 }
 
 export async function getKernelLabels(weightCoordinate: string): Promise<KernelLabelsResponse> {
@@ -89,6 +96,43 @@ export async function removeKernelLabel(
 
     if (!response.ok) {
         throw new Error(`Failed to remove kernel label: ${response.status}`);
+    }
+
+    return response.json();
+}
+
+
+export async function addLargerPattern(
+    weightCoordinate: string, 
+    pattern: string
+): Promise<AddRemoveLargerPatternResponse> {
+    const response = await fetch(
+        `${apiBaseUrl}/api/kernel-labels/${encodeURIComponent(weightCoordinate)}/add-larger-pattern/?pattern=${encodeURIComponent(pattern)}`,
+        {
+            method: 'POST',
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`Failed to add larger pattern: ${response.status}`);
+    }
+
+    return response.json();
+}
+
+export async function removeLargerPattern(
+    weightCoordinate: string, 
+    pattern: string
+): Promise<AddRemoveLargerPatternResponse> {
+    const response = await fetch(
+        `${apiBaseUrl}/api/kernel-labels/${encodeURIComponent(weightCoordinate)}/remove-larger-pattern/?pattern=${encodeURIComponent(pattern)}`,
+        {
+            method: 'POST',
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`Failed to remove larger pattern: ${response.status}`);
     }
 
     return response.json();

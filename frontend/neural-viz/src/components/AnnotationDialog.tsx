@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { listPOIs, savePOI } from '../fetchers/poi';
 import { getKernelLabels } from '../fetchers/kernel_labels';
 import { useAliases } from '../hooks/useAliases';
+import PatternSelector from './shared/PatternSelector';
 
 interface AnnotationDialogProps {
     isOpen: boolean;
@@ -18,9 +19,11 @@ export default function AnnotationDialog({
     onClose 
 }: AnnotationDialogProps) {
     const [label, setLabel] = useState('');
+    const [largerPattern, setLargerPattern] = useState('');
     const [note, setNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [availableLabels, setAvailableLabels] = useState<string[]>(['spurious']);
+    const [availableLargerPatterns, setAvailableLargerPatterns] = useState<string[]>([]);
 
     const { modelAlias, inputAlias, workAlias } = useAliases();
 
@@ -34,19 +37,30 @@ export default function AnnotationDialog({
                 setAvailableLabels(['spurious']);
             });
 
+            // Load available larger patterns from kernel labels
+            getKernelLabels(weightCoordinate).then(response => {
+                setAvailableLargerPatterns(response.larger_patterns || []);
+            }).catch(err => {
+                console.error("Failed to load larger patterns:", err);
+                setAvailableLargerPatterns([]);
+            });
+
             // Load existing POIs for this slice
             listPOIs(modelAlias, inputAlias, workAlias, weightCoordinate).then(pois => {
                 const existing = pois.find(p => p.x === gridCoord[0] && p.y === gridCoord[1]);
                 if (existing) {
                     setLabel(existing.label);
+                    setLargerPattern(existing.larger_pattern);
                     setNote(existing.note);
                 } else {
                     setLabel('');
+                    setLargerPattern('');
                     setNote('');
                 }
             }).catch(err => {
                 console.error("Failed to load POIs:", err);
                 setLabel('');
+                setLargerPattern('');
                 setNote('');
             });
         }
@@ -81,7 +95,8 @@ export default function AnnotationDialog({
                 x: gridCoord[0],
                 y: gridCoord[1],
                 label,
-                note
+                note,
+                larger_pattern: largerPattern
             });
             onClose();
         } catch (error) {
@@ -125,66 +140,24 @@ export default function AnnotationDialog({
                     Pixel Annotation {gridCoord ? `(${gridCoord[0]}, ${gridCoord[1]})` : ''}
                 </h3>
                 
-                <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '8px' }}>Label</label>
-                    
-                    {availableLabels.length < 4 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {availableLabels.map(availableLabel => (
-                                <label 
-                                    key={availableLabel} 
-                                    style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: '8px', 
-                                        color: '#fff',
-                                        fontSize: '14px',
-                                        cursor: 'pointer',
-                                        padding: '4px 0'
-                                    }}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="label"
-                                        value={availableLabel}
-                                        checked={label === availableLabel}
-                                        onChange={(e) => setLabel(e.target.value)}
-                                        style={{
-                                            margin: 0,
-                                            accentColor: '#3b82f6'
-                                        }}
-                                        autoFocus={availableLabel === availableLabels[0]}
-                                    />
-                                    {availableLabel}
-                                </label>
-                            ))}
-                        </div>
-                    ) : (
-                        <select 
-                            value={label}
-                            onChange={(e) => setLabel(e.target.value)}
-                            style={{
-                                width: '100%',
-                                boxSizing: 'border-box',
-                                background: '#0d0d14',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                borderRadius: '6px',
-                                padding: '8px 12px',
-                                color: '#fff',
-                                fontSize: '14px',
-                                outline: 'none',
-                            }}
-                            autoFocus
-                        >
-                            <option value="">Select a label...</option>
-                            {availableLabels.map(availableLabel => (
-                                <option key={availableLabel} value={availableLabel}>
-                                    {availableLabel}
-                                </option>
-                            ))}
-                        </select>
-                    )}
-                </div>
+                <PatternSelector
+                    label="Patch Pattern"
+                    options={availableLabels}
+                    value={label}
+                    onChange={setLabel}
+                    autoFocus={true}
+                    emptyMessage="No patch patterns added yet"
+                    placeholder="Select a patch pattern..."
+                />
+
+                <PatternSelector
+                    label="Larger Pattern"
+                    options={availableLargerPatterns}
+                    value={largerPattern}
+                    onChange={setLargerPattern}
+                    emptyMessage="No larger patterns added yet"
+                    placeholder="Select a larger pattern..."
+                />
 
                 <div style={{ marginBottom: '24px' }}>
                     <label style={{ display: 'block', color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginBottom: '4px' }}>Note</label>

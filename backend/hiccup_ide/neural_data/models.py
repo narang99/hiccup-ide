@@ -163,6 +163,7 @@ class POI(models.Model):
 
     note = models.TextField()
     label = models.CharField(max_length=20)
+    larger_pattern = models.CharField(max_length=20, blank=True, default="")
 
     class Meta:
         db_table = "pois"
@@ -172,11 +173,12 @@ class POI(models.Model):
 class KernelLabels(models.Model):
     weight = models.OneToOneField(Weight, on_delete=models.CASCADE)
     labels = models.JSONField(default=list)
+    larger_patterns = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Labels for {self.weight.coordinate}: {self.labels}"
+        return f"Labels for {self.weight.coordinate}: {self.labels}, Larger patterns: {self.larger_patterns}"
 
     class Meta:
         db_table = "kernel_labels"

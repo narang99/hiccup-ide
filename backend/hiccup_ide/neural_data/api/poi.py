@@ -25,7 +25,8 @@ def list_pois(request, model_alias: str, input_alias: str, work_alias: str, weig
             x=p.x,
             y=p.y,
             label=p.label,
-            note=p.note
+            note=p.note,
+            larger_pattern=p.larger_pattern
         ) for p in pois
     ]
 
@@ -43,7 +44,8 @@ def create_or_update_poi(request, model_alias: str, input_alias: str, work_alias
         y=data.y,
         defaults={
             "label": data.label,
-            "note": data.note
+            "note": data.note,
+            "larger_pattern": data.larger_pattern
         }
     )
     
@@ -54,7 +56,8 @@ def create_or_update_poi(request, model_alias: str, input_alias: str, work_alias
         x=poi.x,
         y=poi.y,
         label=poi.label,
-        note=poi.note
+        note=poi.note,
+        larger_pattern=poi.larger_pattern
     )
 
 

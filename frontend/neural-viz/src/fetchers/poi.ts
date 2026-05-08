@@ -6,6 +6,7 @@ export interface POI {
   y: number;
   label: string;
   note: string;
+  larger_pattern: string;
 }
 
 export interface POIPoint {
