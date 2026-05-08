@@ -1,8 +1,7 @@
-from fontTools.varLib.instancer.names import _updateUniqueIdNameRecord
 from typing import Optional
 from django.shortcuts import get_object_or_404
-from ..models import Model, Input, SaliencyMap, Activation, Weight
-from ..schemas import (
+from neural_data.models import Model, Input, SaliencyMap, Activation, Weight
+from neural_data.schemas import (
     InputLayerMeta,
     POIPoint,
     HighActivatedPOIOut,
@@ -10,6 +9,8 @@ from ..schemas import (
     ActivationOut,
     UniqueActivationId,
 )
+from .common import FlattenedContrib
+from .picker import get_highest_contribs, get_stratified_contribs
 
 
 def _get_input_layers(
@@ -82,7 +83,9 @@ def _get_input_slice_coordinate_of_conv_kernel_slice(
 
 def _flattened_contribs_of_one_saliency_map(saliency_map: SaliencyMap):
     try:
-        activation = Activation.objects.get(coordinate=saliency_map.coordinate, input=saliency_map.input)
+        activation = Activation.objects.get(
+            coordinate=saliency_map.coordinate, input=saliency_map.input
+        )
     except Activation.DoesNotExist:
         print(
             f"WARN: activation does not exist corresponding to saliency map. coordinate={saliency_map.coordinate} input={saliency_map.input.alias}"
@@ -113,9 +116,9 @@ def _flattened_contribs_of_one_saliency_map(saliency_map: SaliencyMap):
     return all_contributions
 
 
-def _find_highest_contributions(
-    saliency_maps: list[SaliencyMap], k: int = 10
-) -> list[tuple[int, int, float, SaliencyMap]]:
+def _flattened_highest_contribs_for_all_saliency_maps(
+    saliency_maps: list[SaliencyMap],
+) -> list[FlattenedContrib]:
     "Find the highest K contributions from a list of saliency maps."
     all_contributions = []
 
@@ -127,10 +130,7 @@ def _find_highest_contributions(
             )
         else:
             all_contributions.extend(single_contribs)
-
-    # Sort by value in descending order and take top K
-    all_contributions.sort(key=lambda x: x[2], reverse=True)
-    return all_contributions[:k]
+    return all_contributions
 
 
 def _collect_saliency_maps_for_coordinate(
@@ -207,9 +207,7 @@ def _create_poi_from_contribution(
     input_obj = input_mapping[saliency_map.pk]
 
     try:
-        input_activations = _get_input_activations_for_poi(
-            input_obj, input_coordinates
-        )
+        input_activations = _get_input_activations_for_poi(input_obj, input_coordinates)
         if input_activations is None:
             return None
         return HighActivatedPOIOut(
@@ -281,7 +279,9 @@ def get_high_activated_pois_for_slice_coordinate(
     if not saliency_maps:
         return HighActivatedPOIsResponse(pois=[])
     input_coordinates = _get_input_coordinates(model, coordinate)
-    top_contributions = _find_highest_contributions(saliency_maps, k)
+    all_contributions = _flattened_highest_contribs_for_all_saliency_maps(saliency_maps)
+    # top_contributions = get_highest_contribs(all_contributions, k)
+    top_contributions = get_stratified_contribs(all_contributions, k)
     results = _contributions_to_high_activated_pois(
         top_contributions, input_mapping, coordinate, input_coordinates
     )

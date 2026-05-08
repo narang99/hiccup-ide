@@ -1,6 +1,6 @@
 from ninja import Router
 from django.shortcuts import get_object_or_404
-from typing import List, Optional
+from typing import List
 from ..models import POI, Work, Weight, Input
 from ..schemas import POIIn, POIOut, HighActivatedPOIsResponse
 from .high_activated_pois import get_high_activated_pois_for_slice_coordinate

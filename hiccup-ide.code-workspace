@@ -9,6 +9,9 @@
     {
       "path": "pt-to-api",
     },
+    {
+      "path": "explog",
+    },
   ],
   "settings": {
     "python.defaultInterpreterPath": ""

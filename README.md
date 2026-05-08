@@ -24,6 +24,12 @@ The first major concern is to get started with the minimum number of tools I nee
   - Local differentiation infact (some values have a higher impact on contrib, we might wanna have a formula for that)
 - I still dont know how im going to compose my meanings lol
 
+- Do a big bunch of 4s tomorrow. Ill upload 100 images of 4 only and do 10 of them atleast. I believe i might see better pattern clustering for POIs on single classes maybe
+  - Also check if the final activations look similar for all 4s
+- Somehow visualise what an output pixel is showing, this is going to be slightly harder
+  - I could show the poi in earlier layer affecting it, then poi in the layer before it affecting it, basically show the maximal part of its receptive field to understand its story, might be useful
+
+
 # Progress
 Good progress now
 - full visualisation on main screen
