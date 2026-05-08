@@ -169,7 +169,7 @@ def _get_conv_input_channel_contribs_from_slice_contribs(
 
     # input batch: [b, in_chan, inp_h, inp_w]
     inp_h, inp_w = input_batch.shape[-2:]
-    out_chan, in_chan = layer.weight.shape[0], layer.weight.shape[1]
+    _, in_chan = layer.weight.shape[0], layer.weight.shape[1]
 
     # [b, in_chan * ksize * ksize, L]
     # L = out_h * out_w
