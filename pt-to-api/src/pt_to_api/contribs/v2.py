@@ -132,16 +132,15 @@ def conv_calculate_contribs_for_all(in_acts, layer, out_contribs):
     return contribs, slice_contribs
 
 
-def conv_calculate_contribs_through_slices(in_acts, layer, out_contribs):
-    # a different algorithm, not consistent with v1 def
-    # we first find slice wise contribs, then flow to input
-    # note that our calculations do not align even though logically they should
-    # this is because we are dividing by absolute values
-    # another way can be to calculate slice wise contribs from the raw contribs themselves
+def conv_calculate_slice_contribs(in_acts, layer, out_contribs):
     slice_convs = do_slicewise_convolutions(
         in_acts, layer.weight, layer.stride, layer.padding, layer.dilation
     )
     slice_contribs = get_slice_contribs(slice_convs, layer.bias, out_contribs)
+    return slice_contribs.permute(0, 2, 1, 3, 4)
+
+def conv_calculate_contribs_through_slices(in_acts, layer, slice_contribs):
+    slice_contribs = slice_contribs.permute(0, 2, 1, 3, 4)
     conv_contribs = _get_conv_input_channel_contribs_from_slice_contribs(
         in_acts, slice_contribs, layer
     )

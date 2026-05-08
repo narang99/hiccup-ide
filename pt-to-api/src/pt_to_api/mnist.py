@@ -98,6 +98,72 @@ def get_mnist_dataloader(fraction=1.0, **kwargs):
     )
     return DataLoaders.from_dblock(dblock, path, path=path, **kwargs)
 
+def get_contribs_for_inp_vectorized_through_slices(batch_inp_tens, model, last_layer_contribs, last_layer_key, device):
+    acts, parameters = get_model_internals(model, batch_inp_tens)
+    acts["x"] = batch_inp_tens
+
+    acts = to_device(acts, device)
+
+    # Initialize backprop controller
+    all_layer_keys = [
+        "layers.0.slice",
+        "layers.0",
+        "layers.1",
+        "layers.2.slice",
+        "layers.2",
+        "layers.3",
+        "layers.4",
+        "layers.5",
+    ]
+    controller = LayerBackpropController(all_layer_keys, last_layer_key)
+
+    total_contribs = _empty_initialise(last_layer_key, acts, controller)
+    total_contribs[last_layer_key] = last_layer_contribs
+
+    # Backpropagate through layers based on controller logic
+    if controller.should_backprop("layers.4"):
+        total_contribs["layers.4"] = v2.linear_calculate_contribs_for_all(
+            model.get_submodule("layers.5"),
+            acts["layers.4"],
+            total_contribs["layers.5"],
+            device,
+        )
+    
+    if controller.should_backprop("layers.3"):
+        # flatten
+        total_contribs["layers.3"] = total_contribs["layers.4"].view(acts["layers.3"].shape)
+
+    if controller.should_backprop("layers.2"):
+        total_contribs["layers.2"] = v1.relu_calculate_contribs(total_contribs["layers.3"])
+    
+    if controller.should_backprop("layers.2.slice"):
+        total_contribs["layers.2.slice"] = v2.conv_calculate_slice_contribs(
+            acts["layers.1"], model.get_submodule("layers.2"), total_contribs["layers.2"]
+        )
+    
+    if controller.should_backprop("layers.1"):
+        total_contribs["layers.1"] = v2.conv_calculate_contribs_through_slices(
+            acts["layers.1"], model.get_submodule("layers.2"), total_contribs["layers.2.slice"]
+        )
+    
+    if controller.should_backprop("layers.0"):
+        total_contribs["layers.0"] = v1.relu_calculate_contribs(total_contribs["layers.1"])
+
+    if controller.should_backprop("layers.0.slice"):
+        total_contribs["layers.0.slice"] = v2.conv_calculate_slice_contribs(
+            acts["x"], model.get_submodule("layers.0"), total_contribs["layers.0"]
+        )
+
+    if controller.should_backprop("x"):
+        total_contribs["x"] = v2.conv_calculate_contribs_through_slices(
+            acts["x"], model.get_submodule("layers.0"), total_contribs["layers.0.slice"]
+        )
+
+    total_contribs = detach_all(to_device(total_contribs, "cpu"))
+    acts = detach_all(to_device(acts, "cpu"))
+    parameters = detach_all(to_device(parameters, "cpu"))
+    return total_contribs, acts, parameters
+
 
 def get_contribs_for_inp_vectorized(batch_inp_tens, model, last_layer_contribs, last_layer_key, device):
     acts, parameters = get_model_internals(model, batch_inp_tens)
