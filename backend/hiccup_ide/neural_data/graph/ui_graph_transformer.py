@@ -22,7 +22,6 @@ from neural_data.ui_graph_types import UIGraphNode, Conv2dInputPatchNode
 class TransformAction(Enum):
     """Actions to take for different coordinate types during transformation."""
     PASS_THROUGH = "pass_through"  # Use node as-is
-    DEFER_TO_SLICE = "defer_to_slice"  # Will be handled when slice is processed
     REMOVE = "remove"  # Remove from UI graph entirely
 
 
@@ -48,25 +47,16 @@ def transform_raw_graph_to_ui_graph(raw_graph: nx.DiGraph) -> nx.DiGraph:
     # Track node mappings for relationship preservation
     raw_to_ui_mapping: Dict[Coordinate, UIGraphNode] = {}
     
-    # First pass: Process nodes based on their transformation requirements
+    # Process nodes: transform or pass through
     for node in raw_graph.nodes():
         action, ui_node = _get_transform_action_and_node(node, raw_graph, raw_to_ui_mapping)
         
         if action == TransformAction.PASS_THROUGH:
-            # Use node as-is in UI graph
             ui_graph.add_node(ui_node)
             raw_to_ui_mapping[node] = ui_node
             
-        elif action == TransformAction.DEFER_TO_SLICE:
-            # Will be handled when corresponding slice coordinate is processed
-            # Check if already processed (slice coordinates process their inputs)
-            if node in raw_to_ui_mapping:
-                ui_node = raw_to_ui_mapping[node]
-                if ui_node not in ui_graph:
-                    ui_graph.add_node(ui_node)
-                    
         elif action == TransformAction.REMOVE:
-            # Explicitly skip - node will not appear in UI graph
+            # Skip - node will not appear in UI graph
             pass
             
         else:
@@ -97,7 +87,6 @@ def _get_transform_action_and_node(
     Returns:
         tuple of (TransformAction, UIGraphNode | None)
         - For PASS_THROUGH: (action, transformed_node)
-        - For DEFER_TO_SLICE: (action, None) - node will be processed when slice is handled
         - For REMOVE: (action, None) - node will not appear in UI graph
     """
     if isinstance(node, Conv2dSliceCoordinate):
@@ -106,11 +95,8 @@ def _get_transform_action_and_node(
         return TransformAction.PASS_THROUGH, patch_node
         
     elif isinstance(node, Conv2dInputCoordinate):
-        # These are handled as part of Conv2dInputPatchNode creation
-        # Check if already processed by a slice coordinate
-        if node in raw_to_ui_mapping:
-            return TransformAction.PASS_THROUGH, raw_to_ui_mapping[node]
-        return TransformAction.DEFER_TO_SLICE, None
+        # Skip individual input coordinates - they're handled as part of patch nodes
+        return TransformAction.REMOVE, None
         
     elif isinstance(node, Conv2dOutputCoordinate):
         return TransformAction.PASS_THROUGH, node
@@ -142,6 +128,10 @@ def _create_input_patch_node(
     for parent in raw_graph.successors(slice_coord):
         if isinstance(parent, Conv2dInputCoordinate):
             input_coords.append(parent)
+        else:
+            raise Exception(
+                f"found parent of type {type(parent)} for slice-node={slice_coord} parent={parent}. this should not be possible"
+            )
     
     if not input_coords:
         raise ValueError(
@@ -207,24 +197,6 @@ def _create_ui_edges(
     for raw_child, raw_parent in raw_graph.edges():
         # Skip edges where either node was removed from UI graph
         if raw_parent not in raw_to_ui_mapping or raw_child not in raw_to_ui_mapping:
-            # Validate that missing nodes are expected to be missing
-            if raw_parent not in raw_to_ui_mapping:
-                # Check what action should have been taken for this node
-                action, _ = _get_transform_action_and_node(raw_parent, raw_graph, {})
-                if action not in (TransformAction.REMOVE, TransformAction.DEFER_TO_SLICE):
-                    raise ValueError(
-                        f"Raw graph node {raw_parent} was not mapped to any UI node, "
-                        f"but its transform action is {action.value} which should result in a mapping."
-                    )
-                    
-            if raw_child not in raw_to_ui_mapping:
-                # Check what action should have been taken for this node
-                action, _ = _get_transform_action_and_node(raw_child, raw_graph, {})
-                if action not in (TransformAction.REMOVE, TransformAction.DEFER_TO_SLICE):
-                    raise ValueError(
-                        f"Raw graph node {raw_child} was not mapped to any UI node, "
-                        f"but its transform action is {action.value} which should result in a mapping."
-                    )
             continue
             
         ui_parent = raw_to_ui_mapping[raw_parent]
