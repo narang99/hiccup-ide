@@ -2,7 +2,6 @@ import pytest
 import torch
 import os
 from django.test import Client
-from pt_to_api.contrib_processor import process_contribs_to_coordinates
 from neural_data.api.prune.update_batch import reconstruct_layer_tensor
 from neural_data.models import (
     Work,
@@ -13,11 +12,7 @@ from neural_data.models import (
 )
 
 
-# Hardcoded paths matching the saliency.py implementation
-MODEL_PATH = "/Users/hariomnarang/Desktop/personal/hiccup-ide/pt-to-api/data/model.pt"
-INPUT_PATH = (
-    "/Users/hariomnarang/Desktop/personal/hiccup-ide/pt-to-api/data/first-input-tens.pt"
-)
+from .helpers import MODEL_PT_PATH as MODEL_PATH, INPUT_PT_PATH as INPUT_PATH
 
 
 def requires_real_model():
@@ -43,71 +38,44 @@ def raw_real_model_data_to_persist_in_db():
         batch_inp_tens, actual_model, dummy_contribs, "layers.5", "cpu"
     )
 
-    # Convert to coordinate format using the actual processor
-
-    coord_data = process_contribs_to_coordinates(real_contribs, sample_idx=0)
-
-    return coord_data, real_contribs, batch_inp_tens
-
-
-def _create_saliency_map_from_coord_object(
-    input_obj, coordinate, layer_name, data_info
-):
-    return SaliencyMap.objects.create(
-        input=input_obj,
-        coordinate=coordinate,
-        layer_name=layer_name,
-        data=data_info["data"],
-        shape=data_info["shape"],
-        coordinate_type=data_info.get("coordinate_type", "output_channel"),
-        data_type="saliency",
-        output_channel=data_info.get("output_channel"),
-        input_channel=data_info.get("input_channel"),
-    )
+    return real_contribs, batch_inp_tens
 
 
 @pytest.fixture
 def real_model_data(raw_real_model_data_to_persist_in_db):
-    """Create test data that matches the actual model architecture"""
-    from .helpers import create_test_model_with_pt_file, create_test_input_with_pt_file
+    """Create test data that matches the actual model architecture using loader utilities"""
+    from neural_data.load_folder.model_loader import load_model
+    from neural_data.load_folder.input_loader import load_inputs
+    from io import StringIO
+    from pathlib import Path
+    from neural_data.models import Input, SaliencyMap
+
+    real_contribs, batch_inp_tens = raw_real_model_data_to_persist_in_db
     
-    coord_data, real_contribs, batch_inp_tens = raw_real_model_data_to_persist_in_db
-    model = create_test_model_with_pt_file(
-        alias="real-mnist-model",
-        name="Real MNIST Model",
-        definition={"nodes": [], "edges": []}
-    )
-    input_obj = create_test_input_with_pt_file(
-        model=model,
-        alias="real-mnist-input",
-        name="Real MNIST Input",
-        data_path=INPUT_PATH
-    )
+    stdout = StringIO()
+    # MODEL_PATH is /.../pt-to-api/data/model.pt
+    # folder_path should be /.../pt-to-api/
+    folder_path = Path(MODEL_PATH).parent.parent
+    
+    model_info = {
+        "name": "real-mnist-model",
+        "path": "data/model.pt"
+    }
+    
+    model_obj, model_pt_path = load_model(model_info, folder_path, stdout)
+    
+    input_info = {
+        "path": "data/first-input-tens.pt",
+        "label": 0
+    }
+    
+    load_inputs([input_info], model_obj, folder_path, model_pt_path, stdout)
+    
+    # The loader uses the filename stem as alias, so 'first-input-tens.pt' -> 'first-input-tens'
+    input_obj = Input.objects.get(model=model_obj, alias="first-input-tens")
+    saliency_maps = SaliencyMap.objects.filter(input=input_obj)
 
-    saliency_maps = []
-    for coordinate, data_info in coord_data.items():
-        if coordinate.startswith("layers.3."):
-            saliency_map = _create_saliency_map_from_coord_object(
-                input_obj, coordinate, "layers.3", data_info
-            )
-            saliency_maps.append(saliency_map)
-        elif coordinate.startswith("layers.2."):
-            saliency_map = _create_saliency_map_from_coord_object(
-                input_obj, coordinate, "layers.2", data_info
-            )
-            saliency_maps.append(saliency_map)
-        elif coordinate.startswith("layers.1."):
-            saliency_map = _create_saliency_map_from_coord_object(
-                input_obj, coordinate, "layers.1", data_info
-            )
-            saliency_maps.append(saliency_map)
-        elif coordinate.startswith("x."):
-            saliency_map = _create_saliency_map_from_coord_object(
-                input_obj, coordinate, "x", data_info
-            )
-            saliency_maps.append(saliency_map)
-
-    return model, input_obj, saliency_maps, real_contribs, batch_inp_tens
+    return model_obj, input_obj, saliency_maps, real_contribs, batch_inp_tens
 
 
 def calculate_expected_ground_truth(layer_name, pruned_tensor):
