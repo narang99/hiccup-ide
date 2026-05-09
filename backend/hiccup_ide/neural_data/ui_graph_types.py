@@ -7,17 +7,16 @@ NOTE: All types need to be consistently replicated in frontend at:
 frontend/neural-viz/src/types/ui_graph_coordinates.ts
 """
 from typing import Literal, Union, Annotated
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field
 from neural_data.types import (
     Conv2dInputCoordinate, 
     Conv2dOutputCoordinate,
-    Conv2dSliceCoordinate,
     ReLUInputCoordinate,
-    ReLUOutputCoordinate, 
     ModelInputCoordinate,
     ImmutableModel,
 )
 
+TuplifiedInputCoordinates = tuple[tuple[Conv2dInputCoordinate, tuple["UIGraphNode", ...]], ...]
 
 class Conv2dInputPatchNode(ImmutableModel):
     """UI node representing a patch of input coordinates for Conv2d visualization.
@@ -46,7 +45,9 @@ class Conv2dInputPatchNode(ImmutableModel):
     # References to the original Conv2dInputCoordinate objects
     # that form this patch (for detailed inspection if needed)
     # Note: Using tuple instead of list to maintain hashability for NetworkX
-    input_coordinates: tuple[Conv2dInputCoordinate, ...]
+    # we keep tuple -> its individual parents link also
+    # this would be empty for now, just keeping it in the struct
+    input_coordinates: TuplifiedInputCoordinates
 
 
 # UI Graph Node Types - Union of all node types used in UI graphs

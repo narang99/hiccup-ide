@@ -15,7 +15,8 @@
       "Bash(mkdir *)",
       "Bash(uv run pytest *)",
       "Bash(find /Users/hariomnarang/Desktop/personal/hiccup-ide/backend -name \"*.py\" -exec grep -l \"is_done\" {} ;)",
-      "Bash(uv run pytest hiccup_ide/tests/test_graph_builder.py hiccup_ide/tests/test_prune_graph.py -v)"
+      "Bash(uv run pytest hiccup_ide/tests/test_graph_builder.py hiccup_ide/tests/test_prune_graph.py -v)",
+      "Bash(uv run pytest hiccup_ide/tests/test_transforming_builder.py -v)"
     ],
     "deny": [],
     "ask": []

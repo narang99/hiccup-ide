@@ -32,8 +32,35 @@ The first major concern is to get started with the minimum number of tools I nee
 
 - Ive made graph making facilities in backend. lets now see what we can do about this.  
 - Ive made a mistake also lol, i made the edges from parents to children
- -  But that is not working
+  -  But that is not working
+- Well most of the graph making code from claude has been quite weird.  
+  - Ill need to write this myself lol
 
+- My requirements are also kinda more
+  - While building the graph, i would want to from time to time, support filtering
+  -            aaaaaaaaaaaaaaaaaaaaaaaaa
+  - Im down. not sure what im even doing now ;_;
+  - im not sure if this project will work out at all at this point.  
+
+- what do i want?
+  - I want to see the story of a single poi
+  - Looking at the full story is great, but its very costly to render.
+  - Note that a story can be decomposed into substories, and they can be looked at in isolation. So subgraphs in isolation are known to provide good results.  
+- The first thing im going to do is continue what i thought. see a subgraph of a single poi if it is present in the graph (it is significant that is).   
+  - Create the graph building algorithm first
+  - Then do the UI tfms
+
+- How to tfm?
+  - Walk through nodes
+  - If Conv2dSlice -> [Conv2dInput]
+    - Return Conv2dPatch
+    - Attach all parents of Conv2dInput to Conv2dPatch
+  - now claude has done the thing right where a node turns to ui node
+    - If it is Conv2dInput node -> it turns to Conv2dPatch
+    - If it is Conv2dSlice node -> it also turns to Conv2dPatch
+    - All ancestors to Conv2dSlice should point to Conv2dPatch (it would then have edges to its own)
+- What is the other way?
+  - Can i write a recursive function?
 
 
 # Progress
