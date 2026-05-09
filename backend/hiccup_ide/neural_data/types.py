@@ -1,4 +1,8 @@
-"types for coordinating groups and pixels inside the network"
+"""Types for coordinating groups and pixels inside the network
+
+NOTE: All types need to be consistently replicated in frontend at:
+frontend/neural-viz/src/types/coordinates.ts
+"""
 from typing import Literal, Union, Annotated
 from pydantic import BaseModel, Field, ConfigDict
 

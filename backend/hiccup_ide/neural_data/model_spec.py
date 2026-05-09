@@ -2,6 +2,9 @@
 
 This module provides complete type definitions for the model definition JSON structure
 using discriminated unions similar to the coordinate types in types.py.
+
+NOTE: All types need to be consistently replicated in frontend at:
+frontend/neural-viz/src/types/modelSpec.ts
 """
 
 from typing import Literal, Union, Annotated, Any

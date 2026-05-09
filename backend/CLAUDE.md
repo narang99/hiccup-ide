@@ -75,6 +75,8 @@ uv run pytest -v
 uv run pytest hiccup_ide/tests/test_weights.py::test_create_weight_model
 ```
 
+**Important**: When running pytest commands, always run them from the `/Users/hariomnarang/Desktop/personal/hiccup-ide/backend/hiccup_ide` directory to ensure proper module resolution.
+
 ### Test File Naming
 - Test files should start with `test_` (e.g., `test_weights.py`)
 - Test functions should start with `test_` (e.g., `test_create_weight_model()`)

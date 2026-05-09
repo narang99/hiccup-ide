@@ -90,3 +90,57 @@ Current pruning strat:
 **NOTE** This can turn actually negative final contribs to positive contribs (since we are removing all negative contribs anyways after pruning)
 For now, this is okay for circuit analysis in the end, i would need to see if there are better algos though (or i could keep the max reds, basically thresholding with reds also). Lets see, for now this is fine
 
+# Coordinating a model
+I've done this without thinking about it for long enough now. How do you identify unique positions in a model? I'm going to use discriminated unions for this.   
+I also now want to correctly put the "params" in the model schema, its again hurting my ocd.  
+I dont know where ill start my refactor but fuck it.  
+
+- There is one thing i can do, simply not think too much about nesting and create flat structures.  
+  - is this going to help though?
+  - like the types are flat and dumb, should be okay i feel
+
+
+- layer name
+- layer type
+
+## type:conv2d
+
+We can have:
+- inputs
+  - In this case, we need in channel number, y, x
+- output of a single kernel
+  - out channel number, y, x
+- slice
+  - out channel number, in channel number, y, x
+
+
+## type:relu
+in channels = out channels = channels
+- inputs and outputs both
+  - channel number, y, x
+
+## type:input layer
+- channel number, y, x
+
+For now, we are not really dealing with linear and flatten layers (This is only there for initial contrib calculation and will remain so for some time).  
+It might be best to actually not keep these in the codebase only for now bc.  
+
+
+# Model schema
+Again, we have layer name, layer type
+Dependening on layer type, you have different params
+this is all the metadata related to a layer
+
+## type:conv2d
+- input channels
+- output channels
+- kernel size
+- padding
+- dilation
+- stride
+
+## type:relu
+- channels
+
+## type:input
+- channels
