@@ -30,7 +30,7 @@ def build_ui_graph(
     Returns:
         NetworkX directed graph with UI-optimized node types where:
         - Nodes are UI graph node objects (Conv2dInputPatchNode, etc.)
-        - Edges point from parent to child nodes
+        - Edges point from child to parent nodes
         - Conv2dSliceCoordinate -> [Conv2dInputCoordinate] relationships are
           consolidated into single Conv2dInputPatchNode objects
           

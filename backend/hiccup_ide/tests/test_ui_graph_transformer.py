@@ -82,7 +82,7 @@ def test_transform_conv2d_slice_to_patch_node(sample_conv_slice, sample_conv_inp
     
     for input_coord in sample_conv_input_coords:
         raw_graph.add_node(input_coord)
-        raw_graph.add_edge(input_coord, sample_conv_slice)  # input -> slice (parent -> child)
+        raw_graph.add_edge(sample_conv_slice, input_coord)  # slice -> input (child -> parent)
     
     # Transform to UI graph
     ui_graph = transform_raw_graph_to_ui_graph(raw_graph)
@@ -143,13 +143,13 @@ def test_complex_graph_transformation(sample_conv_output, sample_conv_slice, sam
     for input_coord in sample_conv_input_coords:
         raw_graph.add_node(input_coord)
     
-    # Add edges: input_coords -> slice -> output, relu_input follows  
+    # Add edges: child -> parent direction
     for input_coord in sample_conv_input_coords:
-        raw_graph.add_edge(input_coord, sample_conv_slice)  # input -> slice
-    raw_graph.add_edge(sample_conv_slice, sample_conv_output)  # slice -> output
+        raw_graph.add_edge(sample_conv_slice, input_coord)  # slice -> input (child -> parent)
+    raw_graph.add_edge(sample_conv_output, sample_conv_slice)  # output -> slice (child -> parent)
     
     # Connect relu as next layer (relu follows some other path)
-    raw_graph.add_edge(sample_conv_input_coords[0], sample_relu_input)  # input -> relu
+    raw_graph.add_edge(sample_relu_input, sample_conv_input_coords[0])  # relu -> input (child -> parent)
     
     # Transform
     ui_graph = transform_raw_graph_to_ui_graph(raw_graph)
@@ -166,9 +166,9 @@ def test_complex_graph_transformation(sample_conv_output, sample_conv_slice, sam
     
     assert patch_node is not None
     
-    # Verify relationships are preserved
-    assert ui_graph.has_edge(patch_node, sample_conv_output)  # patch -> output 
-    assert ui_graph.has_edge(patch_node, sample_relu_input)   # patch -> relu
+    # Verify relationships are preserved (child -> parent direction)
+    assert ui_graph.has_edge(sample_conv_output, patch_node)  # output -> patch (child -> parent)
+    assert ui_graph.has_edge(sample_relu_input, patch_node)   # relu -> patch (child -> parent)
 
 
 def test_empty_graph():
@@ -239,8 +239,8 @@ def test_no_duplicate_edges():
     raw_graph.add_node(input_coord) 
     raw_graph.add_node(relu_input)
     
-    raw_graph.add_edge(input_coord, slice1)  # input -> slice
-    raw_graph.add_edge(input_coord, relu_input)  # input -> relu_input
+    raw_graph.add_edge(slice1, input_coord)  # slice -> input (child -> parent)
+    raw_graph.add_edge(relu_input, input_coord)  # relu_input -> input (child -> parent)
     
     ui_graph = transform_raw_graph_to_ui_graph(raw_graph)
     
@@ -255,7 +255,7 @@ def test_no_duplicate_edges():
             break
     
     assert patch_node is not None
-    assert ui_graph.has_edge(patch_node, relu_input)
+    assert ui_graph.has_edge(relu_input, patch_node)  # relu -> patch (child -> parent)
 
 
 def test_relu_output_removal():
@@ -328,7 +328,7 @@ def test_slice_coordinate_validation_errors():
     raw_graph2 = nx.DiGraph()
     raw_graph2.add_node(slice_coord)
     raw_graph2.add_node(input_coord_wrong_layer)
-    raw_graph2.add_edge(input_coord_wrong_layer, slice_coord)
+    raw_graph2.add_edge(slice_coord, input_coord_wrong_layer)
     
     with pytest.raises(ValueError, match="has layer_name.*but slice coordinate.*expects layer_name"):
         transform_raw_graph_to_ui_graph(raw_graph2)
@@ -347,7 +347,7 @@ def test_slice_coordinate_validation_errors():
     raw_graph3 = nx.DiGraph()
     raw_graph3.add_node(slice_coord)
     raw_graph3.add_node(input_coord_wrong_channel)
-    raw_graph3.add_edge(input_coord_wrong_channel, slice_coord)
+    raw_graph3.add_edge(slice_coord, input_coord_wrong_channel)
     
     with pytest.raises(ValueError, match="has channel.*but slice coordinate.*expects channel"):
         transform_raw_graph_to_ui_graph(raw_graph3)

@@ -35,7 +35,7 @@ def transform_raw_graph_to_ui_graph(raw_graph: nx.DiGraph) -> nx.DiGraph:
     Transformations:
     - Conv2dSliceCoordinate -> [Conv2dInputCoordinate] becomes Conv2dInputPatchNode
     - All other node types pass through unchanged
-    - Parent-child relationships are preserved with appropriate mapping
+    - Child-parent relationships are preserved with appropriate mapping
     
     Args:
         raw_graph: NetworkX directed graph with raw coordinate nodes
@@ -134,11 +134,12 @@ def _create_input_patch_node(
     raw_graph: nx.DiGraph, 
     raw_to_ui_mapping: Dict[Coordinate, UIGraphNode]
 ) -> Conv2dInputPatchNode:
-    """Create a Conv2dInputPatchNode from a Conv2dSliceCoordinate and its parents."""
+    """Create a Conv2dInputPatchNode from a Conv2dSliceCoordinate and its parent input coordinates."""
     
-    # Get all Conv2dInputCoordinate parents of this slice coordinate
+    # Get all Conv2dInputCoordinate parents of this slice coordinate  
+    # With child->parent edges, slice coordinate points to its input parents
     input_coords = []
-    for parent in raw_graph.predecessors(slice_coord):
+    for parent in raw_graph.successors(slice_coord):
         if isinstance(parent, Conv2dInputCoordinate):
             input_coords.append(parent)
     
@@ -203,7 +204,7 @@ def _create_ui_edges(
     
     processed_edges: Set[tuple[UIGraphNode, UIGraphNode]] = set()
     
-    for raw_parent, raw_child in raw_graph.edges():
+    for raw_child, raw_parent in raw_graph.edges():
         # Skip edges where either node was removed from UI graph
         if raw_parent not in raw_to_ui_mapping or raw_child not in raw_to_ui_mapping:
             # Validate that missing nodes are expected to be missing
@@ -230,7 +231,7 @@ def _create_ui_edges(
         ui_child = raw_to_ui_mapping[raw_child]
         
         # Avoid duplicate edges (important when multiple raw nodes map to same UI node)
-        edge = (ui_parent, ui_child)  # Parent -> Child direction as in raw graph
+        edge = (ui_child, ui_parent)  # Child -> Parent direction as in raw graph
         if edge not in processed_edges and ui_parent != ui_child:  # Avoid self-loops
-            ui_graph.add_edge(ui_parent, ui_child)
+            ui_graph.add_edge(ui_child, ui_parent)
             processed_edges.add(edge)

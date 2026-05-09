@@ -56,7 +56,7 @@ def build_graph(
     Returns:
         NetworkX directed graph where:
         - Nodes are coordinate objects (used directly as node IDs since they are immutable)
-        - Edges point from parent coordinates to child coordinates
+        - Edges point from child coordinates to parent coordinates
 
     Raises:
         ValueError: If an unsupported coordinate type is encountered
@@ -99,6 +99,6 @@ def _build_recursive(
             parent_coord, model_dfn, filter_func, visited, graph
         )
 
-        # Add edge from parent to current coordinate (if parent was included, filter_func might have rejected it)
+        # Add edge from current coordinate to parent (child -> parent direction)
         if parent_coord in graph:
-            graph.add_edge(parent_coord, coord)
+            graph.add_edge(coord, parent_coord)
