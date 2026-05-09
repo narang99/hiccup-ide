@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNodesState, useEdgesState, Panel } from '@xyflow/react';
 import { getPruningStatus, saveWorkSaliencyMaps, startPruning, finalizePruning, type PruningStatusResponse } from '../fetchers/graph';
 import SharedCanvas from './SharedCanvas';
@@ -11,6 +11,7 @@ import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 import type { SelectedNode } from '../types/node';
 import { PruneHistogramPreview } from './prune_preview/PruneHistogramPreview';
 import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
+import { getLayoutedLayerNodes } from '../layouts/layerLayout';
 
 import { useAliases } from '../hooks/useAliases';
 
@@ -209,11 +210,16 @@ export default function PruneGraphView() {
     );
   }
 
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => 
+    getLayoutedLayerNodes(nodes, edges, pageDirection),
+    [nodes, edges, pageDirection]
+  );
+
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
       <SharedCanvas
-        nodes={nodes}
-        edges={edges}
+        nodes={layoutedNodes}
+        edges={layoutedEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         pageDirection={pageDirection}

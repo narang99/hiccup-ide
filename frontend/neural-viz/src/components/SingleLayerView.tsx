@@ -1,5 +1,5 @@
 import { useNodesState, useEdgesState, Panel } from '@xyflow/react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import SharedCanvas from './SharedCanvas';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useSingleLayer } from '../hooks/useSingleLayer';
@@ -8,6 +8,7 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 import type { SelectedNode } from '../types/node';
 import { TopKSumSliderPreview } from './prune_preview/TopKSumSliderPreview';
+import { getLayoutedLayerNodes } from '../layouts/layerLayout';
 
 interface SingleLayerViewProps {
   modelAlias: string;
@@ -64,10 +65,15 @@ export default function SingleLayerView({
   }
 
 
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => 
+    getLayoutedLayerNodes(nodes, edges, pageDirection),
+    [nodes, edges, pageDirection]
+  );
+
   return (
         <SharedCanvas
-            nodes={nodes}
-            edges={edges}
+            nodes={layoutedNodes}
+            edges={layoutedEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             pageDirection={pageDirection}

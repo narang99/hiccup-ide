@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useModelVisualization } from '../hooks/useModelVisualization';
 import SharedCanvas from './SharedCanvas';
 import { useFetcherType } from '../hooks/useFetcherType';
@@ -7,6 +8,7 @@ import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { PruneGraphButton } from './PruneGraphButton';
 import { PrunedGraphToggle } from './PrunedGraphToggle';
 import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
+import { getLayoutedLayerNodes } from '../layouts/layerLayout';
 
 export default function ModelVisualization() {
   const { fetcherType } = useFetcherType();
@@ -19,6 +21,10 @@ export default function ModelVisualization() {
     onEdgesChange,
   } = useModelVisualization(fetcherType, pageDirection);
 
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => 
+    getLayoutedLayerNodes(nodes, edges, pageDirection),
+    [nodes, edges, pageDirection]
+  );
 
   if (!modelData) {
     return <div className="flex items-center justify-center h-screen">Loading model...</div>;
@@ -26,8 +32,8 @@ export default function ModelVisualization() {
 
   return (
     <SharedCanvas
-      nodes={nodes}
-      edges={edges}
+      nodes={layoutedNodes}
+      edges={layoutedEdges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       pageDirection={pageDirection}
