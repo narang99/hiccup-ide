@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge, useNodesState, useEdgesState } from '@xyflow/react';
 import { type ModelData } from '../types/model';
@@ -15,6 +15,7 @@ import { toggleDirection, type Direction } from '../types/direction';
 import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
+import { getLayoutedLayerNodes } from '../layouts/layerLayout';
 
 import { useAliases } from '../hooks/useAliases';
 import { getConvInputSliceStatus } from '../fetchers/sliceStatus';
@@ -246,10 +247,15 @@ export default function KernelSliceContribsView() {
         return <div className="flex items-center justify-center h-screen">Loading kernel details...</div>;
     }
 
+    const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => 
+        getLayoutedLayerNodes(nodes, edges, pageDirection),
+        [nodes, edges, pageDirection]
+    );
+
     return (
         <SharedCanvas
-            nodes={nodes}
-            edges={edges}
+            nodes={layoutedNodes}
+            edges={layoutedEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             fitView

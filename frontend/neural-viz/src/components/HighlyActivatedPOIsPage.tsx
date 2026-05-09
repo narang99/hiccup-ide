@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, type Node, type Edge, useNodesState, useEdgesState } from '@xyflow/react';
 import { useAliases } from '../hooks/useAliases';
@@ -14,6 +14,7 @@ import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { DEFAULT_FETCHERS } from '../fetchers';
 import { useQuery } from '@tanstack/react-query';
+import { getLayoutedLayerNodes } from '../layouts/layerLayout';
 
 interface PoiPayloadForRender {
     activation: UniqueActivationId;
@@ -215,11 +216,16 @@ export default function HighlyActivatedPOIsPage() {
         return <div className="flex items-center justify-center h-screen">Error loading POIs: {error.message}</div>;
     }
 
+    const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => 
+        getLayoutedLayerNodes(nodes, edges, pageDirection),
+        [nodes, edges, pageDirection]
+    );
+
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
             <SharedCanvas
-                nodes={nodes}
-                edges={edges}
+                nodes={layoutedNodes}
+                edges={layoutedEdges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 fitView

@@ -192,6 +192,8 @@ const createSliceToSumEdges = (inChannels: number): Edge[] => {
   return edges;
 };
 
+import { getLayoutedLayerNodes } from '../layouts/layerLayout';
+
 export default function KernelDetailView() {
   const { fetcherType } = useFetcherType();
   const pageDirection: Direction = "LR";
@@ -240,11 +242,12 @@ export default function KernelDetailView() {
     if (modelData && nodeId && kernelIndex) {
       const result = generateKernelDetailView(modelData, nodeId, parseInt(kernelIndex), modelAlias, inputAlias, workAlias);
       if (result) {
-        return { kernelNodes: result.nodes, kernelEdges: result.edges };
+        const { nodes, edges } = getLayoutedLayerNodes(result.nodes, result.edges, pageDirection);
+        return { kernelNodes: nodes, kernelEdges: edges };
       }
     }
     return { kernelNodes: [], kernelEdges: [] };
-  }, [modelData, nodeId, kernelIndex, generateKernelDetailView, modelAlias, inputAlias, workAlias]);
+  }, [modelData, nodeId, kernelIndex, generateKernelDetailView, modelAlias, inputAlias, workAlias, pageDirection]);
 
   const handleBackClick = () => {
     navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/`);
