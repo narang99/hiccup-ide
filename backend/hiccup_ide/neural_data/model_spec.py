@@ -14,13 +14,19 @@ class ImmutableModel(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class InputParams(ImmutableModel):
+    """Parameters for Input layers."""
+
+    output_shape: list[int]  # Output tensor shape (same as input shape)
+
+
 class InputNode(ImmutableModel):
     """Input layer node specification."""
 
     id: str
     type: Literal["Input"]
-    params: dict[str, Any] = Field(default_factory=dict)
-    shape: list[int]
+    params: InputParams
+    shape: list[int]  # Output shape (same as input shape for input nodes)
 
 
 class Conv2dParams(ImmutableModel):
@@ -31,6 +37,8 @@ class Conv2dParams(ImmutableModel):
     kernel_size: list[int]  # [height, width]
     stride: list[int]  # [height, width]
     padding: list[int]  # [height, width]
+    input_shape: list[int]  # Input tensor shape [batch, channels, height, width]
+    output_shape: list[int]  # Output tensor shape [batch, channels, height, width]
 
 
 class Conv2dNode(ImmutableModel):
@@ -39,7 +47,14 @@ class Conv2dNode(ImmutableModel):
     id: str
     type: Literal["Conv2d"]
     params: Conv2dParams
-    shape: list[int]
+    shape: list[int]  # Output shape (kept for backward compatibility)
+
+
+class ReLUParams(ImmutableModel):
+    """Parameters for ReLU layers."""
+
+    input_shape: list[int]  # Input tensor shape
+    output_shape: list[int]  # Output tensor shape (same as input for ReLU)
 
 
 class ReLUNode(ImmutableModel):
@@ -47,8 +62,15 @@ class ReLUNode(ImmutableModel):
 
     id: str
     type: Literal["ReLU"]
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: ReLUParams
     shape: list[int]
+
+
+class FlattenParams(ImmutableModel):
+    """Parameters for Flatten layers."""
+
+    input_shape: list[int]  # Input tensor shape (e.g., [batch, channels, height, width])
+    output_shape: list[int]  # Output tensor shape (e.g., [batch, flattened_size])
 
 
 class FlattenNode(ImmutableModel):
@@ -56,7 +78,7 @@ class FlattenNode(ImmutableModel):
 
     id: str
     type: Literal["Flatten"]
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: FlattenParams
     shape: list[int]
 
 
@@ -65,6 +87,8 @@ class LinearParams(ImmutableModel):
 
     in_features: int
     out_features: int
+    input_shape: list[int]  # Input tensor shape
+    output_shape: list[int]  # Output tensor shape
 
 
 class LinearNode(ImmutableModel):
@@ -76,12 +100,18 @@ class LinearNode(ImmutableModel):
     shape: list[int]
 
 
+class OutputParams(ImmutableModel):
+    """Parameters for Output layers."""
+
+    input_shape: list[int]  # Input tensor shape
+
+
 class OutputNode(ImmutableModel):
     """Output layer node specification."""
 
     id: str
     type: Literal["Output"]
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: OutputParams
     shape: list[int]
 
 
