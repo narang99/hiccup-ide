@@ -62,3 +62,13 @@ The top level workflow of the project is
   - This is the current work bench of user
   - They can take notes, prune graphs, every note and edit is related to a work bench
   - A user can create multiple work instances for a single input.  
+
+# Graph Building Development
+
+The project uses **type-driven development** for neural network coordinate dependency graphs. We maintain two distinct graph representations:
+
+1. **Raw Graphs**: Computational dependency graphs (internal use)
+2. **UI Graphs**: Visualization-optimized graphs (frontend consumption)
+
+For detailed architecture, type patterns, and usage guidelines, see:
+- [Graph Building Architecture](./backend/docs/graph-building.md)

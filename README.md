@@ -30,6 +30,9 @@ The first major concern is to get started with the minimum number of tools I nee
   - I could show the poi in earlier layer affecting it, then poi in the layer before it affecting it, basically show the maximal part of its receptive field to understand its story, might be useful
 
 
+- Ive made graph making facilities in backend. lets now see what we can do about this.  
+- Ive made a mistake also lol, i made the edges from parents to children
+ -  But that is not working
 
 
 
