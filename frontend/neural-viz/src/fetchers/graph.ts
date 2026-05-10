@@ -1,5 +1,5 @@
 import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
-import type { UIGraphNode } from '../types/ui_graph_coordinates';
+import type { Coordinate } from '../types/coordinates';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -134,12 +134,12 @@ export async function finalizePruning(
 }
 
 export interface LinkNode {
-  id: UIGraphNode;
+  id: Coordinate;
 }
 
 export interface LinkEdge {
-  source: UIGraphNode;
-  target: UIGraphNode;
+  source: Coordinate;
+  target: Coordinate;
 }
 
 export interface UIGraphNodeLinkData {

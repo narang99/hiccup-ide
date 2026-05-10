@@ -93,6 +93,42 @@ class ModelInputCoordinate(ModelInputGroup):
     x: int
 
 
+TuplifiedInputCoordinates = tuple[tuple[Conv2dInputCoordinate, tuple["Coordinate", ...]], ...]
+
+
+class Conv2dInputPatchNode(ImmutableModel):
+    """UI node representing a patch of input coordinates for Conv2d visualization.
+
+    This node consolidates multiple Conv2dInputCoordinate objects that form
+    the receptive field of a Conv2dSliceCoordinate into a single UI element
+    that can display the input patch with highlighted regions.
+    """
+
+    type: Literal["Conv2dInputPatchNode"]
+    layer_name: str
+    layer_type: Literal["conv2d"]
+    coordinate_type: Literal["input_patch"]
+
+    # The input channel this patch represents
+    in_channel: int
+
+    # The output channel this patch connects to
+    out_channel: int
+
+    # Patch boundaries (min/max coordinates of the receptive field)
+    patch_min_y: int
+    patch_min_x: int
+    patch_max_y: int
+    patch_max_x: int
+
+    # References to the original Conv2dInputCoordinate objects
+    # that form this patch (for detailed inspection if needed)
+    # Note: Using tuple instead of list to maintain hashability for NetworkX
+    # we keep tuple -> its individual parents link also
+    # this would be empty for now, just keeping it in the struct
+    input_coordinates: TuplifiedInputCoordinates
+
+
 Coordinate = Annotated[
     Union[
         Conv2dInputCoordinate,
@@ -101,6 +137,7 @@ Coordinate = Annotated[
         ModelInputCoordinate,
         ReLUInputCoordinate,
         ReLUOutputCoordinate,
+        Conv2dInputPatchNode,
     ],
     Field(discriminator="type"),
 ]
@@ -133,6 +170,8 @@ def to_coord_str(coord: Coordinate) -> str:
             return f"{c.layer_name}.out_{c.channel}"
         case ReLUOutputCoordinate() as c:
             return f"{c.layer_name}.out_{c.channel}"
+        case Conv2dInputPatchNode() as c:
+            return f"{c.layer_name}.patch.in_{c.in_channel}.out_{c.out_channel}"
         case _:
             assert_never(coord)
 
@@ -152,5 +191,7 @@ def to_coord_str_with_grid_position(coord: Coordinate) -> str:
             return f"{c.layer_name}.in_{c.channel} ({c.y}, {c.x})"
         case ReLUOutputCoordinate() as c:
             return f"{c.layer_name}.out_{c.channel} ({c.y}, {c.x})"
+        case Conv2dInputPatchNode() as c:
+            return f"{c.layer_name}.patch.in_{c.in_channel}.out_{c.out_channel} ({c.patch_min_y}:{c.patch_max_y}, {c.patch_min_x}:{c.patch_max_x})"
         case _:
             assert_never(coord)

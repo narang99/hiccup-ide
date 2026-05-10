@@ -1,5 +1,5 @@
 from typing import List
-from ninja import Router
+from ninja import Router, Schema
 from django.shortcuts import get_object_or_404
 import networkx as nx
 
@@ -9,20 +9,33 @@ from neural_data.types import (
     Coordinate, 
     Conv2dInputCoordinate,
     ReLUInputCoordinate,
+    ModelInputCoordinate,
     to_coord_str
 )
-from neural_data.ui_graph_types import UIGraphNode
 from neural_data.graph.raw import build_graph
 from neural_data.graph.ui_tfm import raw_to_ui_graph
 from neural_data.model_spec import ModelDefinition
 
 router = Router()
 
+class NodeSchema(Schema):
+    id: Coordinate
+
+class EdgeSchema(Schema):
+    source: Coordinate
+    target: Coordinate
+
+class UIGraphSchema(Schema):
+    nodes: List[NodeSchema]
+    edges: List[EdgeSchema]
+    directed: bool
+    multigraph: bool
+
 def filter_func(coord: Coordinate, work_graph: WorkGraph):
     # only allow pos saliency map coords
-    # Conv2dInputCoordinate and ReLUInputCoordinate are treated as "pass-through" 
+    # Input coordinates are treated as "pass-through" 
     # for the purpose of saliency filtering (they don't have their own saliency maps usually)
-    if isinstance(coord, (Conv2dInputCoordinate, ReLUInputCoordinate)):
+    if isinstance(coord, (Conv2dInputCoordinate, ReLUInputCoordinate, ModelInputCoordinate)):
         return True
     
     coord_str = to_coord_str(coord)
@@ -35,7 +48,10 @@ def filter_func(coord: Coordinate, work_graph: WorkGraph):
         # it might be an issue with data loading or pruning state
         raise Exception(f"Work saliency map does not exist for coordinate, query={coord_str} coord={coord}")
 
-@router.post("/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/ui-graph/")
+@router.post(
+    "/models/{model_alias}/inputs/{input_alias}/workflows/{work_alias}/ui-graph/",
+    response=UIGraphSchema
+)
 def get_ui_graph(
     request, 
     model_alias: str, 
@@ -63,7 +79,7 @@ def get_ui_graph(
     ui_graph = raw_to_ui_graph(full_raw_graph)
     
     # Convert to node-link format for JSON response
-    # Use edges=True (default in some versions) or rename manually to match frontend interface
+    # NetworkX node_link_data will use the Coordinate objects as IDs
     data = nx.node_link_data(ui_graph, edges="edges")
     
     return data

@@ -1,10 +1,10 @@
-import type { UIGraphNode } from "../types/ui_graph_coordinates";
+import type { Coordinate } from "../types/coordinates";
 
 /**
- * Generates a unique string ID for a UIGraphNode based on its type and properties.
+ * Generates a unique string ID for a Coordinate node based on its type and properties.
  * This is used for both node IDs and edge source/target references.
  */
-export const getUIGraphNodeId = (node: UIGraphNode): string => {
+export const getUIGraphNodeId = (node: Coordinate): string => {
   switch (node.type) {
     case "Conv2dInputPatchNode": {
       const miny = node.patch_min_y;
@@ -17,8 +17,15 @@ export const getUIGraphNodeId = (node: UIGraphNode): string => {
       return `${node.type} ${node.layer_name}.out_${node.channel} (${node.y}, ${node.x})`;
     case "ReLUInputCoordinate":
       return `${node.type} ${node.layer_name}.in_${node.channel} (${node.y}, ${node.x})`;
+    case "ReLUOutputCoordinate":
+      return `${node.type} ${node.layer_name}.out_${node.channel} (${node.y}, ${node.x})`;
+    case "Conv2dInputCoordinate":
+      return `${node.type} ${node.layer_name}.in_${node.channel} (${node.y}, ${node.x})`;
+    case "Conv2dSliceCoordinate":
+      return `${node.type} ${node.layer_name}.out_${node.out_channel}.in_${node.in_channel} (${node.y}, ${node.x})`;
+    case "ModelInputCoordinate":
+      return `${node.type} ${node.layer_name}.out_${node.channel} (${node.y}, ${node.x})`;
     default:
-      // Fallback for safety, though UIGraphNode is a union
       return `${(node as any).type} ${(node as any).layer_name} ${JSON.stringify(node)}`;
   }
 };
@@ -26,7 +33,7 @@ export const getUIGraphNodeId = (node: UIGraphNode): string => {
 /**
  * Generates a descriptive text label for the UI node.
  */
-export const getUIGraphNodeText = (node: UIGraphNode): string => {
+export const getUIGraphNodeText = (node: Coordinate): string => {
   const prefix = `${node.type} (${node.layer_name})`;
   const id = getUIGraphNodeId(node);
   
