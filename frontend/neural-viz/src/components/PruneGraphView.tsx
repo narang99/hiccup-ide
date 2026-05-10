@@ -125,6 +125,10 @@ export default function PruneGraphView() {
       setIsSaving(false);
     }
   };
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => 
+    getLayoutedLayerNodes(nodes, edges, pageDirection),
+    [nodes, edges, pageDirection]
+  );
 
   if (statusLoading) {
     return <div className="flex items-center justify-center h-screen">Loading pruning status...</div>;
@@ -210,10 +214,6 @@ export default function PruneGraphView() {
     );
   }
 
-  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => 
-    getLayoutedLayerNodes(nodes, edges, pageDirection),
-    [nodes, edges, pageDirection]
-  );
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>

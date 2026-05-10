@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   useNodesState,
@@ -24,6 +24,7 @@ import { PrunedGraphToggle } from '../PrunedGraphToggle';
 import { AttachedToSelectedNodeLayerSettings } from '../prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
 import { getLayoutedLayerNodes } from '../../layouts/layerLayout';
 import { makeConv2dOpNodes, makeConv2dOutputCoordNodes, makeDefaultNodes } from './mkNode';
+import { parseCoordinateFromURL } from '../../utils/urlCoordinateParser';
 
 const CHILD_WIDTH = 130;
 const CHILD_HEIGHT = 150;
@@ -64,7 +65,7 @@ const convertToReactFlowGraph = (
   fetcherType: FetcherType,
 ): [Node[], Edge[]] => {
   // convert the nodes first
-  let nodeIdByLayerNodeId = new Map<string, string>();
+  const nodeIdByLayerNodeId = new Map<string, string>();
   const nodes: Node[] = []
   for (const node of data.nodes) {
     const nodeId = getUIGraphNodeId(node.id);
@@ -96,6 +97,7 @@ const convertToReactFlowGraph = (
 
 const UIGraphView = () => {
   const { modelAlias, inputAlias, workAlias } = useParams();
+  const [searchParams] = useSearchParams();
   const { fetcherType } = useFetcherType();
   // const { isPruned } = usePruned();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -107,23 +109,17 @@ const UIGraphView = () => {
     setNodes,
   });
 
-  // For now, we'll use a hardcoded coordinate to start the graph
-  const startCoordinates = useMemo(() => [
-    {
-      type: "Conv2dOutputCoordinate",
-      layer_name: "layers.2",
-      layer_type: "conv2d",
-      coordinate_type: "output",
-      channel: 12,
-      y: 2,
-      x: 3,
-    }
-  ], []);
+  const coordinateOrError = useMemo(() => parseCoordinateFromURL(searchParams), [searchParams]);
+
+  const startCoordinates = useMemo(() => {
+    if (typeof coordinateOrError === 'string') return [];
+    return [coordinateOrError];
+  }, [coordinateOrError]);
 
   const { data: layoutedData, isLoading, error } = useQuery({
     queryKey: ['uiGraph', modelAlias, inputAlias, workAlias, startCoordinates, fetcherType],
     queryFn: () => getUIGraph(modelAlias!, inputAlias!, workAlias!, startCoordinates),
-    enabled: !!modelAlias && !!inputAlias && !!workAlias,
+    enabled: !!modelAlias && !!inputAlias && !!workAlias && typeof coordinateOrError !== 'string',
     select: (data) => {
       const [nodes, edges] = convertToReactFlowGraph(data, modelAlias!, inputAlias!, workAlias!, fetcherType)
       return getLayoutedLayerNodes(nodes, edges, PAGE_DIRECTION, 200);
@@ -137,12 +133,35 @@ const UIGraphView = () => {
     }
   }, [layoutedData, setNodes, setEdges]);
 
+  if (typeof coordinateOrError === 'string') {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center h-full text-center">
+        <h2 className="text-xl font-bold text-red-600 mb-4">Invalid Graph Parameters</h2>
+        <p className="bg-red-50 p-4 rounded border border-red-200 text-red-800 max-w-lg">
+          {coordinateOrError}
+        </p>
+        <p className="mt-4 text-gray-600">
+          Please provide valid coordinate parameters in the URL query string.
+        </p>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">Loading graph...</div>;
   }
 
   if (error) {
     return <div className="p-4 text-red-500">Error: {(error as Error).message}</div>;
+  }
+
+  if (nodes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-gray-900 text-white">
+        <h2 className="text-xl font-bold mb-2">Graph is Empty</h2>
+        <p className="text-gray-400">The backend returned no nodes for the specified coordinate.</p>
+      </div>
+    );
   }
 
   return (

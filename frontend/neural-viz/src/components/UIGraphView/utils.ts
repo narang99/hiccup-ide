@@ -32,6 +32,7 @@ export function createActivationNode(
     height: number,
     width: number,
     overlay?: OverlayAlgorithm,
+    link?: string,
 ): Node {
     return {
         id: nodeId,
@@ -48,6 +49,7 @@ export function createActivationNode(
             fetchers: DEFAULT_FETCHERS,
             fetcherType: fetcherType,
             overlayAlgorithm: overlay,
+            clickAction: link ? { type: 'link', link } : undefined,
         },
         position,
         parentId,

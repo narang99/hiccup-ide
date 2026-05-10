@@ -37,6 +37,8 @@ export const makeConv2dOpNodes = (
             end: [uiNode.input_patch.patch_max_x + 1, uiNode.input_patch.patch_max_y + 1],
         }],
     };
+    const sliceLink = `/models/${modelAlias}/${inputAlias}/${workAlias}/kernel-slice/${uiNode.output_slice.layer_name}/${uiNode.output_slice.out_channel}/${uiNode.output_slice.in_channel}`;
+
     nodes.push(createActivationNode(
         `${nodeId}-input`, 
         "Conv2dOp", 
@@ -50,6 +52,7 @@ export const makeConv2dOpNodes = (
         childHeight, 
         childWidth,
         rect, 
+        sliceLink,
     ));
 
     // push weight
@@ -65,6 +68,8 @@ export const makeConv2dOpNodes = (
         parentId,
         childHeight, 
         childWidth,
+        undefined,
+        sliceLink,
     ));
     
     // push output
@@ -80,6 +85,8 @@ export const makeConv2dOpNodes = (
         parentId,
         childHeight, 
         childWidth,
+        undefined,
+        sliceLink,
     ));
     // push kernel
 
@@ -114,6 +121,8 @@ export const makeConv2dOutputCoordNodes = (
         }],
     };
 
+    const contribsLink = `/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${uiNode.layer_name}/${uiNode.channel}`;
+
     nodes.push(createActivationNode(
         nodeId, 
         "Conv2dOutputCoord", 
@@ -127,6 +136,7 @@ export const makeConv2dOutputCoordNodes = (
         childHeight, 
         childWidth,
         rect, 
+        contribsLink,
     ));
 
     return [layerNodeId, nodes]

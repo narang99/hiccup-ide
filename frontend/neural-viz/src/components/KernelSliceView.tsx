@@ -121,6 +121,7 @@ const generateKernelSliceView = (
     onPixelLeave?: (nodeId: string, coordinate: string) => void,
     onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void,
     inputOverlay?: OverlayAlgorithm,
+    onFinalActPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void,
 ): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
     if (!targetNode || targetNode.type !== 'Conv2d') return null;
@@ -257,6 +258,42 @@ const generateKernelSliceView = (
         }
     ));
 
+    // 4. Final Activation Layer
+    const finalActLayout = makeEvenlySpacedLayout(1, childHeight, childWidth, padding, "TB");
+    const finalActLayerId = "final-activation-layer";
+    nodes.push({
+        id: finalActLayerId,
+        type: 'LayerNode',
+        position: { x: 0, y: 0 },
+        width: finalActLayout.parent.width,
+        height: finalActLayout.parent.height,
+        data: {
+            label: "Kernel Activation",
+            layerType: 'Conv2d',
+            nodeCount: 1,
+            handleDirection: pageDirection,
+        },
+    });
+    nodes.push(getActivationNode(
+        "final-act",
+        finalActLayout.children[0],
+        "Final Activation",
+        `${nodeId}.out_${kernelIdx}`,
+        "activation",
+        modelAlias,
+        inputAlias,
+        workAlias,
+        finalActLayerId,
+        childWidth,
+        childHeight,
+        null,
+        undefined,
+        undefined,
+        onPixelHover,
+        onPixelLeave,
+        onFinalActPixelClick
+    ));
+
 
     const edges: Edge[] = [
         {
@@ -272,6 +309,13 @@ const generateKernelSliceView = (
             target: outputLayerId,
             type: "default",
             style: { stroke: '#dc2626', strokeWidth: 2 },
+        },
+        {
+            id: "output-to-final",
+            source: outputLayerId,
+            target: finalActLayerId,
+            type: "default",
+            style: { stroke: '#94a3b8', strokeWidth: 2 },
         }
     ];
 
@@ -311,7 +355,7 @@ export default function KernelSliceView() {
 
     const handlePixelHover = useCallback((id: string, _: string, gridCoord: [number, number], _position: [number, number], value?: number) => {
         const [x, y] = gridCoord;
-        if (id === 'output-act' || id === 'output-saliency') {
+        if (id === 'output-act' || id === 'output-saliency' || id === 'final-act') {
             setInputOverlay(
                 getRectOverlayWithReceptiveField(x, y, KERNEL_SIZE, PADDING, STRIDE)
             );
@@ -329,6 +373,21 @@ export default function KernelSliceView() {
         setIsDialogOpen(true);
     }, []);
 
+    const handleFinalActPixelClick = useCallback((_id: string, _coord: string, gridCoord: [number, number] | null) => {
+        if (!gridCoord) return;
+        const [x, y] = gridCoord;
+        const params = new URLSearchParams({
+            type: 'Conv2dOutputCoordinate',
+            layer_name: nodeId!,
+            channel: kernelIndex!,
+            y: y.toString(),
+            x: x.toString(),
+            layer_type: 'conv2d',
+            coordinate_type: 'output'
+        });
+        window.open(`/models/${modelAlias}/${inputAlias}/${workAlias}/ui-graph/?${params.toString()}`, '_blank');
+    }, [modelAlias, inputAlias, workAlias, nodeId, kernelIndex]);
+
 
     useEffect(() => {
         if (modelData && nodeId && kernelIndex && inputIndex) {
@@ -344,14 +403,15 @@ export default function KernelSliceView() {
                 handlePixelHover,
                 handlePixelLeave,
                 handlePixelClick,
-                inputOverlay
+                inputOverlay,
+                handleFinalActPixelClick
             );
             if (result) {
                 setNodes(result.nodes);
                 setEdges(result.edges);
             }
         }
-    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay, modelAlias, inputAlias, workAlias]);
+    }, [modelData, nodeId, kernelIndex, inputIndex, setNodes, setEdges, handlePixelHover, handlePixelLeave, handlePixelClick, inputOverlay, modelAlias, inputAlias, workAlias, handleFinalActPixelClick]);
 
     const handleBackClick = () => {
         navigate(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${nodeId}/${kernelIndex}`);
