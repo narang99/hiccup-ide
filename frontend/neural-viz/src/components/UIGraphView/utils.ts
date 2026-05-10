@@ -1,38 +1,37 @@
 import '@xyflow/react/dist/style.css';
 import { type Node, type XYPosition } from '@xyflow/react';
-import { type Coordinate } from '../../types/coordinates';
 import { DEFAULT_FETCHERS, type FetcherType } from '../../fetchers';
 import type { OverlayAlgorithm } from '../../types/overlay';
 import { toggleDirection, type Direction } from '../../types/direction';
 
-function getCoordinateString(coord: Coordinate): string {
-    switch (coord.type) {
-        case 'Conv2dOutputCoordinate':
-            return `${coord.layer_name}.out_${coord.channel}`
-        case 'SingleConv2dOpNode':
-            return `${coord.input_patch.layer_name}.out_${coord.input_patch.channel}`
-        default:
-            // Fallback for types that might not have channel explicitly but are still activation-like
-            if ('layer_name' in coord) {
-                return `${coord.layer_name}.out_0`;
-            }
-            throw new Error(`Coordinate string generation not implemented for ${JSON.stringify(coord)}`);
-    }
-}
+// export function getCoordinateString(coord: Coordinate): string {
+//     switch (coord.type) {
+//         case 'Conv2dOutputCoordinate':
+//             return `${coord.layer_name}.out_${coord.channel}`
+//         case 'SingleConv2dOpNode':
+//             return `${coord.input_patch.layer_name}.out_${coord.input_patch.channel}`
+//         default:
+//             // Fallback for types that might not have channel explicitly but are still activation-like
+//             if ('layer_name' in coord) {
+//                 return `${coord.layer_name}.out_0`;
+//             }
+//             throw new Error(`Coordinate string generation not implemented for ${JSON.stringify(coord)}`);
+//     }
+// }
 
 export function createActivationNode(
     nodeId: string,
     label: string,
-    coord: Coordinate,
+    coordinate: string,
     modelAlias: string,
     inputAlias: string,
     workAlias: string | undefined,
-    overlay: OverlayAlgorithm,
     fetcherType: FetcherType,
     position: XYPosition,
     parentId: string,
     height: number,
-    width: number
+    width: number,
+    overlay?: OverlayAlgorithm,
 ): Node {
     return {
         id: nodeId,
@@ -41,7 +40,7 @@ export function createActivationNode(
         width,
         data: {
             handleDirection: null,
-            coordinate: getCoordinateString(coord),
+            coordinate,
             modelAlias,
             inputAlias,
             workAlias,

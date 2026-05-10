@@ -20,31 +20,66 @@ export const makeConv2dOpNodes = (
 ): [string, Node[]] => {
     const nodes: Node[] = [];
     const layerNodeId = `layer-${nodeId}`;
-    const layout = makeEvenlySpacedLayout(1, childHeight, childWidth, childPadding, childDirection);
-    nodes.push(getLayerNode(layerNodeId, layout.parent.width, layout.parent.height, 1, childDirection));
-
     const parentId = layerNodeId;
-    const position = layout.children[0]
+
+    // layout
+    const layout = makeEvenlySpacedLayout(3, childHeight, childWidth, childPadding, childDirection);
+
+    // push layer node
+    nodes.push(getLayerNode(layerNodeId, layout.parent.width, layout.parent.height, 3, childDirection));
+
+
+    // push input activation with rect
     const rect: OverlayAlgorithm = {
         type: 'DrawRect',
         start: [uiNode.input_patch.patch_min_x, uiNode.input_patch.patch_min_y],
         end: [uiNode.input_patch.patch_max_x + 1, uiNode.input_patch.patch_max_y + 1],
     };
-
     nodes.push(createActivationNode(
-        nodeId, 
+        `${nodeId}-input`, 
         "Conv2dOp", 
-        uiNode, 
+        `${uiNode.input_patch.layer_name}.out_${uiNode.input_patch.channel}`, 
         modelAlias, 
         inputAlias, 
         workAlias, 
-        rect, 
         fetcherType, 
-        position, 
+        layout.children[0], 
         parentId, 
         childHeight, 
         childWidth,
+        rect, 
     ));
+
+    // push weight
+    nodes.push(createActivationNode(
+        `${nodeId}-weight`, 
+        "Conv2dOp", 
+        `${uiNode.output_slice.layer_name}.out_${uiNode.output_slice.out_channel}.in_${uiNode.output_slice.in_channel}`, 
+        modelAlias, 
+        inputAlias, 
+        workAlias, 
+        "weight", 
+        layout.children[1], 
+        parentId,
+        childHeight, 
+        childWidth,
+    ));
+    
+    // push output
+    nodes.push(createActivationNode(
+        `${nodeId}-output`, 
+        "Conv2dOp", 
+        `${uiNode.output_slice.layer_name}.out_${uiNode.output_slice.out_channel}.in_${uiNode.output_slice.in_channel}`, 
+        modelAlias, 
+        inputAlias, 
+        workAlias, 
+        fetcherType, 
+        layout.children[2], 
+        parentId,
+        childHeight, 
+        childWidth,
+    ));
+    // push kernel
 
     return [layerNodeId, nodes]
 }
@@ -78,16 +113,16 @@ export const makeConv2dOutputCoordNodes = (
     nodes.push(createActivationNode(
         nodeId, 
         "Conv2dOutputCoord", 
-        uiNode, 
+        `${uiNode.layer_name}.out_${uiNode.channel}`,
         modelAlias, 
         inputAlias, 
         workAlias, 
-        rect, 
         fetcherType, 
         position, 
         parentId, 
         childHeight, 
         childWidth,
+        rect, 
     ));
 
     return [layerNodeId, nodes]
