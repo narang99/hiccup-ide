@@ -6,6 +6,46 @@
 The goal is to be as minimal as possible, with all the tools i use.  
 The first major concern is to get started with the minimum number of tools I need, the amount I use for analysis right now atleast using jupyter notebooks. I think I can do pretty fast development.   
 
+- I have a coordinate, it returns a graph to my code, we first create the backend for generating the graph and returning it
+
+# Subgraph visualisation
+- Do subgraph visualisation first, compare across multiple inputs for the same poi to see if the theme is the same.  
+- Done with visualising only the graph components, now we need to display it using activation flow nodes.  
+  - What shows what is the question lol.
+  - patch node queries the correct input activation and puts a rect on it
+  - relu input coord gets the relu input activation and shows it, although that is kinda hard (we only get support to get the input activation).  For now, we skip it, we show nothing, only Relu placeholder
+  - conv2doutputcoordinate should show the activation with the coordinate squared
+  - we good then i guess, we can consolidate the relu input patches into a single conv output patch too
+
+- What should i show then?
+  - conv2d out coordinate (single coordinate each, although its not very useful for now, but its okay)
+  - instead of Conv2dInputPatch we wanna show ReLUOutputPatch, why? because we dont have input saliency maps (we would need to pull the previous layers coordinate somehow)
+- order
+  - conv2d out -> 
+  - [conv2d slice] ->  
+  - [conv2d input, patch each] -> 
+  - [relu out, patch each, one for every input {equal to conv2d in}] -> 
+  - [relu in, patch each, one for every relu out] ->
+  - [conv2d output, patch each, one for every relu in, {equal to relu in}] ->
+    - each patch has output coords, for each useful coord, do the above again
+    - for each out, go above again
+  
+
+- my graph tfm needs more work
+  - conv2d out coord
+  - [slices] -> [in patch] -> [out relu]
+    - this is replaced by [relu out patch]
+    - for each point, you have num slices [relu out patch]
+- [we let relu in as is for now]
+  - then we have all relu in being coords which fan out
+  - technically, we can also make relu in [relu in patch] -> [conv2d out patch] -> [[con2d out coord]]
+  - instead of that for now, we simply fan out at relu in coord -> conv2d out coord
+
+
+- Algorithm
+  - [relu in -> conv2d out] = [conv2d out] {skip relu in}
+  - [slice coord -> in coord -> out relu] = [out relu patch]
+
 # TODO
 
 - in many places, the kernel is giving contribs to stuff caught which wasnt what it was catching
