@@ -13,8 +13,6 @@ from neural_data.types import (
     Coordinate,
     Conv2dSliceCoordinate,
     Conv2dInputCoordinate,
-    Conv2dOutputCoordinate,
-    ReLUInputCoordinate,
     ReLUOutputCoordinate,
     ModelInputCoordinate,
     Conv2dInputPatchNode,
