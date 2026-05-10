@@ -14,8 +14,8 @@ export const getLayoutedUIGraphNodes = (
 
   nodes.forEach((node) => {
     // Standard dimensions for our simple text nodes
-    const width = 250;
-    const height = 50;
+    const width = 130;
+    const height = 150;
     dagreGraph.setNode(node.id, { width, height });
   });
 
