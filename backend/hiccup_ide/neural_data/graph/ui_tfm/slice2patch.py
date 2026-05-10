@@ -108,11 +108,11 @@ def _get_patch_and_children(
     # We assume all leaf_coords belong to the same layer and channel
     representative = leaf_coords[0]
 
+    is_relu = isinstance(representative, ReLUOutputCoordinate)
     input_patch = SingleConv2dInputPatch(
         layer_name=representative.layer_name,
-        layer_type="relu"
-        if isinstance(representative, ReLUOutputCoordinate)
-        else "input",
+        layer_type="relu" if is_relu else "input",
+        coordinate_type="output_patch" if is_relu else "input_patch",
         channel=representative.channel,
         patch_min_y=min_y,
         patch_min_x=min_x,
@@ -124,6 +124,8 @@ def _get_patch_and_children(
     patch_node = SingleConv2dOpNode(
         type="SingleConv2dOpNode",
         layer_name=root.layer_name,
+        layer_type="conv2d",
+        coordinate_type="single_conv2d_op",
         input_patch=input_patch,
     )
 

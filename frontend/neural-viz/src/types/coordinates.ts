@@ -132,6 +132,7 @@ export interface Conv2dInputPatchNode extends ImmutableModel {
 export interface SingleConv2dInputPatch extends ImmutableModel {
   readonly layer_name: string;
   readonly layer_type: "relu" | "input";
+  readonly coordinate_type: "output_patch" | "input_patch";
   readonly channel: number;
 
   // Patch boundaries
@@ -147,6 +148,8 @@ export interface SingleConv2dInputPatch extends ImmutableModel {
 export interface SingleConv2dOpNode extends ImmutableModel {
   readonly type: "SingleConv2dOpNode";
   readonly layer_name: string;
+  readonly layer_type: "conv2d";
+  readonly coordinate_type: "single_conv2d_op";
   readonly input_patch: SingleConv2dInputPatch;
 }
 

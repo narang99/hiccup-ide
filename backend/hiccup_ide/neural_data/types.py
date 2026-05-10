@@ -134,6 +134,7 @@ class SingleConv2dInputPatch(ImmutableModel):
 
     layer_name: str
     layer_type: Literal["relu", "input"]
+    coordinate_type: Literal["output_patch", "input_patch"]
     channel: int
 
     # Patch boundaries
@@ -156,6 +157,8 @@ class SingleConv2dOpNode(ImmutableModel):
 
     type: Literal["SingleConv2dOpNode"]
     layer_name: str
+    layer_type: Literal["conv2d"]
+    coordinate_type: Literal["single_conv2d_op"]
     input_patch: SingleConv2dInputPatch
 
 
