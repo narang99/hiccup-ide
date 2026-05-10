@@ -10,6 +10,7 @@ import KernelSliceView from './components/KernelSliceView';
 import HighlyActivatedPOIsPage from './components/HighlyActivatedPOIsPage';
 import SingleLayerVisualization from './components/SingleLayerVisualization';
 import PruneGraphView from './components/PruneGraphView';
+import UIGraphView from './components/UIGraphView';
 import LandingPage from './components/LandingPage';
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ function App() {
                 <Route path="poi-viewer/:nodeId/:kernelIndex/:inputIndex" element={<HighlyActivatedPOIsPage />} />
                 <Route path="single-layer" element={<SingleLayerVisualization />} />
                 <Route path="prune-graph/" element={<PruneGraphView />} />
+                <Route path="ui-graph/" element={<UIGraphView />} />
               </Route>
               {/* Fallback for when aliases are missing - redirect to landing page */}
               <Route path="*" element={<Navigate to="/" replace />} />
