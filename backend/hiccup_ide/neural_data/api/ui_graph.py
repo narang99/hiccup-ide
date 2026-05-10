@@ -1,3 +1,4 @@
+from PIL.TiffImagePlugin import RESOLUTION_UNIT
 from typing import List
 from ninja import Router, Schema
 from django.shortcuts import get_object_or_404
@@ -9,6 +10,7 @@ from neural_data.types import (
     Coordinate, 
     Conv2dInputCoordinate,
     ReLUInputCoordinate,
+    ReLUOutputCoordinate,
     ModelInputCoordinate,
     to_coord_str
 )
@@ -35,7 +37,7 @@ def filter_func(coord: Coordinate, work_graph: WorkGraph):
     # only allow pos saliency map coords
     # Input coordinates are treated as "pass-through" 
     # for the purpose of saliency filtering (they don't have their own saliency maps usually)
-    if isinstance(coord, (Conv2dInputCoordinate, ReLUInputCoordinate, ModelInputCoordinate)):
+    if isinstance(coord, (Conv2dInputCoordinate, ReLUOutputCoordinate, ReLUInputCoordinate, ModelInputCoordinate)):
         return True
     
     coord_str = to_coord_str(coord)
@@ -73,16 +75,16 @@ def get_ui_graph(
     bound_filter = partial(filter_func, work_graph=work_graph)
     
     # Build raw graph from all coordinates provided, applying the saliency filter
-    full_raw_graph = nx.DiGraph()
+    full_graph = nx.DiGraph()
     for coord in payload:
         g = build_graph(coord, model_dfn, filter_func=bound_filter)
-        full_raw_graph = nx.compose(full_raw_graph, g)
+        full_graph = nx.compose(full_graph, g)
             
     # Transform to UI graph
-    ui_graph = raw_to_ui_graph(full_raw_graph)
+    full_graph = raw_to_ui_graph(full_graph)
     
     # Convert to node-link format for JSON response
     # NetworkX node_link_data will use the Coordinate objects as IDs
-    data = nx.node_link_data(ui_graph, edges="edges")
+    data = nx.node_link_data(full_graph, edges="edges")
     
     return data

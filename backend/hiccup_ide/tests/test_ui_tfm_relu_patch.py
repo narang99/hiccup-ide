@@ -6,14 +6,15 @@ from neural_data.types import (
     ReLUOutputCoordinate,
     ReLUOutputPatchNode,
     ModelInputCoordinate,
+    ModelInputPatchNode,
 )
-from neural_data.graph.ui_tfm.slice2reluoutputpatch import Slice2ReLUOutputPatchStrategy
+from neural_data.graph.ui_tfm.slice2reluoutputpatch import Slice2PatchStrategy
 from neural_data.graph.ui_tfm.core import Consumed, Skip
 
 
 def test_slice2relu_strategy_matches_pattern():
     # Arrange
-    strategy = Slice2ReLUOutputPatchStrategy()
+    strategy = Slice2PatchStrategy()
     raw_graph = nx.DiGraph()
     
     # Pattern: Slice -> Input -> ReLU
@@ -88,11 +89,11 @@ def test_slice2relu_strategy_matches_pattern():
     assert model_input in tfm_graph.successors(patch_node)
 
 
-def test_slice2relu_strategy_skips_non_relu():
+def test_slice2patch_strategy_handles_model_input():
     # Arrange
-    strategy = Slice2ReLUOutputPatchStrategy()
+    strategy = Slice2PatchStrategy()
     raw_graph = nx.DiGraph()
-    
+
     slice_node = Conv2dSliceCoordinate(
         type="Conv2dSliceCoordinate",
         layer_name="conv1",
@@ -103,7 +104,6 @@ def test_slice2relu_strategy_skips_non_relu():
         y=0,
         x=0,
     )
-    
     input_node = Conv2dInputCoordinate(
         type="Conv2dInputCoordinate",
         layer_name="conv1",
@@ -113,9 +113,9 @@ def test_slice2relu_strategy_skips_non_relu():
         y=0,
         x=0,
     )
-    
-    # Non-ReLU successor
-    other_node = ModelInputCoordinate(
+
+    # ModelInput successor
+    model_input_node = ModelInputCoordinate(
         type="ModelInputCoordinate",
         layer_name="input",
         layer_type="input",
@@ -123,15 +123,68 @@ def test_slice2relu_strategy_skips_non_relu():
         y=0,
         x=0,
     )
-    
+
     raw_graph.add_edge(slice_node, input_node)
-    raw_graph.add_edge(input_node, other_node)
-    
+    raw_graph.add_edge(input_node, model_input_node)
+
     tfm_graph = nx.DiGraph()
     cache = {}
-    
+
+    # Act
+    result = strategy(slice_node, raw_graph, cache, tfm_graph, lambda *args, **kwargs: Consumed(nodes=[]))
+
+    # Assert
+    assert isinstance(result, Consumed)
+    patch_node = result.nodes[0]
+    assert isinstance(patch_node, ModelInputPatchNode)
+    assert patch_node.layer_type == "input"
+
+
+def test_slice2patch_strategy_skips_invalid_types():
+    # Arrange
+    strategy = Slice2PatchStrategy()
+    raw_graph = nx.DiGraph()
+
+    slice_node = Conv2dSliceCoordinate(
+        type="Conv2dSliceCoordinate",
+        layer_name="conv1",
+        layer_type="conv2d",
+        coordinate_type="slice",
+        in_channel=0,
+        out_channel=0,
+        y=0,
+        x=0,
+    )
+    input_node = Conv2dInputCoordinate(
+        type="Conv2dInputCoordinate",
+        layer_name="conv1",
+        layer_type="conv2d",
+        coordinate_type="input",
+        channel=0,
+        y=0,
+        x=0,
+    )
+
+    # Invalid successor (e.g., another Conv2dInputCoordinate instead of ReLU or ModelInput)
+    invalid_node = Conv2dInputCoordinate(
+        type="Conv2dInputCoordinate",
+        layer_name="conv2",
+        layer_type="conv2d",
+        coordinate_type="input",
+        channel=0,
+        y=0,
+        x=0,
+    )
+
+    raw_graph.add_edge(slice_node, input_node)
+    raw_graph.add_edge(input_node, invalid_node)
+
+    tfm_graph = nx.DiGraph()
+    cache = {}
+
     # Act
     result = strategy(slice_node, raw_graph, cache, tfm_graph, None)
 
     # Assert
     assert isinstance(result, Skip)
+

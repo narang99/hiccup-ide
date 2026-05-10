@@ -1,5 +1,5 @@
 import itertools
-from typing import cast
+from typing import cast, Union
 import networkx as nx
 from neural_data.types import (
     Coordinate,
@@ -7,21 +7,24 @@ from neural_data.types import (
     Conv2dInputCoordinate,
     ReLUOutputCoordinate,
     ReLUOutputPatchNode,
+    ModelInputCoordinate,
+    ModelInputPatchNode,
     TuplifiedInputCoordinates,
 )
 from .core import Skip, Consumed, RecurseStrategy, RecurseStrategyResult, CacheType
 from .common import must_consume
 
 
-class Slice2ReLUOutputPatchStrategy:
-    """Consolidates ReLU outputs into a single UI Patch node.
+class Slice2PatchStrategy:
+    """Consolidates ReLU outputs or Model inputs into a single UI Patch node.
 
     This strategy looks for a Conv2dSliceCoordinate followed by
     Conv2dInputCoordinates, each of which must have exactly one
-    ReLUOutputCoordinate successor.
+    ReLUOutputCoordinate or ModelInputCoordinate successor.
 
     Pattern:
     - conv2d slice coord -> [conv2d input coords] -> [relu out coords]
+    - conv2d slice coord -> [conv2d input coords] -> [model input coords]
     """
 
     def __call__(
@@ -41,15 +44,27 @@ class Slice2ReLUOutputPatchStrategy:
         ):
             return Skip()
 
-        # Check if every Conv2dInputCoordinate has exactly one ReLUOutputCoordinate successor
-        relu_outputs: list[ReLUOutputCoordinate] = []
+        # Check if every Conv2dInputCoordinate has exactly one successor
+        # and that all these successors are of the same type (either ReLU or Model Input)
+        leaf_coords: list[Union[ReLUOutputCoordinate, ModelInputCoordinate]] = []
+        target_type = None
+
         for s in successors:
             grand_successors = list(raw_graph.successors(s))
-            if len(grand_successors) != 1 or not isinstance(
-                grand_successors[0], ReLUOutputCoordinate
-            ):
+            if len(grand_successors) != 1:
                 return Skip()
-            relu_outputs.append(cast(ReLUOutputCoordinate, grand_successors[0]))
+            
+            gs = grand_successors[0]
+            if not isinstance(gs, (ReLUOutputCoordinate, ModelInputCoordinate)):
+                return Skip()
+            
+            if target_type is None:
+                target_type = type(gs)
+            elif not isinstance(gs, target_type):
+                # Mixed types are not supported by this strategy
+                return Skip()
+                
+            leaf_coords.append(gs)
 
         # Handle caching
         if root in cache:
@@ -57,7 +72,7 @@ class Slice2ReLUOutputPatchStrategy:
 
         patch_node, children = _get_patch_and_children(
             root,
-            relu_outputs,
+            leaf_coords,
             raw_graph,
             cache,
             tfm_graph,
@@ -74,58 +89,66 @@ class Slice2ReLUOutputPatchStrategy:
 
 def _get_patch_and_children(
     root: Conv2dSliceCoordinate,
-    relu_coords: list[ReLUOutputCoordinate],
+    leaf_coords: list[Union[ReLUOutputCoordinate, ModelInputCoordinate]],
     raw_graph: nx.DiGraph,
     cache: CacheType,
     tfm_graph: nx.DiGraph,
     main_strategy: RecurseStrategy,
-) -> tuple[ReLUOutputPatchNode, list[Coordinate]]:
-    relu_coord_by_ui_children = {}
-    for relu_coord in relu_coords:
-        its_children = list(raw_graph.successors(relu_coord))
+) -> tuple[Union[ReLUOutputPatchNode, ModelInputPatchNode], list[Coordinate]]:
+    leaf_coord_by_ui_children = {}
+    for leaf_coord in leaf_coords:
+        its_children = list(raw_graph.successors(leaf_coord))
         ui_children = must_consume(
             its_children, raw_graph, cache, tfm_graph, main_strategy
         )
-        relu_coord_by_ui_children[relu_coord] = ui_children
+        leaf_coord_by_ui_children[leaf_coord] = ui_children
 
-    min_y, min_x, max_y, max_x = _get_patch_boundaries(relu_coords)
+    min_y, min_x, max_y, max_x = _get_patch_boundaries(leaf_coords)
     
-    # We assume all relu_coords belong to the same layer and channel 
-    # since they are all successors of Conv2dInputCoordinates from the same Conv2dSliceCoordinate
-    # which points to a specific in_channel.
-    representative = relu_coords[0]
+    # We assume all leaf_coords belong to the same layer and channel 
+    representative = leaf_coords[0]
 
-    patch_node = ReLUOutputPatchNode(
-        type="ReLUOutputPatchNode",
-        layer_name=representative.layer_name,
-        layer_type="relu",
-        coordinate_type="output_patch",
-        channel=representative.channel,
-        patch_min_y=min_y,
-        patch_min_x=min_x,
-        patch_max_y=max_y,
-        patch_max_x=max_x,
-        input_coordinates=_tuplify_input_coords(relu_coord_by_ui_children),
-    )
+    if isinstance(representative, ReLUOutputCoordinate):
+        patch_node = ReLUOutputPatchNode(
+            type="ReLUOutputPatchNode",
+            layer_name=representative.layer_name,
+            layer_type="relu",
+            coordinate_type="output_patch",
+            channel=representative.channel,
+            patch_min_y=min_y,
+            patch_min_x=min_x,
+            patch_max_y=max_y,
+            patch_max_x=max_x,
+            input_coordinates=_tuplify_input_coords(leaf_coord_by_ui_children),
+        )
+    else:
+        patch_node = ModelInputPatchNode(
+            type="ModelInputPatchNode",
+            layer_name=representative.layer_name,
+            layer_type="input",
+            coordinate_type="input_patch",
+            channel=representative.channel,
+            patch_min_y=min_y,
+            patch_min_x=min_x,
+            patch_max_y=max_y,
+            patch_max_x=max_x,
+            input_coordinates=_tuplify_input_coords(leaf_coord_by_ui_children),
+        )
 
     all_ui_children = list(
-        itertools.chain.from_iterable(relu_coord_by_ui_children.values())
+        itertools.chain.from_iterable(leaf_coord_by_ui_children.values())
     )
     return patch_node, all_ui_children
 
 
 def _tuplify_input_coords(
-    ip_coord_by_ui_children: dict[ReLUOutputCoordinate, list[Coordinate]],
+    ip_coord_by_ui_children: dict[Union[ReLUOutputCoordinate, ModelInputCoordinate], list[Coordinate]],
 ) -> TuplifiedInputCoordinates:
-    # We reuse TuplifiedInputCoordinates even though it says Conv2dInputCoordinate in types.py
-    # Actually, let's check TuplifiedInputCoordinates definition.
-    # It is: tuple[tuple[Conv2dInputCoordinate, tuple["Coordinate", ...]], ...]
-    # I should probably update that type or use a more generic one if it's strictly typed.
     list_of_tuples = [(k, tuple(v)) for (k, v) in ip_coord_by_ui_children.items()]
     return tuple(list_of_tuples)
 
 
-def _get_patch_boundaries(input_coords: list[ReLUOutputCoordinate]):
+def _get_patch_boundaries(input_coords: list[Union[ReLUOutputCoordinate, ModelInputCoordinate]]):
     min_y = min(coord.y for coord in input_coords)
     max_y = max(coord.y for coord in input_coords)
     min_x = min(coord.x for coord in input_coords)

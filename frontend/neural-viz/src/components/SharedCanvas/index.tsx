@@ -16,7 +16,7 @@ interface SharedCanvasProps extends ReactFlowProps {
   pageDirection?: Direction;
 }
 
-export default function SharedCanvas({ children, pageDirection, ...props }: SharedCanvasProps) {
+export default function SharedCanvas({ children, ...props }: SharedCanvasProps) {
   const { handleNodeClick, handlePaneClick } = useSelectedNodeStore();
 
   return (

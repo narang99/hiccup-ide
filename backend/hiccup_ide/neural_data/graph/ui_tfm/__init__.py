@@ -8,13 +8,12 @@ field relationships into single patch nodes.
 import networkx as nx
 from neural_data.types import (
     Coordinate,
-    ReLUOutputCoordinate,
-    ModelInputCoordinate,
+    ReLUInputCoordinate,
 )
 from .core import Consumed, RecurseStrategy, RecurseStrategyResult, CacheType
-from .slice2convinputpatch import Conv2dPatchStrategy, ErrorStrategy
 from .pass_through import PassThroughStrategy
 from .omit_type import OmitNodeStrategy
+from .slice2reluoutputpatch import Slice2PatchStrategy
 
 
 class FirstMatchingOrFallback:
@@ -54,10 +53,11 @@ def raw_to_ui_graph(g: nx.DiGraph) -> nx.DiGraph:
 
     main_strategy = FirstMatchingOrFallback(
         [
-            Conv2dPatchStrategy(),
-            OmitNodeStrategy(ReLUOutputCoordinate),
-            OmitNodeStrategy(ModelInputCoordinate),
-            ErrorStrategy(),
+            Slice2PatchStrategy(),
+            # Conv2dPatchStrategy(),
+            OmitNodeStrategy(ReLUInputCoordinate),
+            # OmitNodeStrategy(ModelInputCoordinate),
+            # ErrorStrategy(),
             PassThroughStrategy(),
         ]
     )
