@@ -8,7 +8,7 @@ from neural_data.types import (
     ModelInputCoordinate,
     ModelInputPatchNode,
 )
-from neural_data.graph.ui_tfm.slice2reluoutputpatch import Slice2PatchStrategy
+from neural_data.graph.ui_tfm.slice2patch import Slice2PatchStrategy
 from neural_data.graph.ui_tfm.core import Consumed, Skip
 
 

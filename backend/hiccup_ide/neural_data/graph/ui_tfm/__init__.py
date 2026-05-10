@@ -13,7 +13,7 @@ from neural_data.types import (
 from .core import Consumed, RecurseStrategy, RecurseStrategyResult, CacheType
 from .pass_through import PassThroughStrategy
 from .omit_type import OmitNodeStrategy
-from .slice2reluoutputpatch import Slice2PatchStrategy
+from .slice2patch import Slice2PatchStrategy
 
 
 class FirstMatchingOrFallback:
