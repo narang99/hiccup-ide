@@ -42,6 +42,9 @@ def filter_func(coord: Coordinate, work_graph: WorkGraph):
     try:
         sm = WorkSaliencyMap.objects.get(coordinate=coord_str, graph=work_graph)
         # Check if the value at the specific grid position is positive
+        # we know it works because we only allow the coordinate types which have these
+        assert hasattr(coord, "y")
+        assert hasattr(coord, "x")
         return sm.data[coord.y][coord.x] > 0
     except WorkSaliencyMap.DoesNotExist:
         # If we can't find a saliency map for a coordinate that isn't Input, 
