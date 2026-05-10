@@ -103,7 +103,7 @@ export interface ModelInputCoordinate extends ChannelGroup {
 }
 
 export type TuplifiedInputCoordinates = ReadonlyArray<
-  readonly [Conv2dInputCoordinate, ReadonlyArray<Coordinate>]
+  readonly [Coordinate, ReadonlyArray<Coordinate>]
 >;
 
 export interface Conv2dInputPatchNode extends ImmutableModel {
@@ -129,6 +129,25 @@ export interface Conv2dInputPatchNode extends ImmutableModel {
   readonly input_coordinates: TuplifiedInputCoordinates;
 }
 
+export interface ReLUOutputPatchNode extends ImmutableModel {
+  readonly type: "ReLUOutputPatchNode";
+  readonly layer_name: string;
+  readonly layer_type: "relu";
+  readonly coordinate_type: "output_patch";
+
+  // The channel this patch represents
+  readonly channel: number;
+
+  // Patch boundaries
+  readonly patch_min_y: number;
+  readonly patch_min_x: number;
+  readonly patch_max_y: number;
+  readonly patch_max_x: number;
+
+  // References to the original ReLUOutputCoordinate objects
+  readonly input_coordinates: TuplifiedInputCoordinates;
+}
+
 export type Coordinate =
   | Conv2dInputCoordinate
   | Conv2dOutputCoordinate
@@ -136,7 +155,8 @@ export type Coordinate =
   | ModelInputCoordinate
   | ReLUInputCoordinate
   | ReLUOutputCoordinate
-  | Conv2dInputPatchNode;
+  | Conv2dInputPatchNode
+  | ReLUOutputPatchNode;
 
 export type Group =
   | Conv2dInputGroup

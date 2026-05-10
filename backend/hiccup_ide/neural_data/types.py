@@ -93,7 +93,7 @@ class ModelInputCoordinate(ModelInputGroup):
     x: int
 
 
-TuplifiedInputCoordinates = tuple[tuple[Conv2dInputCoordinate, tuple["Coordinate", ...]], ...]
+TuplifiedInputCoordinates = tuple[tuple["Coordinate", tuple["Coordinate", ...]], ...]
 
 
 class Conv2dInputPatchNode(ImmutableModel):
@@ -129,6 +129,32 @@ class Conv2dInputPatchNode(ImmutableModel):
     input_coordinates: TuplifiedInputCoordinates
 
 
+class ReLUOutputPatchNode(ImmutableModel):
+    """UI node representing a patch of ReLU output coordinates.
+
+    This node consolidates multiple ReLUOutputCoordinate objects that are
+    dependencies of a Conv2dSliceCoordinate (via Conv2dInputCoordinates)
+    into a single UI element.
+    """
+
+    type: Literal["ReLUOutputPatchNode"]
+    layer_name: str
+    layer_type: Literal["relu"]
+    coordinate_type: Literal["output_patch"]
+
+    # The channel this patch represents
+    channel: int
+
+    # Patch boundaries
+    patch_min_y: int
+    patch_min_x: int
+    patch_max_y: int
+    patch_max_x: int
+
+    # References to the original ReLUOutputCoordinate objects
+    input_coordinates: TuplifiedInputCoordinates
+
+
 Coordinate = Annotated[
     Union[
         Conv2dInputCoordinate,
@@ -138,6 +164,7 @@ Coordinate = Annotated[
         ReLUInputCoordinate,
         ReLUOutputCoordinate,
         Conv2dInputPatchNode,
+        ReLUOutputPatchNode,
     ],
     Field(discriminator="type"),
 ]
@@ -172,6 +199,8 @@ def to_coord_str(coord: Coordinate) -> str:
             return f"{c.layer_name}.out_{c.channel}"
         case Conv2dInputPatchNode() as c:
             return f"{c.layer_name}.patch.in_{c.in_channel}.out_{c.out_channel}"
+        case ReLUOutputPatchNode() as c:
+            return f"{c.layer_name}.patch.out_{c.channel}"
         case _:
             assert_never(coord)
 
@@ -193,5 +222,7 @@ def to_coord_str_with_grid_position(coord: Coordinate) -> str:
             return f"{c.layer_name}.out_{c.channel} ({c.y}, {c.x})"
         case Conv2dInputPatchNode() as c:
             return f"{c.layer_name}.patch.in_{c.in_channel}.out_{c.out_channel} ({c.patch_min_y}:{c.patch_max_y}, {c.patch_min_x}:{c.patch_max_x})"
+        case ReLUOutputPatchNode() as c:
+            return f"{c.layer_name}.patch.out_{c.channel} ({c.patch_min_y}:{c.patch_max_y}, {c.patch_min_x}:{c.patch_max_x})"
         case _:
             assert_never(coord)

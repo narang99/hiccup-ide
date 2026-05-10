@@ -13,6 +13,13 @@ export const getUIGraphNodeId = (node: Coordinate): string => {
       const maxx = node.patch_max_x;
       return `${node.type} ${node.layer_name}.out_${node.out_channel}.in_${node.in_channel} (${miny},${minx}:${maxy},${maxx})`;
     }
+    case "ReLUOutputPatchNode": {
+      const miny = node.patch_min_y;
+      const minx = node.patch_min_x;
+      const maxy = node.patch_max_y;
+      const maxx = node.patch_max_x;
+      return `${node.type} ${node.layer_name}.out_${node.channel} (${miny},${minx}:${maxy},${maxx})`;
+    }
     case "Conv2dOutputCoordinate":
       return `${node.type} ${node.layer_name}.out_${node.channel} (${node.y}, ${node.x})`;
     case "ReLUInputCoordinate":
@@ -38,7 +45,7 @@ export const getUIGraphNodeText = (node: Coordinate): string => {
   const id = getUIGraphNodeId(node);
   
   // If the ID already contains the descriptive info, we can just use it or a variant
-  if (node.type === "Conv2dInputPatchNode") {
+  if (node.type === "Conv2dInputPatchNode" || node.type === "ReLUOutputPatchNode") {
     return id;
   }
   

@@ -44,6 +44,12 @@ class Conv2dPatchStrategy:
     This strategy looks for a Conv2dSliceCoordinate that is followed strictly
     by Conv2dInputCoordinates. It 'gobbles' these children and replaces the
     subgraph with a single Conv2dInputPatchNode.
+
+    what it currently does is:
+    if it finds this subgraph:
+      - conv2d slice coord -> [conv2d input coords] 
+    it replaces with a single
+      - conv2d input patch
     """
 
     def __call__(
