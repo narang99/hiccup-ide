@@ -1,3 +1,6 @@
+# Remember the goal
+- TRACE ONE FULL CIRCUIT. Illuminated. Then we go to the next question. Thats it.  
+
 # Tool for convnet interpretation
 
 The goal is to be as minimal as possible, with all the tools i use.  
@@ -61,6 +64,11 @@ The first major concern is to get started with the minimum number of tools I nee
     - All ancestors to Conv2dSlice should point to Conv2dPatch (it would then have edges to its own)
 - What is the other way?
   - Can i write a recursive function?
+
+# Pre training some model and using embeddings for clustering
+- Can I pretrain a model on internal activations or something?
+  - Like make it predict the next thing or something?
+- The main goal is to get clustering? or no? Actually, ill think a bit more about this later. I think i can manually look at the illuminated path with the correct tools and guess what is happening
 
 
 # Progress
