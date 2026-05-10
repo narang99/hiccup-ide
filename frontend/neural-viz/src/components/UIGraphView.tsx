@@ -2,53 +2,64 @@ import { useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ReactFlow,
-  Background,
-  Controls,
   useNodesState,
   useEdgesState,
   type Node,
   type Edge,
+  Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { getUIGraph } from '../fetchers/graph';
 import { getLayoutedUIGraphNodes } from '../utils/graphLayout';
-import { getUIGraphNodeText, getUIGraphNodeId } from '../utils/uiGraphStrings';
+import { getUIGraphNodeId } from '../utils/uiGraphStrings';
 import type { LinkNode, LinkEdge } from '../fetchers/graph';
-import { ActivationFlowNode } from './nodes/ActivationFlowNode';
-import type { Coordinate, Conv2dOutputCoordinate } from '../types/coordinates';
-import { DEFAULT_FETCHERS } from '../fetchers';
-
-const nodeTypes = {
-  ActivationNode: ActivationFlowNode,
-};
+import type {
+  Coordinate
+} from '../types/coordinates';
+import { DEFAULT_FETCHERS, type FetcherType } from '../fetchers';
+import type { OverlayAlgorithm } from '../types/overlay';
+import SharedCanvas from './SharedCanvas';
+import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
+import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
+import { useFetcherType } from '../hooks/useFetcherType';
+import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
 
 /**
  * Returns the standardized coordinate string for activation fetching.
- * Only supports Conv2dOutputCoordinate currently.
  */
 function getCoordinateString(coord: Coordinate): string {
-  if (coord.type === 'Conv2dOutputCoordinate') {
-    return `${coord.layer_name}.out_${coord.channel}`;
+  switch (coord.type) {
+    case 'Conv2dOutputCoordinate':
+      return `${coord.layer_name}.out_${coord.channel}`
+    case 'ReLUOutputPatchNode':
+    case 'ModelInputPatchNode':
+      return `${coord.layer_name}.out_${coord.channel}`
+    default:
+      // Fallback for types that might not have channel explicitly but are still activation-like
+      if ('layer_name' in coord) {
+          return `${coord.layer_name}.out_0`;
+      }
+      throw new Error(`Coordinate string generation not implemented for type: ${coord.type}`);
   }
-  throw new Error(`Coordinate string generation not implemented for type: ${coord.type}`);
 }
 
 /**
- * Creates a React Flow node for a Conv2dOutputCoordinate.
+ * Creates a React Flow node for an ActivationFlowNode.
  */
-function createConv2dOutputNode(
+function createActivationNode(
   nodeId: string,
   label: string,
-  coord: Conv2dOutputCoordinate,
+  coord: Coordinate,
   modelAlias: string,
   inputAlias: string,
-  workAlias: string | undefined
+  workAlias: string | undefined,
+  overlay: OverlayAlgorithm,
+  fetcherType: FetcherType
 ): Node {
   return {
     id: nodeId,
-    type: 'ActivationNode',
+    type: 'ActivationFlowNode',
     height: 150,
     width: 130,
     data: {
@@ -58,12 +69,8 @@ function createConv2dOutputNode(
       workAlias,
       title: label,
       fetchers: DEFAULT_FETCHERS,
-      fetcherType: 'activation',
-      overlayAlgorithm: {
-        type: 'DrawRect',
-        start: [coord.x, coord.y],
-        end: [coord.x+1, coord.y+1],
-      },
+      fetcherType: fetcherType,
+      overlayAlgorithm: overlay,
     },
     position: { x: 0, y: 0 },
   };
@@ -88,16 +95,27 @@ function createReactFlowNode(
   node: LinkNode,
   modelAlias: string,
   inputAlias: string,
-  workAlias: string | undefined
+  workAlias: string | undefined,
+  fetcherType: FetcherType
 ): Node {
   const uiNode = node.id;
   const nodeId = getUIGraphNodeId(uiNode);
-  // const label = getUIGraphNodeText(uiNode);
-  const label = `${uiNode.layer_name} / ${uiNode.type}`
+  const label = `${uiNode.layer_name} / ${uiNode.type}`;
 
   switch (uiNode.type) {
     case 'Conv2dOutputCoordinate':
-      return createConv2dOutputNode(nodeId, label, uiNode, modelAlias, inputAlias, workAlias);
+      return createActivationNode(nodeId, label, uiNode, modelAlias, inputAlias, workAlias, {
+        type: 'DrawRect',
+        start: [uiNode.x, uiNode.y],
+        end: [uiNode.x+1, uiNode.y+1],
+      }, fetcherType);
+    case 'ReLUOutputPatchNode':
+    case 'ModelInputPatchNode':
+      return createActivationNode(nodeId, label, uiNode, modelAlias, inputAlias, workAlias, {
+        type: 'DrawRect',
+        start: [uiNode.patch_min_x, uiNode.patch_min_y],
+        end: [uiNode.patch_max_x+1, uiNode.patch_max_y+1],
+      }, fetcherType);
     default:
       return createDefaultNode(nodeId, label);
   }
@@ -105,8 +123,15 @@ function createReactFlowNode(
 
 const UIGraphView = () => {
   const { modelAlias, inputAlias, workAlias } = useParams();
+  const { fetcherType } = useFetcherType();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  useGlobalStateControl({
+    nodes,
+    fetcherType,
+    setNodes,
+  });
 
   // For now, we'll use a hardcoded coordinate to start the graph
   const startCoordinates = useMemo(() => [
@@ -122,13 +147,13 @@ const UIGraphView = () => {
   ], []);
 
   const { data: layoutedData, isLoading, error } = useQuery({
-    queryKey: ['uiGraph', modelAlias, inputAlias, workAlias, startCoordinates],
+    queryKey: ['uiGraph', modelAlias, inputAlias, workAlias, startCoordinates, fetcherType],
     queryFn: () => getUIGraph(modelAlias!, inputAlias!, workAlias!, startCoordinates),
     enabled: !!modelAlias && !!inputAlias && !!workAlias,
     select: (data) => {
       // Transform backend node-link data to React Flow format
       const rfNodes: Node[] = data.nodes.map((node: LinkNode) => 
-        createReactFlowNode(node, modelAlias!, inputAlias!, workAlias)
+        createReactFlowNode(node, modelAlias!, inputAlias!, workAlias, fetcherType)
       );
 
       const rfEdges: Edge[] = data.edges.map((edge: LinkEdge, index: number) => ({
@@ -157,20 +182,20 @@ const UIGraphView = () => {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow
+    <SharedCanvas
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
         fitView
-      >
-        <Background />
-        <Controls />
-      </ReactFlow>
-    </div>
+    >
+        <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+            <DataTypeSelector />
+            <ColormapSelector />
+        </Panel>
+    </SharedCanvas>
   );
 };
 
 export default UIGraphView;
+

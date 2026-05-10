@@ -45,7 +45,7 @@ export const ActivationDisplay = ({
   // Fall back to global context colormap when no explicit prop is passed
   const { colormap: globalColormap } = useColormap();
   const resolvedColormap: ColormapName = colormap ?? globalColormap;
-  const defaultRectColor = resolvedColormap === "rd_bk_gn" ? "#f59e0b" : "#000000";
+  const defaultRectColor = resolvedColormap === "rd_bk_gn" ? "#ffffff" : "#000000";
   const scale = COLORMAPS[resolvedColormap];
 
   const getCoordinates = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
