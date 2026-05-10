@@ -13,19 +13,9 @@ export const getUIGraphNodeId = (node: Coordinate): string => {
       const maxx = node.patch_max_x;
       return `${node.type} ${node.layer_name}.out_${node.out_channel}.in_${node.in_channel} (${miny},${minx}:${maxy},${maxx})`;
     }
-    case "ReLUOutputPatchNode": {
-      const miny = node.patch_min_y;
-      const minx = node.patch_min_x;
-      const maxy = node.patch_max_y;
-      const maxx = node.patch_max_x;
-      return `${node.type} ${node.layer_name}.out_${node.channel} (${miny},${minx}:${maxy},${maxx})`;
-    }
-    case "ModelInputPatchNode": {
-      const miny = node.patch_min_y;
-      const minx = node.patch_min_x;
-      const maxy = node.patch_max_y;
-      const maxx = node.patch_max_x;
-      return `${node.type} ${node.layer_name}.out_${node.channel} (${miny},${minx}:${maxy},${maxx})`;
+    case "SingleConv2dOpNode": {
+      const p = node.input_patch;
+      return `${node.type} ${node.layer_name}.op.${p.layer_name}.ch_${p.channel} (${p.patch_min_y},${p.patch_min_x}:${p.patch_max_y},${p.patch_max_x})`;
     }
     case "Conv2dOutputCoordinate":
       return `${node.type} ${node.layer_name}.out_${node.channel} (${node.y}, ${node.x})`;
@@ -52,7 +42,7 @@ export const getUIGraphNodeText = (node: Coordinate): string => {
   const id = getUIGraphNodeId(node);
   
   // If the ID already contains the descriptive info, we can just use it or a variant
-  if (node.type === "Conv2dInputPatchNode" || node.type === "ReLUOutputPatchNode" || node.type === "ModelInputPatchNode") {
+  if (node.type === "Conv2dInputPatchNode" || node.type === "SingleConv2dOpNode") {
     return id;
   }
   
@@ -75,9 +65,8 @@ export const getUIGraphNodeCoordinate = (node: Coordinate): string => {
       return `${node.layer_name}.out_${node.out_channel}.in_${node.in_channel}`;
     case "Conv2dInputPatchNode":
       return `${node.layer_name}.patch.in_${node.in_channel}.out_${node.out_channel}`;
-    case "ReLUOutputPatchNode":
-    case "ModelInputPatchNode":
-      return `${node.layer_name}.patch.out_${node.channel}`;
+    case "SingleConv2dOpNode":
+      return `${node.layer_name}.op.${node.input_patch.layer_name}.ch_${node.input_patch.channel}`;
     default:
       return "unknown.coordinate";
   }

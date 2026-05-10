@@ -12,6 +12,8 @@ from neural_data.types import (
     ReLUInputCoordinate,
     ReLUOutputCoordinate,
     ModelInputCoordinate,
+    Conv2dInputPatchNode,
+    SingleConv2dOpNode,
     to_coord_str
 )
 from neural_data.graph.raw import build_graph
@@ -37,7 +39,7 @@ def filter_func(coord: Coordinate, work_graph: WorkGraph):
     # only allow pos saliency map coords
     # Input coordinates are treated as "pass-through" 
     # for the purpose of saliency filtering (they don't have their own saliency maps usually)
-    if isinstance(coord, (Conv2dInputCoordinate, ReLUOutputCoordinate, ReLUInputCoordinate, ModelInputCoordinate)):
+    if isinstance(coord, (Conv2dInputCoordinate, ReLUOutputCoordinate, ReLUInputCoordinate, ModelInputCoordinate, Conv2dInputPatchNode, SingleConv2dOpNode)):
         return True
     
     coord_str = to_coord_str(coord)

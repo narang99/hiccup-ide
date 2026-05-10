@@ -129,20 +129,11 @@ class Conv2dInputPatchNode(ImmutableModel):
     input_coordinates: TuplifiedInputCoordinates
 
 
-class ReLUOutputPatchNode(ImmutableModel):
-    """UI node representing a patch of ReLU output coordinates.
+class SingleConv2dInputPatch(ImmutableModel):
+    """Data representing a patch of input coordinates for a single convolution operation."""
 
-    This node consolidates multiple ReLUOutputCoordinate objects that are
-    dependencies of a Conv2dSliceCoordinate (via Conv2dInputCoordinates)
-    into a single UI element.
-    """
-
-    type: Literal["ReLUOutputPatchNode"]
     layer_name: str
-    layer_type: Literal["relu"]
-    coordinate_type: Literal["output_patch"]
-
-    # The channel this patch represents
+    layer_type: Literal["relu", "input"]
     channel: int
 
     # Patch boundaries
@@ -151,34 +142,21 @@ class ReLUOutputPatchNode(ImmutableModel):
     patch_max_y: int
     patch_max_x: int
 
-    # References to the original ReLUOutputCoordinate objects
+    # References to the original coordinate objects
     input_coordinates: TuplifiedInputCoordinates
 
 
-class ModelInputPatchNode(ImmutableModel):
-    """UI node representing a patch of model input coordinates.
+class SingleConv2dOpNode(ImmutableModel):
+    """UI node representing a single channel convolution operation.
 
-    This node consolidates multiple ModelInputCoordinate objects that are
-    dependencies of a Conv2dSliceCoordinate (via Conv2dInputCoordinates)
+    This node consolidates multiple ReLUOutputCoordinate or ModelInputCoordinate
+    objects that are dependencies of a Conv2dSliceCoordinate (via Conv2dInputCoordinates)
     into a single UI element.
     """
 
-    type: Literal["ModelInputPatchNode"]
+    type: Literal["SingleConv2dOpNode"]
     layer_name: str
-    layer_type: Literal["input"]
-    coordinate_type: Literal["input_patch"]
-
-    # The channel this patch represents
-    channel: int
-
-    # Patch boundaries
-    patch_min_y: int
-    patch_min_x: int
-    patch_max_y: int
-    patch_max_x: int
-
-    # References to the original ModelInputCoordinate objects
-    input_coordinates: TuplifiedInputCoordinates
+    input_patch: SingleConv2dInputPatch
 
 
 Coordinate = Annotated[
@@ -190,8 +168,7 @@ Coordinate = Annotated[
         ReLUInputCoordinate,
         ReLUOutputCoordinate,
         Conv2dInputPatchNode,
-        ReLUOutputPatchNode,
-        ModelInputPatchNode,
+        SingleConv2dOpNode,
     ],
     Field(discriminator="type"),
 ]
@@ -208,6 +185,7 @@ Group = Annotated[
     Field(discriminator="type"),
 ]
 
+
 def to_coord_str(coord: Coordinate) -> str:
     match coord:
         case Conv2dInputCoordinate() as c:
@@ -215,9 +193,7 @@ def to_coord_str(coord: Coordinate) -> str:
         case Conv2dOutputCoordinate() as c:
             return f"{c.layer_name}.out_{c.channel}"
         case Conv2dSliceCoordinate() as c:
-            return (
-                f"{c.layer_name}.out_{c.out_channel}.in_{c.in_channel}"
-            )
+            return f"{c.layer_name}.out_{c.out_channel}.in_{c.in_channel}"
         case ModelInputCoordinate() as c:
             return f"{c.layer_name}.out_{c.channel}"
         case ReLUInputCoordinate() as c:
@@ -226,12 +202,11 @@ def to_coord_str(coord: Coordinate) -> str:
             return f"{c.layer_name}.out_{c.channel}"
         case Conv2dInputPatchNode() as c:
             return f"{c.layer_name}.patch.in_{c.in_channel}.out_{c.out_channel}"
-        case ReLUOutputPatchNode() as c:
-            return f"{c.layer_name}.patch.out_{c.channel}"
-        case ModelInputPatchNode() as c:
-            return f"{c.layer_name}.patch.out_{c.channel}"
+        case SingleConv2dOpNode() as c:
+            return f"{c.layer_name}.op.{c.input_patch.layer_name}.ch_{c.input_patch.channel}"
         case _:
             assert_never(coord)
+
 
 def to_coord_str_with_grid_position(coord: Coordinate) -> str:
     match coord:
@@ -251,9 +226,8 @@ def to_coord_str_with_grid_position(coord: Coordinate) -> str:
             return f"{c.layer_name}.out_{c.channel} ({c.y}, {c.x})"
         case Conv2dInputPatchNode() as c:
             return f"{c.layer_name}.patch.in_{c.in_channel}.out_{c.out_channel} ({c.patch_min_y}:{c.patch_max_y}, {c.patch_min_x}:{c.patch_max_x})"
-        case ReLUOutputPatchNode() as c:
-            return f"{c.layer_name}.patch.out_{c.channel} ({c.patch_min_y}:{c.patch_max_y}, {c.patch_min_x}:{c.patch_max_x})"
-        case ModelInputPatchNode() as c:
-            return f"{c.layer_name}.patch.out_{c.channel} ({c.patch_min_y}:{c.patch_max_y}, {c.patch_min_x}:{c.patch_max_x})"
+        case SingleConv2dOpNode() as c:
+            p = c.input_patch
+            return f"{c.layer_name}.op.{p.layer_name}.ch_{p.channel} ({p.patch_min_y}:{p.patch_max_y}, {p.patch_min_x}:{p.patch_max_x})"
         case _:
             assert_never(coord)

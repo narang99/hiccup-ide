@@ -4,9 +4,8 @@ from neural_data.types import (
     Conv2dSliceCoordinate,
     Conv2dInputCoordinate,
     ReLUOutputCoordinate,
-    ReLUOutputPatchNode,
     ModelInputCoordinate,
-    ModelInputPatchNode,
+    SingleConv2dOpNode,
 )
 from neural_data.graph.ui_tfm.slice2patch import Slice2PatchStrategy
 from neural_data.graph.ui_tfm.core import Consumed, Skip
@@ -77,11 +76,12 @@ def test_slice2relu_strategy_matches_pattern():
     assert isinstance(result, Consumed)
     assert len(result.nodes) == 1
     patch_node = result.nodes[0]
-    assert isinstance(patch_node, ReLUOutputPatchNode)
-    assert patch_node.layer_name == "relu1"
-    assert patch_node.channel == 0
-    assert patch_node.patch_min_y == 0
-    assert patch_node.patch_max_y == 0
+    assert isinstance(patch_node, SingleConv2dOpNode)
+    assert patch_node.layer_name == "conv1"
+    assert patch_node.input_patch.layer_name == "relu1"
+    assert patch_node.input_patch.channel == 0
+    assert patch_node.input_patch.patch_min_y == 0
+    assert patch_node.input_patch.patch_max_y == 0
     
     # Check if patch_node was added to tfm_graph
     assert patch_node in tfm_graph.nodes
@@ -136,8 +136,8 @@ def test_slice2patch_strategy_handles_model_input():
     # Assert
     assert isinstance(result, Consumed)
     patch_node = result.nodes[0]
-    assert isinstance(patch_node, ModelInputPatchNode)
-    assert patch_node.layer_type == "input"
+    assert isinstance(patch_node, SingleConv2dOpNode)
+    assert patch_node.input_patch.layer_type == "input"
 
 
 def test_slice2patch_strategy_skips_invalid_types():

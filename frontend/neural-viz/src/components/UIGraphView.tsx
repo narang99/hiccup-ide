@@ -36,9 +36,8 @@ function getCoordinateString(coord: Coordinate): string {
   switch (coord.type) {
     case 'Conv2dOutputCoordinate':
       return `${coord.layer_name}.out_${coord.channel}`
-    case 'ReLUOutputPatchNode':
-    case 'ModelInputPatchNode':
-      return `${coord.layer_name}.out_${coord.channel}`
+    case 'SingleConv2dOpNode':
+      return `${coord.input_patch.layer_name}.out_${coord.input_patch.channel}`
     default:
       // Fallback for types that might not have channel explicitly but are still activation-like
       if ('layer_name' in coord) {
@@ -111,14 +110,13 @@ function createReactFlowNode(
       return createActivationNode(nodeId, label, uiNode, modelAlias, inputAlias, workAlias, {
         type: 'DrawRect',
         start: [uiNode.x, uiNode.y],
-        end: [uiNode.x+1, uiNode.y+1],
+        end: [uiNode.x + 1, uiNode.y + 1],
       }, fetcherType);
-    case 'ReLUOutputPatchNode':
-    case 'ModelInputPatchNode':
+    case 'SingleConv2dOpNode':
       return createActivationNode(nodeId, label, uiNode, modelAlias, inputAlias, workAlias, {
         type: 'DrawRect',
-        start: [uiNode.patch_min_x, uiNode.patch_min_y],
-        end: [uiNode.patch_max_x+1, uiNode.patch_max_y+1],
+        start: [uiNode.input_patch.patch_min_x, uiNode.input_patch.patch_min_y],
+        end: [uiNode.input_patch.patch_max_x + 1, uiNode.input_patch.patch_max_y + 1],
       }, fetcherType);
     default:
       return createDefaultNode(nodeId, label);

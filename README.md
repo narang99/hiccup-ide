@@ -9,42 +9,16 @@ The first major concern is to get started with the minimum number of tools I nee
 - I have a coordinate, it returns a graph to my code, we first create the backend for generating the graph and returning it
 
 # Subgraph visualisation
-- Do subgraph visualisation first, compare across multiple inputs for the same poi to see if the theme is the same.  
-- Done with visualising only the graph components, now we need to display it using activation flow nodes.  
-  - What shows what is the question lol.
-  - patch node queries the correct input activation and puts a rect on it
-  - relu input coord gets the relu input activation and shows it, although that is kinda hard (we only get support to get the input activation).  For now, we skip it, we show nothing, only Relu placeholder
-  - conv2doutputcoordinate should show the activation with the coordinate squared
-  - we good then i guess, we can consolidate the relu input patches into a single conv output patch too
+- this is done. The full circuit is not giving the full story right now atleast.  
+- i get higher activations from each slice, i got those. i would also need to see the conv kernel though
+- We need more information
+  - I have, conv 2d out -> input slice directly
+  - for the input slice, i would want the kernel, and the output slice added too
+  - so we need to create a composite node with contains those
+  - the frontend shows layer node with these
 
-- What should i show then?
-  - conv2d out coordinate (single coordinate each, although its not very useful for now, but its okay)
-  - instead of Conv2dInputPatch we wanna show ReLUOutputPatch, why? because we dont have input saliency maps (we would need to pull the previous layers coordinate somehow)
-- order
-  - conv2d out -> 
-  - [conv2d slice] ->  
-  - [conv2d input, patch each] -> 
-  - [relu out, patch each, one for every input {equal to conv2d in}] -> 
-  - [relu in, patch each, one for every relu out] ->
-  - [conv2d output, patch each, one for every relu in, {equal to relu in}] ->
-    - each patch has output coords, for each useful coord, do the above again
-    - for each out, go above again
-  
-
-- my graph tfm needs more work
-  - conv2d out coord
-  - [slices] -> [in patch] -> [out relu]
-    - this is replaced by [relu out patch]
-    - for each point, you have num slices [relu out patch]
-- [we let relu in as is for now]
-  - then we have all relu in being coords which fan out
-  - technically, we can also make relu in [relu in patch] -> [conv2d out patch] -> [[con2d out coord]]
-  - instead of that for now, we simply fan out at relu in coord -> conv2d out coord
-
-
-- Algorithm
-  - [relu in -> conv2d out] = [conv2d out] {skip relu in}
-  - [slice coord -> in coord -> out relu] = [out relu patch]
+- Each point has a receptive field. in the earlier layers, it seems all patterns are fully captured or something. idk if this is relevant though
+- For our poi, we have multiple points picking up the diagonal left part of 4. They are picking the full breadth
 
 # TODO
 

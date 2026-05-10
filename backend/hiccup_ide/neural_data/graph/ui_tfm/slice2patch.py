@@ -6,9 +6,9 @@ from neural_data.types import (
     Conv2dSliceCoordinate,
     Conv2dInputCoordinate,
     ReLUOutputCoordinate,
-    ReLUOutputPatchNode,
     ModelInputCoordinate,
-    ModelInputPatchNode,
+    SingleConv2dOpNode,
+    SingleConv2dInputPatch,
     TuplifiedInputCoordinates,
 )
 from .core import Skip, Consumed, RecurseStrategy, RecurseStrategyResult, CacheType
@@ -94,7 +94,7 @@ def _get_patch_and_children(
     cache: CacheType,
     tfm_graph: nx.DiGraph,
     main_strategy: RecurseStrategy,
-) -> tuple[Union[ReLUOutputPatchNode, ModelInputPatchNode], list[Coordinate]]:
+) -> tuple[SingleConv2dOpNode, list[Coordinate]]:
     leaf_coord_by_ui_children = {}
     for leaf_coord in leaf_coords:
         its_children = list(raw_graph.successors(leaf_coord))
@@ -104,36 +104,28 @@ def _get_patch_and_children(
         leaf_coord_by_ui_children[leaf_coord] = ui_children
 
     min_y, min_x, max_y, max_x = _get_patch_boundaries(leaf_coords)
-    
-    # We assume all leaf_coords belong to the same layer and channel 
+
+    # We assume all leaf_coords belong to the same layer and channel
     representative = leaf_coords[0]
 
-    if isinstance(representative, ReLUOutputCoordinate):
-        patch_node = ReLUOutputPatchNode(
-            type="ReLUOutputPatchNode",
-            layer_name=representative.layer_name,
-            layer_type="relu",
-            coordinate_type="output_patch",
-            channel=representative.channel,
-            patch_min_y=min_y,
-            patch_min_x=min_x,
-            patch_max_y=max_y,
-            patch_max_x=max_x,
-            input_coordinates=_tuplify_input_coords(leaf_coord_by_ui_children),
-        )
-    else:
-        patch_node = ModelInputPatchNode(
-            type="ModelInputPatchNode",
-            layer_name=representative.layer_name,
-            layer_type="input",
-            coordinate_type="input_patch",
-            channel=representative.channel,
-            patch_min_y=min_y,
-            patch_min_x=min_x,
-            patch_max_y=max_y,
-            patch_max_x=max_x,
-            input_coordinates=_tuplify_input_coords(leaf_coord_by_ui_children),
-        )
+    input_patch = SingleConv2dInputPatch(
+        layer_name=representative.layer_name,
+        layer_type="relu"
+        if isinstance(representative, ReLUOutputCoordinate)
+        else "input",
+        channel=representative.channel,
+        patch_min_y=min_y,
+        patch_min_x=min_x,
+        patch_max_y=max_y,
+        patch_max_x=max_x,
+        input_coordinates=_tuplify_input_coords(leaf_coord_by_ui_children),
+    )
+
+    patch_node = SingleConv2dOpNode(
+        type="SingleConv2dOpNode",
+        layer_name=root.layer_name,
+        input_patch=input_patch,
+    )
 
     all_ui_children = list(
         itertools.chain.from_iterable(leaf_coord_by_ui_children.values())
