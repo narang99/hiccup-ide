@@ -24,6 +24,10 @@ import { DataTypeSelector } from './SharedCanvas/Controls/DataTypeSelector';
 import { ColormapSelector } from './SharedCanvas/Controls/ColormapSelector';
 import { useFetcherType } from '../hooks/useFetcherType';
 import { useGlobalStateControl } from '../hooks/useGlobalStateControl';
+import { usePruned } from '../hooks/usePruned';
+import { PruneGraphButton } from './PruneGraphButton';
+import { PrunedGraphToggle } from './PrunedGraphToggle';
+import { AttachedToSelectedNodeLayerSettings } from './prune_preview/AttachedToSelectedNodeTopKSumSliderPreview';
 
 /**
  * Returns the standardized coordinate string for activation fetching.
@@ -124,6 +128,7 @@ function createReactFlowNode(
 const UIGraphView = () => {
   const { modelAlias, inputAlias, workAlias } = useParams();
   const { fetcherType } = useFetcherType();
+  // const { isPruned } = usePruned();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -192,6 +197,9 @@ const UIGraphView = () => {
         <Panel position="top-right" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
             <DataTypeSelector />
             <ColormapSelector />
+            <AttachedToSelectedNodeLayerSettings />
+            <PrunedGraphToggle />
+            <PruneGraphButton />
         </Panel>
     </SharedCanvas>
   );

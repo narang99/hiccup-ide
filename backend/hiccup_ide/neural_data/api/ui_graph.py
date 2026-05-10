@@ -62,7 +62,7 @@ def get_ui_graph(
     model_alias: str, 
     input_alias: str, 
     work_alias: str, 
-    payload: List[Coordinate]
+    payload: List[Coordinate],
 ):
     model = get_object_or_404(Model, alias=model_alias)
     model_dfn = ModelDefinition.model_validate(model.definition)
