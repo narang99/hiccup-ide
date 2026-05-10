@@ -1,4 +1,5 @@
 import type { ActivationFilterAlgorithm } from '../types/activationFiltering';
+import type { UIGraphNode } from '../types/ui_graph_coordinates';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -129,8 +130,44 @@ export async function finalizePruning(
     }
   );
 
+  return response.json();
+}
+
+export interface LinkNode {
+  id: UIGraphNode;
+}
+
+export interface LinkEdge {
+  source: UIGraphNode;
+  target: UIGraphNode;
+}
+
+export interface UIGraphNodeLinkData {
+  nodes: LinkNode[];
+  edges: LinkEdge[];
+  multigraph: boolean;
+  directed: boolean;
+}
+
+export async function getUIGraph(
+  modelAlias: string,
+  inputAlias: string,
+  workAlias: string,
+  coordinates: any[]
+): Promise<UIGraphNodeLinkData> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/models/${modelAlias}/inputs/${inputAlias}/workflows/${workAlias}/ui-graph/`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(coordinates),
+    }
+  );
+
   if (!response.ok) {
-    throw new Error('Failed to finalize pruning session');
+    throw new Error('Failed to fetch UI graph');
   }
 
   return response.json();
