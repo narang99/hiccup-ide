@@ -2,7 +2,7 @@ import dagre from '@dagrejs/dagre';
 import { Position, type Node, type Edge } from '@xyflow/react';
 import type { Direction } from '../types/direction';
 
-export const getLayoutedLayerNodes = (nodes: Node[], edges: Edge[], pageDirection?: Direction): { nodes: Node[], edges: Edge[] } => {
+export const getLayoutedLayerNodes = (nodes: Node[], edges: Edge[], pageDirection?: Direction, ranksep?: number): { nodes: Node[], edges: Edge[] } => {
   const direction: Direction = (pageDirection === undefined) ? "LR" : pageDirection;
 
   if (nodes === undefined || edges === undefined) {
@@ -12,7 +12,7 @@ export const getLayoutedLayerNodes = (nodes: Node[], edges: Edge[], pageDirectio
   const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
   const isHorizontal = false;
-  dagreGraph.setGraph({ rankdir: direction });
+  dagreGraph.setGraph({ rankdir: direction, ranksep });
 
   // Only add LayerNode types to Dagre for positioning
   nodes.forEach((node) => {

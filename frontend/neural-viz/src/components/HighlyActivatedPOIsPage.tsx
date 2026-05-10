@@ -31,8 +31,10 @@ const getRectOverlayWithReceptiveField = (
 
     return {
         type: 'DrawRect',
-        start: [x_in_start, y_in_start],
-        end: [x_in_end, y_in_end],
+        rects: [{
+            start: [x_in_start, y_in_start],
+            end: [x_in_end, y_in_end],
+        }],
     }
 }
 

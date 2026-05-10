@@ -213,18 +213,19 @@ export const ActivationDisplay = ({
                 />
               ))
             )}
-            {overlayAlgorithm.type === 'DrawRect' && (
+            {overlayAlgorithm.type === 'DrawRect' && overlayAlgorithm.rects.map((rect, idx) => (
               <rect
-                x={overlayAlgorithm.start[0]}
-                y={overlayAlgorithm.start[1]}
-                width={overlayAlgorithm.end[0] - overlayAlgorithm.start[0]}
-                height={overlayAlgorithm.end[1] - overlayAlgorithm.start[1]}
+                key={idx}
+                x={rect.start[0]}
+                y={rect.start[1]}
+                width={rect.end[0] - rect.start[0]}
+                height={rect.end[1] - rect.start[1]}
                 fill="none"
-                stroke={overlayAlgorithm.color || defaultRectColor}
+                stroke={rect.color || defaultRectColor}
                 strokeWidth={0.5}
                 style={{ vectorEffect: 'non-scaling-stroke' }}
               />
-            )}
+            ))}
           </svg>
         </div>
       );

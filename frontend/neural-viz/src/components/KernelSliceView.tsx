@@ -100,8 +100,10 @@ const getRectOverlayWithReceptiveField = (
     const [start, end] = getReceptiveFieldCoords(x, y, kernel_size, padding, stride);
     return {
         type: 'DrawRect',
-        start: start,
-        end: end,
+        rects: [{
+            start: start,
+            end: end,
+        }],
     }
 }
 

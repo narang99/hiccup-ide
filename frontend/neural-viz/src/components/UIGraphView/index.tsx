@@ -126,13 +126,12 @@ const UIGraphView = () => {
     enabled: !!modelAlias && !!inputAlias && !!workAlias,
     select: (data) => {
       const [nodes, edges] = convertToReactFlowGraph(data, modelAlias!, inputAlias!, workAlias!, fetcherType)
-      return getLayoutedLayerNodes(nodes, edges, PAGE_DIRECTION);
+      return getLayoutedLayerNodes(nodes, edges, PAGE_DIRECTION, 200);
     }
   });
 
   useEffect(() => {
     if (layoutedData) {
-      console.log("setinggggggg", layoutedData.nodes);
       setNodes(layoutedData.nodes);
       setEdges(layoutedData.edges);
     }

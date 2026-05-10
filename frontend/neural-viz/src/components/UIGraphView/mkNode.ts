@@ -32,8 +32,10 @@ export const makeConv2dOpNodes = (
     // push input activation with rect
     const rect: OverlayAlgorithm = {
         type: 'DrawRect',
-        start: [uiNode.input_patch.patch_min_x, uiNode.input_patch.patch_min_y],
-        end: [uiNode.input_patch.patch_max_x + 1, uiNode.input_patch.patch_max_y + 1],
+        rects: [{
+            start: [uiNode.input_patch.patch_min_x, uiNode.input_patch.patch_min_y],
+            end: [uiNode.input_patch.patch_max_x + 1, uiNode.input_patch.patch_max_y + 1],
+        }],
     };
     nodes.push(createActivationNode(
         `${nodeId}-input`, 
@@ -106,8 +108,10 @@ export const makeConv2dOutputCoordNodes = (
     const position = layout.children[0]
     const rect: OverlayAlgorithm = {
         type: 'DrawRect',
-        start: [uiNode.x, uiNode.y],
-        end: [uiNode.x + 1, uiNode.y + 1],
+        rects: [{
+            start: [uiNode.x, uiNode.y],
+            end: [uiNode.x + 1, uiNode.y + 1],
+        }],
     };
 
     nodes.push(createActivationNode(
