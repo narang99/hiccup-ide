@@ -23,6 +23,7 @@ class WorkTreeOut(Schema):
     alias: str
     name: str
     is_pinned: bool = False
+    has_graph: bool = False
 
 class WorkIn(Schema):
     name: str

@@ -32,18 +32,24 @@ def root(request):
 
 @router.get("/workspace/", response=List[ModelTreeOut])
 def get_workspace(request):
-    models = Model.objects.all().prefetch_related('inputs__works__pinned')
+    models = Model.objects.all().prefetch_related(
+        'inputs__works__pinned', 
+        'inputs__works__graph__worksaliencymap_set'
+    )
     result = []
     for model in models:
         # Get all inputs for the model
-        inputs = Input.objects.filter(model=model).prefetch_related('works__pinned')
-        
+        inputs = Input.objects.filter(model=model).prefetch_related(
+            'works__pinned', 
+            'works__graph__worksaliencymap_set'
+        )
+
         # Sort inputs: those with pinned works first
         def input_has_pinned_work(input_obj):
             return any(hasattr(work, 'pinned') for work in input_obj.works.all())
-        
+
         sorted_inputs = sorted(inputs, key=input_has_pinned_work, reverse=True)
-        
+
         model_data = ModelTreeOut(
             alias=model.alias,
             name=model.name,
@@ -53,12 +59,13 @@ def get_workspace(request):
                     name=input_obj.name,
                     works=[
                         WorkTreeOut(
-                            alias=work.name, 
+                            alias=work.name,
                             name=work.name,
-                            is_pinned=hasattr(work, 'pinned')
+                            is_pinned=hasattr(work, 'pinned'),
+                            has_graph=hasattr(work, 'graph') and work.graph.worksaliencymap_set.exists()
                         )
                         for work in sorted(
-                            input_obj.works.all(), 
+                            input_obj.works.all(),
                             key=lambda w: (not hasattr(w, 'pinned'), w.created_at),
                             reverse=False
                         )
@@ -69,7 +76,6 @@ def get_workspace(request):
         )
         result.append(model_data)
     return result
-
 
 @router.get("/models/{model_alias}/", response=ModelOut)
 def get_model(request, model_alias: str):

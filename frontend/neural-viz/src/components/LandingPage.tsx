@@ -153,6 +153,7 @@ const LandingPage: React.FC = () => {
                               {work.alias}
                             </span>
                             {work.is_pinned && <span style={{ color: '#ffd700', fontSize: '0.8em', marginLeft: '6px' }}>★</span>}
+                            {work.has_graph && <span style={{ fontSize: '0.8em', marginLeft: '6px' }} title="Work graph exists">✂️</span>}
                           </Link>
                         </div>
                       );

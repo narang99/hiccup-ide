@@ -2,6 +2,7 @@ export interface WorkTree {
   alias: string;
   name: string;
   is_pinned: boolean;
+  has_graph: boolean;
 }
 
 export interface InputTree {
