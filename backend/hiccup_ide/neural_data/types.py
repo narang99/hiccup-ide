@@ -3,12 +3,14 @@
 NOTE: All types need to be consistently replicated in frontend at:
 frontend/neural-viz/src/types/coordinates.ts
 """
-from typing import Literal, Union, Annotated
+
+from typing import Literal, Union, Annotated, assert_never
 from pydantic import BaseModel, Field, ConfigDict
 
 
 class ImmutableModel(BaseModel):
     model_config = ConfigDict(frozen=True)
+
 
 class Conv2dSliceGroup(ImmutableModel):
     model_config = ConfigDict(frozen=True)
@@ -114,3 +116,41 @@ Group = Annotated[
     ],
     Field(discriminator="type"),
 ]
+
+def to_coord_str(coord: Coordinate) -> str:
+    match coord:
+        case Conv2dInputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel}"
+        case Conv2dOutputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel}"
+        case Conv2dSliceCoordinate() as c:
+            return (
+                f"{c.layer_name}.out_{c.out_channel}.in_{c.in_channel}"
+            )
+        case ModelInputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel}"
+        case ReLUInputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel}"
+        case ReLUOutputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel}"
+        case _:
+            assert_never(coord)
+
+def to_coord_str_with_grid_position(coord: Coordinate) -> str:
+    match coord:
+        case Conv2dInputCoordinate() as c:
+            return f"{c.layer_name}.in_{c.channel} ({c.y}, {c.x})"
+        case Conv2dOutputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel} ({c.y}, {c.x})"
+        case Conv2dSliceCoordinate() as c:
+            return (
+                f"{c.layer_name}.out_{c.out_channel}.in_{c.in_channel} ({c.y}, {c.x})"
+            )
+        case ModelInputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel} ({c.y}, {c.x})"
+        case ReLUInputCoordinate() as c:
+            return f"{c.layer_name}.in_{c.channel} ({c.y}, {c.x})"
+        case ReLUOutputCoordinate() as c:
+            return f"{c.layer_name}.out_{c.channel} ({c.y}, {c.x})"
+        case _:
+            assert_never(coord)

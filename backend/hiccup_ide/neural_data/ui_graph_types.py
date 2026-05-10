@@ -58,7 +58,6 @@ UIGraphNode = Annotated[
         # Pass-through types from raw graph (unchanged for UI)
         Conv2dOutputCoordinate,  # Used as-is
         ReLUInputCoordinate,     # Used as-is
-        ModelInputCoordinate,    # Used as-is
         # Note: These types are NOT included in UI graphs:
         # - Conv2dInputCoordinate: transformed into Conv2dInputPatchNode
         # - Conv2dSliceCoordinate: always transformed into Conv2dInputPatchNode

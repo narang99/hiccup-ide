@@ -58,9 +58,12 @@ def _tfm_root(
 
     match root:
         case Conv2dSliceCoordinate() as r:
-            patch_node, children = _get_patch_and_children(
+            patch_and_children= _get_patch_and_children(
                 r, raw_graph, cache, tfm_graph
             )
+            if not patch_and_children:
+                return []
+            patch_node, children = patch_and_children
             tfm_graph.add_node(patch_node)
             cache[r] = [patch_node]
             for c in children:
@@ -69,11 +72,13 @@ def _tfm_root(
         case ReLUInputCoordinate() as r:
             return _pass_through_dfs(r, raw_graph, cache, tfm_graph)
         case ModelInputCoordinate() as r:
-            return _pass_through_dfs(r, raw_graph, cache, tfm_graph)
+            # conv input patch handles it, no need for our model
+            return []
         case Conv2dOutputCoordinate() as r:
             return _pass_through_dfs(r, raw_graph, cache, tfm_graph)
         case ReLUOutputCoordinate() as r:
-            children = raw_graph.successors(r)
+            # return _pass_through_dfs(r, raw_graph, cache, tfm_graph)
+            children = list(raw_graph.successors(r))
             children = itertools.chain.from_iterable(
                 (_tfm_root(c, raw_graph, cache, tfm_graph) for c in children)
             )
@@ -93,15 +98,21 @@ def _tfm_root(
 
 
 def _pass_through_dfs(
-    r: ReLUInputCoordinate | ModelInputCoordinate | Conv2dOutputCoordinate,
+    r: ReLUInputCoordinate |  Conv2dOutputCoordinate,
     raw_graph: nx.DiGraph,
     cache: CacheType,
     tfm_graph: nx.DiGraph,
 ) -> list[UIGraphNode]:
+    # sp = isinstance(r, Conv2dOutputCoordinate) and r.layer_name == "layers.2"
     cache[r] = [r]
     tfm_graph.add_node(r)
-    for c in raw_graph.successors(r):
+    succs = list(raw_graph.successors(r))
+    # if sp:
+    #     print(f"doing conv2d-output: succs={len(succs)} {r.layer_name}")
+    for c in succs:
         ui_children = _tfm_root(c, raw_graph, cache, tfm_graph)
+        # if sp:
+        #     print("my ui children", len(ui_children))
         for ui_child in ui_children:
             tfm_graph.add_edge(r, ui_child)
     return [r]
@@ -109,13 +120,16 @@ def _pass_through_dfs(
 
 def _get_patch_and_children(
     root: Conv2dSliceCoordinate, raw_graph: nx.DiGraph, cache, tfm_graph
-) -> tuple[Conv2dInputPatchNode, list[UIGraphNode]]:
-    nodes = raw_graph.successors(root)
+) -> None | tuple[Conv2dInputPatchNode, list[UIGraphNode]]:
+    nodes = list(raw_graph.successors(root))
     _assert_nodes_of_type(nodes, Conv2dInputCoordinate)
     coords = cast(list[Conv2dInputCoordinate], nodes)
     ip_coord_by_ui_children = _get_ip_coords_by_ui_children(
         coords, raw_graph, cache, tfm_graph
     )
+    if not coords:
+        print(f"WARN: input coords for slice coordinate are empty, slice coordinate={root}")
+        return None
     min_y, min_x, max_y, max_x = _get_patch_boundaries(coords)
     patch_node = Conv2dInputPatchNode(
         type="Conv2dInputPatchNode",
@@ -140,11 +154,12 @@ def _get_ip_coords_by_ui_children(
     cache: CacheType,
     tfm_graph: nx.DiGraph,
 ) -> dict[Conv2dInputCoordinate, list[UIGraphNode]]:
-    ip_coord_by_children = {c: raw_graph.successors(c) for c in input_coords}
+    ip_coord_by_children = {c: list(raw_graph.successors(c)) for c in input_coords}
     ip_coord_by_ui_children = {}
     for ip_coord, its_children in ip_coord_by_children.items():
+        # print("finding child of", ip_coord, its_children)
         ui_children = (_tfm_root(c, raw_graph, cache, tfm_graph) for c in its_children)
-        ui_children = itertools.chain.from_iterable(ui_children)
+        ui_children = list(itertools.chain.from_iterable(ui_children))
         ip_coord_by_ui_children[ip_coord] = ui_children
     return ip_coord_by_ui_children
 
