@@ -151,6 +151,7 @@ export interface SingleConv2dOpNode extends ImmutableModel {
   readonly layer_type: "conv2d";
   readonly coordinate_type: "single_conv2d_op";
   readonly input_patch: SingleConv2dInputPatch;
+  readonly output_slice: Conv2dSliceCoordinate;
 }
 
 export type Coordinate =

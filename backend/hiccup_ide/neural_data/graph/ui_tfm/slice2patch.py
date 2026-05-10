@@ -127,6 +127,7 @@ def _get_patch_and_children(
         layer_type="conv2d",
         coordinate_type="single_conv2d_op",
         input_patch=input_patch,
+        output_slice=root,
     )
 
     all_ui_children = list(

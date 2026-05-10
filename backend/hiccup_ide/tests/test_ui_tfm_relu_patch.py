@@ -78,6 +78,7 @@ def test_slice2relu_strategy_matches_pattern():
     patch_node = result.nodes[0]
     assert isinstance(patch_node, SingleConv2dOpNode)
     assert patch_node.layer_name == "conv1"
+    assert patch_node.output_slice == slice_node
     assert patch_node.input_patch.layer_name == "relu1"
     assert patch_node.input_patch.channel == 0
     assert patch_node.input_patch.patch_min_y == 0

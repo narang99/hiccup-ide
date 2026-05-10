@@ -160,6 +160,7 @@ class SingleConv2dOpNode(ImmutableModel):
     layer_type: Literal["conv2d"]
     coordinate_type: Literal["single_conv2d_op"]
     input_patch: SingleConv2dInputPatch
+    output_slice: Conv2dSliceCoordinate
 
 
 Coordinate = Annotated[
