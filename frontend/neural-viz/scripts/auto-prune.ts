@@ -4,6 +4,7 @@
 import { startPruning, saveWorkSaliencyMaps, finalizePruning, getPruningStatus } from '../src/fetchers/graph.js';
 import { getTopKThreshold } from '../src/utils/topk.js';
 import { loadLayerSaliencyMaps } from '../src/fetchers/saliency_map.js';
+import { fetchWorkspace, createWork } from '../src/fetchers/workspace.js';
 import type { CoordinateAlgorithm, PruningStatusResponse } from '../src/fetchers/graph.js';
 import type { LayerSaliencyData } from '../src/fetchers/saliency_map.js';
 
@@ -133,49 +134,95 @@ async function autoPrune(options: AutoPruneOptions): Promise<void> {
 }
 
 /**
+ * Fetches all workspaces, creates work instances where none exist,
+ * and returns tuples of [model-alias, input-alias, work-alias].
+ * Skips inputs that already have multiple work instances.
+ */
+async function getOrCreateWorkspaceTuples(workNamePrefix = 'auto-work'): Promise<[string, string, string][]> {
+  const workspace = await fetchWorkspace();
+  const results: [string, string, string][] = [];
+
+  for (const model of workspace) {
+    for (const input of model.inputs) {
+      // Skip if there are multiple work instances
+      if (input.works.length > 1) {
+        console.log(`Skipping ${model.alias}/${input.alias} - has ${input.works.length} work instances`);
+        continue;
+      }
+
+      let workAlias: string;
+
+      if (input.works.length === 1) {
+        // Use existing work
+        workAlias = input.works[0].alias;
+      } else {
+        // Create new work instance
+        console.log(`Creating work for ${model.alias}/${input.alias}`);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const workName = `auto-work`;
+        
+        try {
+          const newWork = await createWork(model.alias, input.alias, workName);
+          workAlias = newWork.alias;
+        } catch (error) {
+          console.error(`Failed to create work for ${model.alias}/${input.alias}:`, error);
+          continue;
+        }
+      }
+
+      results.push([model.alias, input.alias, workAlias]);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Command-line interface
  */
 async function main() {
   const args = process.argv.slice(2);
-  console.log("argsssss", args)
   
-  if (args.length < 4) {
+  if (args.length < 1) {
     console.log(`
-Usage: npm run auto-prune <modelAlias> <inputAlias> <workAlias> <thresholdPercent>
+Usage: npm run auto-prune <thresholdPercent>
 
 Examples:
-  npm run auto-prune simple-mnist sample1 automated-85 85
-  npm run auto-prune simple-mnist sample2 automated-90 90
+  npm run 85
+  npm run 90
 
 Parameters:
-  modelAlias       - Model identifier (e.g., 'simple-mnist')
-  inputAlias       - Input identifier (e.g., 'sample1') 
-  workAlias        - Work/workflow name (e.g., 'automated-85')
   thresholdPercent - Percentage of contributions to keep (e.g., 85)
 `);
     process.exit(1);
   }
   
-  const [modelAlias, inputAlias, workAlias, thresholdPercentStr] = args;
+  const [thresholdPercentStr] = args;
   const thresholdPercent = parseFloat(thresholdPercentStr);
   
   if (isNaN(thresholdPercent) || thresholdPercent <= 0 || thresholdPercent > 100) {
     console.error('❌ thresholdPercent must be a number between 0 and 100');
     process.exit(1);
   }
+  const aliases = (await getOrCreateWorkspaceTuples()).filter(a => a[1].startsWith("4-"));
+  // const aliases = aliases.filter(a => a[1].startsWith("4-"))
+  console.log("all 4 aliases", aliases)
+  for (const alias of aliases) {
+    const [modelAlias, inputAlias, workAlias] = alias;
+    console.log(`start pruning: modelAlias=${modelAlias} inputAlais=${inputAlias} workAlais=${workAlias} threshold=${thresholdPercent}`)
+    await autoPrune({
+      modelAlias,
+      inputAlias, 
+      workAlias,
+      thresholdPercent
+    });
+  }
   
-  console.log(`start pruning: modelAlias=${modelAlias} inputAlais=${inputAlias} workAlais=${workAlias} threshold=${thresholdPercent}`)
-  await autoPrune({
-    modelAlias,
-    inputAlias, 
-    workAlias,
-    thresholdPercent
-  });
 }
 
 
 // Export for potential use as a module
-export { autoPrune, type AutoPruneOptions };
+export { autoPrune, getOrCreateWorkspaceTuples, type AutoPruneOptions };
 
 // // Run if called directly
 // if (require.main === module) {
