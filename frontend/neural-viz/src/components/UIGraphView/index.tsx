@@ -103,7 +103,7 @@ const UIGraphView = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  useGlobalStateControl({
+  const { scalingMode } = useGlobalStateControl({
     nodes,
     fetcherType,
     setNodes,
@@ -131,7 +131,7 @@ const UIGraphView = () => {
       setNodes(layoutedData.nodes);
       setEdges(layoutedData.edges);
     }
-  }, [layoutedData, setNodes, setEdges]);
+  }, [layoutedData, setNodes, setEdges, scalingMode]);
 
   if (typeof coordinateOrError === 'string') {
     return (

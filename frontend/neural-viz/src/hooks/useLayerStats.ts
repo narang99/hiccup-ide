@@ -30,7 +30,11 @@ export const useLayerStats = ({
       const updates: Record<string, number> = {};
 
       for (const layerNode of layerNodes) {
-        const childNodes = nodes.filter(n => n.parentId === layerNode.id && n.type === 'ActivationFlowNode');
+        const childNodes = nodes.filter(n => 
+          n.parentId === layerNode.id && 
+          n.type === 'ActivationFlowNode' &&
+          n.data.fetcherType === fetcherType
+        );
         if (childNodes.length === 0) continue;
 
         const coordinates = childNodes.map(n => n.data.coordinate as string);

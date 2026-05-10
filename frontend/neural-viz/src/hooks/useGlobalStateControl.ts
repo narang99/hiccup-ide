@@ -18,8 +18,13 @@ export const useGlobalStateControl = ({
     nodes,
     fetcherType,
     setNodes,
+    modelAlias: propsModelAlias,
+    inputAlias: propsInputAlias,
 }: UseGlobalStateControlProps) => {
-    const { modelAlias, inputAlias } = useAliases();
+    const { modelAlias: contextModelAlias, inputAlias: contextInputAlias } = useAliases();
+    const modelAlias = propsModelAlias ?? contextModelAlias;
+    const inputAlias = propsInputAlias ?? contextInputAlias;
+
     // tracks the scaling mode and scales the nodes automatically
     // make sure setNodes is simply the function you use for setting the nodes state of react flow
     const [layerAbsMax, setLayerAbsMax] = useState<Record<string, number>>({});
@@ -28,14 +33,6 @@ export const useGlobalStateControl = ({
     useEffect(() => {
         if (scalingMode === 'global' && Object.keys(layerAbsMax).length > 0) {
             setNodes((currentNodes) => updateNodeAbsMax(currentNodes, layerAbsMax));
-        }
-    }, [layerAbsMax, scalingMode, setNodes]);
-
-    useEffect(() => {
-        if (scalingMode === 'global' && Object.keys(layerAbsMax).length > 0) {
-            if (setNodes) {
-                setNodes((currentNodes) => updateNodeAbsMax(currentNodes, layerAbsMax));
-            }
         }
     }, [layerAbsMax, scalingMode, setNodes]);
     return {scalingMode};
