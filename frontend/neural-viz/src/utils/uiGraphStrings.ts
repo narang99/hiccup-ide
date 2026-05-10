@@ -1,5 +1,4 @@
-import type { Coordinate } from "../types/coordinates";
-import type { UIGraphNode, Conv2dInputPatchNode } from "../types/ui_graph_coordinates";
+import type { UIGraphNode } from "../types/ui_graph_coordinates";
 
 /**
  * Generates a unique string ID for a UIGraphNode based on its type and properties.
