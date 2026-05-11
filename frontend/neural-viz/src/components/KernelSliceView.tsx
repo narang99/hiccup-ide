@@ -122,6 +122,7 @@ const generateKernelSliceView = (
     onPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void,
     inputOverlay?: OverlayAlgorithm,
     onFinalActPixelClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void,
+    onInputActClick?: (nodeId: string, coordinate: string, gridCoord: [number, number] | null, position: [number, number] | null, value?: number) => void,
 ): { nodes: Node[], edges: Edge[] } | null => {
     const targetNode = data.nodes.find(n => n.id === nodeId);
     if (!targetNode || targetNode.type !== 'Conv2d') return null;
@@ -162,7 +163,12 @@ const generateKernelSliceView = (
         inputLayerId,
         childWidth,
         childHeight,
-        null
+        null,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        onInputActClick
     );
     inputActNode.data = { ...inputActNode.data, overlayAlgorithm: inputOverlay };
     nodes.push(inputActNode);
@@ -388,6 +394,16 @@ export default function KernelSliceView() {
         window.open(`/models/${modelAlias}/${inputAlias}/${workAlias}/ui-graph/?${params.toString()}`, '_blank');
     }, [modelAlias, inputAlias, workAlias, nodeId, kernelIndex]);
 
+    const handleInputActClick = useCallback(() => {
+        if (!modelData || !nodeId || !inputIndex) return;
+        const targetEdge = modelData.edges.find(e => e.target === nodeId);
+        const inputNodeId = targetEdge ? targetEdge.source : "x";
+        
+        if (inputNodeId === "x") return;
+
+        window.open(`/models/${modelAlias}/${inputAlias}/${workAlias}/kernel/${inputNodeId}/${inputIndex}`, '_blank');
+    }, [modelAlias, inputAlias, workAlias, modelData, nodeId, inputIndex]);
+
 
     useEffect(() => {
         if (modelData && nodeId && kernelIndex && inputIndex) {
@@ -404,7 +420,8 @@ export default function KernelSliceView() {
                 handlePixelLeave,
                 handlePixelClick,
                 inputOverlay,
-                handleFinalActPixelClick
+                handleFinalActPixelClick,
+                handleInputActClick
             );
             if (result) {
                 setNodes(result.nodes);

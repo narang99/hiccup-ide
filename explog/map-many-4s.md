@@ -94,3 +94,12 @@ So building the graph
   - These now have a receptive field which tells us the patch of interest in the back
   - For each coordinate in the receptive field, we find if it is a poi, if yes, we create a new node for it as layer-type=relu node-type=output-channel node "(x,y)", and set it as a parent of this node
 - for relu, its simply the input activation highlighted for "(x,y)", so now the parent is (x,y), L0, type=output-channel, then the story repeats
+
+
+- Things to do now
+  - Map each slice's higher convolutions and assign meanings to most valuable points.   
+  - See if the points follow a giving a single meaning, first we map them out.  
+- While doing this, keep track of the pois we missed in a document, have gemini show the exact poi text on hover.  
+- Once we have a map of multiple 4s for all slices, we would have a general point of how the network says that something is a 4.  
+- Then we do it for others maybe too, lets see.  
+- All the while, i should keep track of POIs missed and note them down, its a dataset.  

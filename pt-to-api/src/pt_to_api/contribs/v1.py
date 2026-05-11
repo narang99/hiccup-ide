@@ -1,3 +1,4 @@
+from pt_to_api.utils import show_single_channel_red_green_black, mk_rect_on_ax
 import torch.nn.functional as F
 import itertools
 import torch
@@ -18,8 +19,9 @@ def get_conv_input_indices_vectorized(kernel_size, stride, padding, out_h, out_w
     in_c_end = out_w * s[1] + k[1] - p[1]
 
     starts = torch.stack([in_r_start, in_c_start], dim=1)  # [N, 2]
-    ends   = torch.stack([in_r_end,   in_c_end  ], dim=1)  # [N, 2]
+    ends = torch.stack([in_r_end, in_c_end], dim=1)  # [N, 2]
     return starts, ends
+
 
 def get_conv_input_indices_for_patch_using_raw_params(
     kernel_size, stride, padding, out_coord_start, out_coord_end=None
@@ -224,6 +226,7 @@ def do_slicewise_convolutions(in_acts, kernels, stride, padding, dilation):
         slice_convs.append(conv_res[0][0])
     return slice_convs
 
+
 def calc_contribs_for_slices(slice_convs, bias, out_contrib):
     h, w = slice_convs[0].shape
     # slice_convs = torch.stack(slice_convs)
@@ -241,6 +244,7 @@ def calc_contribs_for_slices(slice_convs, bias, out_contrib):
             slice_contribs[d, i, j] *= out_contrib[i, j]
     return slice_contribs
 
+
 def decompose_3d_contrib_to_slicewise_contribs(
     acts, kernel, bias, out_contrib, stride, padding, dilation
 ):
@@ -248,3 +252,33 @@ def decompose_3d_contrib_to_slicewise_contribs(
     slice_convs = torch.stack(slice_convs)
     slice_contribs = calc_contribs_for_slices(slice_convs, bias, out_contrib)
     return slice_convs, slice_contribs
+
+
+def show_input_patch_and_kernel_placement_for_poi_using_raw_params(
+    kernel_size, stride, padding, kernel, act, y, x, mode, ncols=4, viztype="local", print_meta=True
+):
+    (y0, x0), _ = get_conv_input_indices_for_patch_using_raw_params(
+        kernel_size, stride, padding, (y, x)
+    )
+    if print_meta:
+        print("Patch start:", (y0, x0))
+    h, w = kernel.shape
+    patch = act[y0 : y0 + h, x0 : x0 + w]
+    pointwise = kernel * patch
+    axs = show_single_channel_red_green_black(
+        [act, kernel, patch, pointwise],
+        (20, 20),
+        ncols=ncols,
+        viztype=viztype,
+        mode=mode,
+    )
+    mk_rect_on_ax(axs[0], y0, x0, kernel.shape[0], kernel.shape[1], "white")
+    if print_meta:
+        print("result", pointwise.sum().item())
+    return pointwise
+
+
+def show_input_patch_and_kernel_placement_for_poi(layer, kernel, act, y, x, mode):
+    return show_input_patch_and_kernel_placement_for_poi_using_raw_params(
+        layer.kernel_size, layer.stride, layer.padding, kernel, act, y, x, mode
+    )

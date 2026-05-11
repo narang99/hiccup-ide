@@ -20,6 +20,7 @@ The first major concern is to get started with the minimum number of tools I nee
 - Each point has a receptive field. in the earlier layers, it seems all patterns are fully captured or something. idk if this is relevant though
 - For our poi, we have multiple points picking up the diagonal left part of 4. They are picking the full breadth
 
+
 # TODO
 
 - in many places, the kernel is giving contribs to stuff caught which wasnt what it was catching
