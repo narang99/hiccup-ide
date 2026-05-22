@@ -1,3 +1,4 @@
+from anyio.functools import lru_cache
 from pt_to_api.weights_processor import process_model_weights_to_coordinates
 from pt_to_api.contrib_processor import process_contribs_to_coordinates
 from pt_to_api.activation_processor import process_activations_to_coordinates
@@ -27,6 +28,7 @@ def _get_loaded_model(model_pt_file):
     return model
 
 
+@lru_cache(maxsize=5)
 def load_input_tensor(input_pt_file):
     import torch
 

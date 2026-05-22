@@ -1,11 +1,14 @@
 from pathlib import Path
+from tqdm import tqdm
 from django.core.files import File
 from neural_data.models import Input, Activation, SaliencyMap
 from neural_data.model_plugs import mnist
 
 def load_inputs(inputs_list, model_obj, folder_path, model_pt_path, stdout):
-    for input_info in inputs_list:
+    for i, input_info in enumerate(inputs_list):
         _load_single_input(input_info, model_obj, folder_path, model_pt_path, stdout)
+        if i % 50 == 0:
+            print(f"done: {i}")
 
 def _load_single_input(input_info, model_obj, folder_path, model_pt_path, stdout):
     inp_path_rel = input_info.get("path")
@@ -22,6 +25,9 @@ def _load_single_input(input_info, model_obj, folder_path, model_pt_path, stdout
 
     inp_alias = inp_pt_path.stem
     stdout.write(f"Processing input: {inp_alias} (label: {inp_label})")
+    if Input.objects.filter(model=model_obj, alias=inp_alias).exists():
+        stdout.write(f"WARN: skipping input: {inp_alias}, already exists")
+        return
 
     input_obj = _create_or_update_input(model_obj, inp_alias, inp_path_rel, str(inp_label), inp_pt_path)
 

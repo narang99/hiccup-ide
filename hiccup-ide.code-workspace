@@ -14,6 +14,16 @@
     },
   ],
   "settings": {
-    "python.defaultInterpreterPath": ""
+    "python.defaultInterpreterPath": "",
+    "python.analysis.indexing": false,
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.enablePytestSupport": false,
+    "python.analysis.inlayHints.pytestParameters": false,
+    "python.analysis.inlayHints.callArgumentNames": "off",
+    "python.analysis.inlayHints.functionReturnTypes": false,
+    "python.analysis.inlayHints.variableTypes": false,
+    "python.analysis.autoImportCompletions": false,
+    "python.analysis.useLibraryCodeForTypes": false,
+    "editor.semanticHighlighting.enabled": false,
   },
 }

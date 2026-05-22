@@ -1,0 +1,226 @@
+Whenever we start learning about probability theory, we start with discrete probability. This is a good start, an easy start.  The questions posed in discrete probablities are also very simple and intuitive. It becomes slightly confusing when we move to the continuous case, and I feel there is a lot of stuff which we assume is obvious but does not really make sense. I'm going to talk about what helped me understand the link between the discrete and the continuous case.    
+
+# A simple discrete case problem
+
+Let's consider a simple example of a bag containing apples and oranges. You are asked "what is the probability of drawing an apple on a random draw".  
+
+A lot of us would start by asking how many apples and oranges are present in the bag when we are asked to measure the probability of randomly picking an apple. This is a slightly bad way to think about it.  
+Many math textbooks are very strict about the phrasing though. They start with the question of "you have a bag containing apples and oranges, you pick a single fruit on a random draw, and put it back inside the bag. Each time, you keep a count of the number of apples and oranges drawn, you keep track of the ratio of the number of apples and the total fruits. You do not know how many apples and oranges are present, but you do the experiment many times."  
+
+The theory says that as the number of draws go towards infinity, the ratio tends towards the actual ratio of apples/total fruits (and the same thing for oranges) in the bag.   
+
+
+::: {.callout-tip}
+The key is to keep saying "I'm going to draw an object randomly". This will come in handy later in maintaining a sane intuition about working with probability.  
+:::
+
+
+# Bayesian rule with a simple discrete example
+
+The example is taken from the [PRML book](https://www.amazon.in/Pattern-Recognition-Machine-Learning-2009/dp/1493938436) as is, as I want to actually talk about how the thinking shifts from discrete to the continuous case mainly.  
+Consider two random variables $X$ and $Y$. $X$ can take values values $x_0, x_1, ... x_M$ and Y can take values $y_0, y_1, ... y_L$. In our draw, imagine that we are drawing a ball from a bag again, each ball has two labels, the $X$ label and the $Y$ label. We say we drew $x_i, y_j$ if the ball has these two as labels.  
+The trial is done, and we are given the results that the number of times we pick a ball containing the label $x_i, y_j$ is $n_{ij}$. The total number of experiments is $N$.  
+
+We say the probability of drawing the ball containing labels $x_i, y_j$ is $P(X=i, Y=j) = n_{ij} / N$. Simple.   
+I'll now discuss the basic rules of manipulating probabilities, they are quite intuitive in the discrete case.   
+
+## Sum rule
+
+What is the probability of finding balls which contain the label $x_i$? Irrespective of the $y$ label on that ball. It is the sum of all balls containing the label $x_i$ by $N$.  
+
+$$P(X=x_i) = \sum_{j=0}^{L} (n_{ij}) / N = \sum_{j=0}^{L} P(X=x_i, Y=y_j)$$
+
+Thats the sum rule, simple. The above expression is also called marginalizing over $Y$. I don't know what the word means, but we are basically summing over all values of $Y$.  
+
+## Conditional Probabilities
+
+Let's consider the probability of finding that the ball has label $x_i$ given that the drawn ball has label $y_j$.  This is denoted by $P(X=x_i | Y=y_j)$ (Probability of drawing $X=x_i$ given $Y=y_j$).  
+
+This is basically the number of balls containing the labels $x_i, y_j$ divided by the total number of balls containing the labels $y_j$.  
+
+
+We get the denominator using the sum rule by marginalizing over $X$. Multiply and divide by $N$ to convert each component into the probability.  
+
+$$
+\begin{align}
+P(X=x_i | Y=y_j) &= \frac{n_{ij}}{\sum_{i=0}^{M} n_{ij}} \\
+&= \frac{n_{ij}}{N} \frac{N}{\sum_{i=0}^{M} n_{ij}} \\
+&= \frac{P(X=x_i, Y=y_j)}{\sum_{i=0}^{M} P(X=x_i, Y=y_j)} \\
+&= \frac{P(X=x_i, Y=y_j)}{P(X=x_i)} \\
+P(X=x_i | Y=y_j)P(X=x_i) &= P(X=x_i, Y=y_j) \\
+\end{align}
+$$
+
+---
+
+Since $P(X=x_i, Y=y_j) = P(Y=y_j, X=x_i)$, we get the bayesian rule
+$$
+\begin{align}
+P(X=x_i | Y=y_j)P(X=x_i) &= P(Y=y_j | X=x_i )P(X=y_j) \\
+P(X|Y)P(X) &= P(Y|X)P(X)
+\end{align}
+$$
+
+People simply abbreviate $P(X=x_i)$ to $P(X)$, we gotta get used to it.  
+
+# Towards continuous variables
+
+Let's say $X$ is a continuous variable. You can imagine it as a bag containing infinite numbers, you draw something and each time you get a new number.  
+
+In the discrete case of fruits, we get two kinds of objects, apple and orange, in our experiment.  
+Here, we get numbers. Each number is different. Imagine you have a bag containing infinite types of distinct apples.  
+That is the first distinction you should make.  
+
+A classical historical example comes from when Gauss wanted to understand how errors in measurement behaved in nature. You can imagine him thinking now that he was given a bag containing a bunch of numbers, each number an error margin in the measurement.  Crucially, each error number is different. As different as an orange and an apple in our discrete case.   
+
+Suddenly now though, every textbook starts talking about a "probability density function" or PDF. And they say, it's not the same as probability. In the continuous case, it is impossible to assign a probability to a single number, because there are infinite number of numbers, the probability sums then become infinite. So they assign probability to a range of values.  
+
+$$
+p(x \in (a,b)) = \int_{a}^{b} PDF(x) \,dx
+$$
+
+We are now supposed to talk in ranges. I can get back to understanding how papers use continuous probabilities. Wrong. Papers throw the words PDF and probabilities interchangeably.  
+My simple mind is still stuck at apples and oranges ;_;  
+
+They even have a counterpart of the Bayesian rule
+$$
+PDF(x|y)PDF(x) = PDF(y|x)PDF(x)
+$$
+
+
+How you can go from $P(x|y)P(x) = P(y|x)P(x)$ to the formula above is not obvious at all here.  
+
+We are now talking about probability density functions as if they were probabilities themselves.  
+
+Technically, this expands to integrals. Let's go with expanding $P(x|y) = P(x,y) / P(y)$.  
+$$
+P(x \in (a,b) | y \in (c,d)) = \frac{\int_{c}^{d} \int_{a}^{b} p(x,y) \,dx \,dy}{\int_{c}^{d} p_Y(y) \,dy}
+$$
+
+The most confusing thing now is that everyone talks about PDFs generally (which is written as $p$ in the continuous case) in the same way as the $P$ in the discrete case (or atleast they sound like that, the similarity in the intuition of using both is uncanny).  
+Nobody talks about the integral a lot (other than saying "the integral sums upto 1, not the density function").  
+
+## Deriving product rule
+The actual rigorous derivation actually starts from the integral above. I've not read it, the pre-requisite to understand it is to understand measure theory, which I'm not familiar with.  
+
+There is a simpler, informal proof that is given, which I'm providing here.  
+
+You simply consider the probability for an infinitesimally small area. where $X \in \delta x$ and $Y \in \delta y$ .  
+In this case, some of the integrals disappear.  
+
+$$
+\begin{align}
+P(Y \in [y_0, y_0+\delta y] \mid X \in [x_0, x_0+\delta x]) &= \frac{P(X \in [x_0, x_0+\delta x],\ Y \in [y_0, y_0+\delta y])}{P(X \in [x_0, x_0+\delta x])} \\
+&= \frac{\displaystyle\int_{x_0}^{x_0+\delta x}\int_{y_0}^{y_0+\delta y} p(x,y)\, dy\, dx}{\displaystyle\int_{x_0}^{x_0+\delta x} p_X(x)\, dx} \\
+&= \frac{p(x,y) \delta x \delta y}{p_X(x) \delta x} \\
+P(Y|X) &= \frac{p(x,y)}{p_X(x)} \delta y
+\end{align}
+$$
+
+We took the limit as $\delta x, \delta y \to 0$, the integral goes away.    
+Now, $P(Y|X)$ of the form $f . \delta y$, we can say $f$ is the PDF of $P(Y|X)$.  
+
+
+$$p(Y|X) = \frac{p(x,y)}{p_X(x)}$$
+
+And it seems PDFs behave the same way as the discrete counterparts do.  
+
+# Intuition
+
+What helps me is this. Consider the difference between counting and measuring a distance.  
+When we count the number of apples, we just say "1 apple", "2 apples" and so on. This is the discrete case.  
+For measuring distance, we say "1 km", "2 km" and so on. The distance measurement can be "counted" if we use a range for defining some unit measurement.  
+
+That $\delta x$ is this range. It helps to move all our intuition about counting in the discrete case to the continuous case. Since the PDFs behave approximately the same way as discrete probabilities in the core sum and product rules, we can reason about them similarly.  
+
+Another way to think about it is that, in the discrete case, we are really talking about the probability distribution function only. Its just that the range is $1$ and so we can handwave it as the actual probability of the event.  
+
+
+# Multiple dimensions
+
+Now a random variable $X$ can be a random variable of vectors. In this case, our bag contains points in an $N$ dimensional space. Everything else is reasonably the same.  
+If we have two random variables $X$ and $Y$ in $N$ dimensions, imagine picking a ball with 2 labels (as in the single dimension case). The labels are themselves however, vectors.  
+
+Now people generally talk about covariance matrices. These contain elements for denoting the covariance between the dimensions $X_i$ and $Y_j$. The sampling strategy is different now though. This covariance matrix only makes sense if you think that the bag contains balls and each ball has a label for each dimension of $X$ and $Y$. Each dimension is a separate random variable.    
+It really is just a 1D concept then, decorated as a matrix to make it concise. If the number of dimension is $N$, the covariance defines the covariance between $2N$ random variables (1 for each dimension of $X$, 1 for each dimension of $Y$).  
+
+This is why I said before that the language of saying "I'm picking from a bag of containing balls with numbers as labels many times"  is more useful to reason about probability than saying "What are the ratios of the numbers inside the bag".  
+In the end, we still use probability distribution functions, which directly give us the answer, but it is still useful to think of it this way for me.  
+
+Imagining a ball with "distinct labels" lets us reason about which random variables are coming together (the set of labels we get from a single draw of a ball).  
+
+
+# Bayes theorem
+
+This is useful to understand how likelihood is modelled. the frequentist approach is harder to understand, i think.  
+
+We have a dataset D={d0, d1, ...}. We want to find a model which predicts this dataset. Lets say we have the moidel and we want to choose the parameters W.  
+
+P(D|W) is the probability that the model gives the result D given W.  
+Now this is again slightly hard to reason about. The final model is deterministic (as i saw in ML).  But the model produces the data D with some probability? That does not make a whole lot of sense.    
+
+
+The example of linear regression might make a bit more sense. Consider data that is linear in nature and has some error in measurement, of normal distribution.  
+
+`Y = MX + N` (N is the normal distribution of error).  
+For every run, i randomly pick an error term from N. The noise is basically gaussian distributed and added to create the dataset points D = [d0, d1, ...].   
+
+Now we want to model the probability P(D | w), that is, the probability of finding the dataset {d0, d1...} given a W.  
+This W will do MX. The probability then is 0 that W predicts this data XD.  
+
+But if I actually model the error term again as a normal distribution and add it, then i basically want to find the probability that i get {d0, d1, ....} - {WX} for each of the terms in my error term.  
+From normal distribution, we pick a term randomly, and hope that it is d0, that has some probability. then we get d1, that is another probability. we mulitply all of these which gives us the correct probability.  
+
+Now i still dont understand what W comes from at.  
+If W is wrong, we might have an extra term which is not tractable. (maybe? what if it just inverts from the older soln? then it okay ig). We might get a huge umber with some W, then the probability is less. and so on;. Got it
+
+
+D - WX will generate a noise distribution. We want to make sure the probability that we see this noise distribution is the highest.   
+Lets say the true distribution is normal with mean and sigma. now what?   
+the jump is still not coming to me (to get to MSE).  
+
+But for some d0, we get Wx0. Now d0 would have some probability in our gaussian function. We would want to get the maximum probability of d0, so it should come at a high point of gaussian (near the mean). If we assume the mean is 0, it should be near 0.  
+
+Mostly the answer is that we want the residuals (D - WX) to form a gaussian function at mean 0. In this case, the error is modelled perfectly (we get ds with highest probabilities). So we want to find W which fits residual at mean 0, with sigma.  
+
+e0 = (D - WX) : N(0, sigma) = e^(-(d-wx)^2) [we want to maximise the product of this].   
+take neg log so we have (d-wx)^2, we have sum (cuz we took product). And so MSE comes about.  
+
+
+I still need to recap a bit and think in the bayesian way.   
+
+P(D) = constant, its really just 1. What is the probability the observation set is D? 1
+P(W) = random, uniform. flat, no prior. i think constnat here too, can be taken out, but what is the exact mathematical device for that?  
+
+We want W such that P(D | W) is maximised.  
+So meko error residuals are normal function map hone ke pehle, ye chahiye ke actually correct W aaye. What if galat W aya? what is P(D | W)?   
+
+For a given W, the output is B = Wx: {b0, b1,...}.  
+So technically now, the probability is 0, since b is alredy computed. so i cant compute B it seems.  
+
+Actually, tahts the wrong equation, it is: 
+B = Wx + N(0, sigma) = {b0, b1, ...}.  
+
+D - B = N(0, sigma).  
+
+So D - B ka probability maximise karna hai.  
+In this case, now, it ssimple, we simply get the probability as mult(e(-(D - B)^2)).   
+This is really the probability of finding D given W (cuz we might really pick a very high error residual to match D in case we pick a bad W, the possibility does not go away).  
+
+So We want to maximise that, thats the maximum likelihood function. Got it.
+
+Variance is slightly complicated, ill note this down:
+$$
+```
+var[f] =  E[(f(x) - E(f(x)))^2]
+```
+$$
+
+
+The inner E makes sense, we want the mean of f(x) conditioned on the probability of drawing x. (Each x we draw gives us the reward f(x), or the number f(x), whatever).   
+Now we have (f(x) - mean)^2. This is the variance of each f(x) from the mean of the dataset.  
+Now we want the average of this. In the outer loop, its now the probability of drawing x again, getting reward f(x) with variance (f(x) - mean)^2. The average of these values is the average variance, so we gotta do a weighted sum again.  
+
+# Priors on MLE
+
+The author uses an interesting simple example where they assume that data is distributed with noise in a normal distribution. We want to fit a curve with random y=f(x)

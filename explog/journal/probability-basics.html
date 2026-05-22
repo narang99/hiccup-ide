@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>probability-basics</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="probability-basics_files/libs/clipboard/clipboard.min.js"></script>
+<script src="probability-basics_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="probability-basics_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="probability-basics_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="probability-basics_files/libs/quarto-html/popper.min.js"></script>
+<script src="probability-basics_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="probability-basics_files/libs/quarto-html/anchor.min.js"></script>
+<link href="probability-basics_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="probability-basics_files/libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="probability-basics_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="probability-basics_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="probability-basics_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+
+<p>Whenever we start learning about probability theory, we start with discrete probability. This is a good start, an easy start. The questions posed in discrete probablities are also very simple and intuitive. It becomes slightly confusing when we move to the continuous case, and I feel there is a lot of stuff which we assume is obvious but does not really make sense. I’m going to talk about what helped me understand the link between the discrete and the continuous case.</p>
+<section id="a-simple-discrete-case-problem" class="level1">
+<h1>A simple discrete case problem</h1>
+<p>Let’s consider a simple example of a bag containing apples and oranges. You are asked “what is the probability of drawing an apple on a random draw”.</p>
+<p>A lot of us would start by asking how many apples and oranges are present in the bag when we are asked to measure the probability of randomly picking an apple. This is a slightly bad way to think about it.<br>
+Many math textbooks are very strict about the phrasing though. They start with the question of “you have a bag containing apples and oranges, you pick a single fruit on a random draw, and put it back inside the bag. Each time, you keep a count of the number of apples and oranges drawn, you keep track of the ratio of the number of apples and the total fruits. You do not know how many apples and oranges are present, but you do the experiment many times.”</p>
+<p>The theory says that as the number of draws go towards infinity, the ratio tends towards the actual ratio of apples/total fruits (and the same thing for oranges) in the bag.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Tip
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The key is to keep saying “I’m going to draw an object randomly”. This will come in handy later in maintaining a sane intuition about working with probability.</p>
+</div>
+</div>
+</section>
+<section id="bayesian-rule-with-a-simple-discrete-example" class="level1">
+<h1>Bayesian rule with a simple discrete example</h1>
+<p>The example is taken from the <a href="https://www.amazon.in/Pattern-Recognition-Machine-Learning-2009/dp/1493938436">PRML book</a> as is, as I want to actually talk about how the thinking shifts from discrete to the continuous case mainly.<br>
+Consider two random variables <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span>. <span class="math inline">\(X\)</span> can take values values <span class="math inline">\(x_0, x_1, ... x_M\)</span> and Y can take values <span class="math inline">\(y_0, y_1, ... y_L\)</span>. In our draw, imagine that we are drawing a ball from a bag again, each ball has two labels, the <span class="math inline">\(X\)</span> label and the <span class="math inline">\(Y\)</span> label. We say we drew <span class="math inline">\(x_i, y_j\)</span> if the ball has these two as labels.<br>
+The trial is done, and we are given the results that the number of times we pick a ball containing the label <span class="math inline">\(x_i, y_j\)</span> is <span class="math inline">\(n_{ij}\)</span>. The total number of experiments is <span class="math inline">\(N\)</span>.</p>
+<p>We say the probability of drawing the ball containing labels <span class="math inline">\(x_i, y_j\)</span> is <span class="math inline">\(P(X=i, Y=j) = n_{ij} / N\)</span>. Simple.<br>
+I’ll now discuss the basic rules of manipulating probabilities, they are quite intuitive in the discrete case.</p>
+<section id="sum-rule" class="level2">
+<h2 class="anchored" data-anchor-id="sum-rule">Sum rule</h2>
+<p>What is the probability of finding balls which contain the label <span class="math inline">\(x_i\)</span>? Irrespective of the <span class="math inline">\(y\)</span> label on that ball. It is the sum of all balls containing the label <span class="math inline">\(x_i\)</span> by <span class="math inline">\(N\)</span>.</p>
+<p><span class="math display">\[P(X=x_i) = \sum_{j=0}^{L} (n_{ij}) / N = \sum_{j=0}^{L} P(X=x_i, Y=y_j)\]</span></p>
+<p>Thats the sum rule, simple. The above expression is also called marginalizing over <span class="math inline">\(Y\)</span>. I don’t know what the word means, but we are basically summing over all values of <span class="math inline">\(Y\)</span>.</p>
+</section>
+<section id="conditional-probabilities" class="level2">
+<h2 class="anchored" data-anchor-id="conditional-probabilities">Conditional Probabilities</h2>
+<p>Let’s consider the probability of finding that the ball has label <span class="math inline">\(x_i\)</span> given that the drawn ball has label <span class="math inline">\(y_j\)</span>. This is denoted by <span class="math inline">\(P(X=x_i | Y=y_j)\)</span> (Probability of drawing <span class="math inline">\(X=x_i\)</span> given <span class="math inline">\(Y=y_j\)</span>).</p>
+<p>This is basically the number of balls containing the labels <span class="math inline">\(x_i, y_j\)</span> divided by the total number of balls containing the labels <span class="math inline">\(y_j\)</span>.</p>
+<p>We get the denominator using the sum rule by marginalizing over <span class="math inline">\(X\)</span>. Multiply and divide by <span class="math inline">\(N\)</span> to convert each component into the probability.</p>
+<p><span class="math display">\[
+\begin{align}
+P(X=x_i | Y=y_j) &amp;= \frac{n_{ij}}{\sum_{i=0}^{M} n_{ij}} \\
+&amp;= \frac{n_{ij}}{N} \frac{N}{\sum_{i=0}^{M} n_{ij}} \\
+&amp;= \frac{P(X=x_i, Y=y_j)}{\sum_{i=0}^{M} P(X=x_i, Y=y_j)} \\
+&amp;= \frac{P(X=x_i, Y=y_j)}{P(X=x_i)} \\
+P(X=x_i | Y=y_j)P(X=x_i) &amp;= P(X=x_i, Y=y_j) \\
+\end{align}
+\]</span></p>
+<hr>
+<p>Since <span class="math inline">\(P(X=x_i, Y=y_j) = P(Y=y_j, X=x_i)\)</span>, we get the bayesian rule <span class="math display">\[
+\begin{align}
+P(X=x_i | Y=y_j)P(X=x_i) &amp;= P(Y=y_j | X=x_i )P(X=y_j) \\
+P(X|Y)P(X) &amp;= P(Y|X)P(X)
+\end{align}
+\]</span></p>
+<p>People simply abbreviate <span class="math inline">\(P(X=x_i)\)</span> to <span class="math inline">\(P(X)\)</span>, we gotta get used to it.</p>
+</section>
+</section>
+<section id="towards-continuous-variables" class="level1">
+<h1>Towards continuous variables</h1>
+<p>Let’s say <span class="math inline">\(X\)</span> is a continuous variable. You can imagine it as a bag containing infinite numbers, you draw something and each time you get a new number.</p>
+<p>In the discrete case of fruits, we get two kinds of objects, apple and orange, in our experiment.<br>
+Here, we get numbers. Each number is different. Imagine you have a bag containing infinite types of distinct apples.<br>
+That is the first distinction you should make.</p>
+<p>A classical historical example comes from when Gauss wanted to understand how errors in measurement behaved in nature. You can imagine him thinking now that he was given a bag containing a bunch of numbers, each number an error margin in the measurement. Crucially, each error number is different. As different as an orange and an apple in our discrete case.</p>
+<p>Suddenly now though, every textbook starts talking about a “probability density function” or PDF. And they say, it’s not the same as probability. In the continuous case, it is impossible to assign a probability to a single number, because there are infinite number of numbers, the probability sums then become infinite. So they assign probability to a range of values.</p>
+<p><span class="math display">\[
+p(x \in (a,b)) = \int_{a}^{b} PDF(x) \,dx
+\]</span></p>
+<p>We are now supposed to talk in ranges. I can get back to understanding how papers use continuous probabilities. Wrong. Papers throw the words PDF and probabilities interchangeably.<br>
+My simple mind is still stuck at apples and oranges ;_;</p>
+<p>They even have a counterpart of the Bayesian rule <span class="math display">\[
+PDF(x|y)PDF(x) = PDF(y|x)PDF(x)
+\]</span></p>
+<p>How you can go from <span class="math inline">\(P(x|y)P(x) = P(y|x)P(x)\)</span> to the formula above is not obvious at all here.</p>
+<p>We are now talking about probability density functions as if they were probabilities themselves.</p>
+<p>Technically, this expands to integrals. Let’s go with expanding <span class="math inline">\(P(x|y) = P(x,y) / P(y)\)</span>.<br>
+<span class="math display">\[
+P(x \in (a,b) | y \in (c,d)) = \frac{\int_{c}^{d} \int_{a}^{b} p(x,y) \,dx \,dy}{\int_{c}^{d} p_Y(y) \,dy}
+\]</span></p>
+<p>The most confusing thing now is that everyone talks about PDFs generally (which is written as <span class="math inline">\(p\)</span> in the continuous case) in the same way as the <span class="math inline">\(P\)</span> in the discrete case (or atleast they sound like that, the similarity in the intuition of using both is uncanny).<br>
+Nobody talks about the integral a lot (other than saying “the integral sums upto 1, not the density function”).</p>
+<section id="deriving-product-rule" class="level2">
+<h2 class="anchored" data-anchor-id="deriving-product-rule">Deriving product rule</h2>
+<p>The actual rigorous derivation actually starts from the integral above. I’ve not read it, the pre-requisite to understand it is to understand measure theory, which I’m not familiar with.</p>
+<p>There is a simpler, informal proof that is given, which I’m providing here.</p>
+<p>You simply consider the probability for an infinitesimally small area. where <span class="math inline">\(X \in \delta x\)</span> and <span class="math inline">\(Y \in \delta y\)</span> .<br>
+In this case, some of the integrals disappear.</p>
+<p><span class="math display">\[
+\begin{align}
+P(Y \in [y_0, y_0+\delta y] \mid X \in [x_0, x_0+\delta x]) &amp;= \frac{P(X \in [x_0, x_0+\delta x],\ Y \in [y_0, y_0+\delta y])}{P(X \in [x_0, x_0+\delta x])} \\
+&amp;= \frac{\displaystyle\int_{x_0}^{x_0+\delta x}\int_{y_0}^{y_0+\delta y} p(x,y)\, dy\, dx}{\displaystyle\int_{x_0}^{x_0+\delta x} p_X(x)\, dx} \\
+&amp;= \frac{p(x,y) \delta x \delta y}{p_X(x) \delta x} \\
+P(Y|X) &amp;= \frac{p(x,y)}{p_X(x)} \delta y
+\end{align}
+\]</span></p>
+<p>We took the limit as <span class="math inline">\(\delta x, \delta y \to 0\)</span>, the integral goes away.<br>
+Now, <span class="math inline">\(P(Y|X)\)</span> of the form <span class="math inline">\(f . \delta y\)</span>, we can say <span class="math inline">\(f\)</span> is the PDF of <span class="math inline">\(P(Y|X)\)</span>.</p>
+<p><span class="math display">\[p(Y|X) = \frac{p(x,y)}{p_X(x)}\]</span></p>
+<p>And it seems PDFs behave the same way as the discrete counterparts do.</p>
+</section>
+</section>
+<section id="intuition" class="level1">
+<h1>Intuition</h1>
+<p>What helps me is this. Consider the difference between counting and measuring a distance.<br>
+When we count the number of apples, we just say “1 apple”, “2 apples” and so on. This is the discrete case.<br>
+For measuring distance, we say “1 km”, “2 km” and so on. The distance measurement can be “counted” if we use a range for defining some unit measurement.</p>
+<p>That <span class="math inline">\(\delta x\)</span> is this range. It helps to move all our intuition about counting in the discrete case to the continuous case. Since the PDFs behave approximately the same way as discrete probabilities in the core sum and product rules, we can reason about them similarly.</p>
+<p>Another way to think about it is that, in the discrete case, we are really talking about the probability distribution function only. Its just that the range is <span class="math inline">\(1\)</span> and so we can handwave it as the actual probability of the event.</p>
+</section>
+<section id="multiple-dimensions" class="level1">
+<h1>Multiple dimensions</h1>
+<p>Now a random variable <span class="math inline">\(X\)</span> can be a random variable of vectors. In this case, our bag contains points in an <span class="math inline">\(N\)</span> dimensional space. Everything else is reasonably the same.<br>
+If we have two random variables <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span> in <span class="math inline">\(N\)</span> dimensions, imagine picking a ball with 2 labels (as in the single dimension case). The labels are themselves however, vectors.</p>
+<p>Now people generally talk about covariance matrices. These contain elements for denoting the covariance between the dimensions <span class="math inline">\(X_i\)</span> and <span class="math inline">\(Y_j\)</span>. The sampling strategy is different now though. This covariance matrix only makes sense if you think that the bag contains balls and each ball has a label for each dimension of <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span>. Each dimension is a separate random variable.<br>
+It really is just a 1D concept then, decorated as a matrix to make it concise. If the number of dimension is <span class="math inline">\(N\)</span>, the covariance defines the covariance between <span class="math inline">\(2N\)</span> random variables (1 for each dimension of <span class="math inline">\(X\)</span>, 1 for each dimension of <span class="math inline">\(Y\)</span>).</p>
+<p>This is why I said before that the language of saying “I’m picking from a bag of containing balls with numbers as labels many times” is more useful to reason about probability than saying “What are the ratios of the numbers inside the bag”.<br>
+In the end, we still use probability distribution functions, which directly give us the answer, but it is still useful to think of it this way for me.</p>
+<p>Imagining a ball with “distinct labels” lets us reason about which random variables are coming together (the set of labels we get from a single draw of a ball).</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

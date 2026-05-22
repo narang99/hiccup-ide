@@ -1,4 +1,7 @@
 import itertools
+import numpy as np
+from sklearn.decomposition import PCA
+import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as patches
@@ -10,10 +13,12 @@ import torch
 # std_dark_colors = ["red", "black", "green"]
 colors_dark_v2 = ["#FF3131", "#333333", "#39FF14"]
 rd_bk_gn = mcolors.LinearSegmentedColormap.from_list("RdBkGn", colors_dark_v2)
+rd_bk_gn.set_bad("yellow")
 
 # Crimson -> Gainsboro (Very light grey) -> Dark Green
 colors_white = ["#B22222", "#D3D3D3", "#00A550"]
 rd_wht_gn = mcolors.LinearSegmentedColormap.from_list("RdBkGn", colors_white)
+rd_wht_gn.set_bad("yellow")
 
 
 def it_chain(iterator):
@@ -71,6 +76,7 @@ def show_single_channel_red_green_black(
         ncols = 1
     if viztype == "gray":
         show(images, figsize=figsize, ncols=ncols, axis=axis, cmap="gray")
+        return
 
     fig, axs, v_limit = _plot_single_channel_red_green_black(
         images, figsize, ncols, axis, viztype, mode
@@ -171,7 +177,9 @@ def show(crops, figsize=None, ncols=2, axis="on", cmap=None, titles=None):
 
 def to_show_list(tens):
     "creates a list of numpy arrays along the first dimension for viewing"
-    return [t.detach().cpu().numpy() for t in tens]
+    if isinstance(tens, torch.Tensor):
+        tens = tens.clone().detach().cpu().numpy()
+    return [t for t in tens]
 
 
 def mk_rect_on_ax(ax, r, c, h, w, edgecolor="r"):
@@ -190,3 +198,84 @@ def mk_rect_on_ax(ax, r, c, h, w, edgecolor="r"):
 
 def get_ratios_for_labels(labels):
     return torch.cat([zeros_with_1_at(10, lb) for lb in labels])
+
+def scatter_plot_1d(numbers, suff=""):
+    # 2. Create the visualization
+    plt.figure(figsize=(20, 3))
+    sns.stripplot(x=numbers, color='blue', alpha=0.5, jitter=True)
+
+    plt.title('1D Clustering Visualization' + suff)
+    plt.xlabel('Value')
+    plt.grid(axis='x', linestyle='--', alpha=0.6)
+    plt.show()
+
+
+def show_72_list(xs, **kwargs):
+    res = list(itertools.chain.from_iterable([to_show_list(x.reshape(8,3,3)) for x in xs]))
+    show_single_channel_red_green_black(res, (20, 4*len(xs)), 8, **kwargs)
+    plt.show()
+
+def show_72(x, **kwargs):
+    show_single_channel_red_green_black(
+        to_show_list(x.reshape(8, 3, 3)), 20, 8, **kwargs
+    )
+    plt.show()
+
+def get_receptive(y, x, ksize=3, stride=2, padding=1):
+    ys = y*stride - padding
+    xs = x*stride - padding
+    return (ys, xs), (ys+ksize, xs+ksize)
+
+def otsu_threshold(data, bins=256):
+    hist, bin_edges = np.histogram(data, bins=bins)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    
+    total = hist.sum()
+    total_mean = (hist * bin_centers).sum() / total
+    
+    best_thresh = 0
+    best_variance = 0
+    weight_bg = 0
+    mean_bg = 0
+    
+    for i in range(len(hist)):
+        weight_bg += hist[i] / total
+        if weight_bg == 0:
+            continue
+        
+        mean_bg += hist[i] * bin_centers[i] / total
+        weight_fg = 1 - weight_bg
+        
+        if weight_fg == 0:
+            break
+        
+        mean_fg = (total_mean - mean_bg) / weight_fg
+        
+        between_variance = weight_bg * weight_fg * (mean_bg / weight_bg - mean_fg) ** 2
+
+        if between_variance > best_variance:
+            best_variance = between_variance
+            best_thresh = bin_centers[i]
+    
+    return best_thresh
+
+
+
+def explain_variance_with_pca(X):
+    pca = PCA().fit(X)
+    cumvar = np.cumsum(pca.explained_variance_ratio_)
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(range(1, len(cumvar) + 1), cumvar, linewidth=1.5)
+    plt.axhline(y=0.95, color='r', linestyle='--', alpha=0.5, label='95%')
+    plt.axhline(y=0.99, color='g', linestyle='--', alpha=0.5, label='99%')
+    plt.xlabel("n_components")
+    plt.ylabel("cumulative variance explained")
+    plt.title("PCA variance explained")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    for threshold in [0.90, 0.95, 0.99]:
+        n = np.searchsorted(cumvar, threshold) + 1
+        print(f"{threshold:.0%} variance explained by {n} components")
