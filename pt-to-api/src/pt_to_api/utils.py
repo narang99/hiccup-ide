@@ -70,7 +70,7 @@ def zeros_with_1_at(length, idx_of_1):
 
 
 def show_single_channel_red_green_black(
-    images, figsize=None, ncols=2, axis="on", viztype="global", mode="dark"
+    images, figsize=None, ncols=2, axis="on", viztype="global", mode="dark", suptitle="", ax_titles=None
 ):
     if len(images) == 1:
         ncols = 1
@@ -79,13 +79,13 @@ def show_single_channel_red_green_black(
         return
 
     fig, axs, v_limit = _plot_single_channel_red_green_black(
-        images, figsize, ncols, axis, viztype, mode
+        images, figsize, ncols, axis, viztype, mode, suptitle, ax_titles
     )
     return axs
 
 
 def _plot_single_channel_red_green_black(
-    images, figsize=None, ncols=2, axis="on", viztype="global", mode="dark"
+    images, figsize=None, ncols=2, axis="on", viztype="global", mode="dark", suptitle="", ax_titles=None
 ):
     if not images:
         return None, None, None
@@ -105,6 +105,7 @@ def _plot_single_channel_red_green_black(
         figsize = (figsize, figsize)
 
     fig, axs = plt.subplots(rows, ncols, figsize=figsize)
+    fig.suptitle(suptitle)
     if len(images) > 1:
         axs = axs.flatten()
     else:
@@ -126,6 +127,11 @@ def _plot_single_channel_red_green_black(
 
         axs[i].imshow(img, **params)
         axs[i].axis(axis)
+    
+    if ax_titles is not None:
+        for i in range(len(axs)):
+            if i < len(ax_titles):
+                axs[i].set_title(ax_titles[i])
 
     plt.tight_layout()
     return fig, axs, v_limit
@@ -279,3 +285,63 @@ def explain_variance_with_pca(X):
     for threshold in [0.90, 0.95, 0.99]:
         n = np.searchsorted(cumvar, threshold) + 1
         print(f"{threshold:.0%} variance explained by {n} components")
+
+
+def show_gram(W, title="", figsize=None):
+    if not isinstance(W, torch.Tensor):
+        W = torch.tensor(W)
+    W_norm = W / (W.norm(dim=0, keepdim=True) + 1e-8)
+    gram = W_norm.T @ W_norm  # (n_components, n_components)
+    if figsize is not None:
+        plt.figure(figsize=figsize)
+    plt.imshow(gram, cmap="gray")
+    plt.title(title)
+    plt.show()
+    return gram
+
+def gram_orthogonality_error(W):
+    if not isinstance(W, torch.Tensor):
+        W = torch.tensor(W)
+    
+    W_norm = W / (W.norm(dim=0, keepdim=True) + 1e-8)
+    gram = W_norm.T @ W_norm  # (n_components, n_components)
+    
+    n = gram.shape[0]
+    identity = torch.eye(n, device=gram.device, dtype=gram.dtype)
+    
+    # Normalise gram to [-1, 1] before computing error
+    gram_normalised = gram / (gram.abs().max() + 1e-8)
+    identity_normalised = identity / (identity.abs().max() + 1e-8)
+    
+    error = (gram_normalised - identity_normalised).pow(2).mean().sqrt()
+    return error.item()
+
+def run_single_test(dims_list, atoms_ratio, noise_std_set, term3_set):
+    for dim in dims_list:
+        for a in atoms_ratio:
+            for noise_std in noise_std_set:
+                for term3 in term3_set:
+                
+                    print("#######", dim, a, noise_std, term3)
+                    gc.collect()
+                    atoms = math.ceil(dim*a)
+                    # keep all active
+                    k = atoms
+                    n_samples = 100*atoms
+                    # active_dims = math.ceil(dim*sp_rat)
+        
+                    device = get_device(dim)
+                    X, W_true, codes_true, dim_partition = gen_fn(dim, atoms, k, n_samples=n_samples, noise_std=noise_std)
+            
+                    scaler = MeanPerDimGlobalStdScaler().fit(X)
+                    X_scaled = scaler.transform(X)
+    
+                    mets = []
+                    for run_idx in range(NUM_RUNS_PER_TEST):
+                        print("RUN:", run_idx)
+                        kwargs = {kwarg_key: term3}
+                        run = train(X_scaled, atoms, 1e-3, epochs=4000, device=device, **kwargs)
+                        mets.append(get_metrics_from_run(run, W_true))
+                        gc.collect()
+                    
+                    metrics[(dim, a, noise_std, term3)] = aggregate_metrics(mets)

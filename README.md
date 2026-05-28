@@ -365,3 +365,62 @@ They are entangled, but they are categorized in a simpler manner.
   - Like a diagonal filter in front of a filter which does diagonal+vertial+horizontal
   - It is recognising one of the patterns
   - In a patch of the next kernel which passes through a set of features, the task then becomes to see if which patterns from the older kernel can be regenerated from the patch which was passed through. Might be useful.  
+
+
+# Prime numbers in 2^x system
+
+2 1
+4 2
+8 3
+16 4
+32 5
+64 6
+128 7
+256 8
+1024 9
+
+3*3 = 9 
+this is (2^3)^3 (the operation is done twice, so the log should be 2)
+2^3^2 = 6 (not prime)  
+
+So for the exponent space too, there would be some natural log version which says that exponents occur this many times.  
+In this space, `e` is 2^{our e}. log wrt this. actually since its proportional, it does not matter.  
+
+prime numbers in this space, what are they in our space?   
+
+3*3 = 9
+log<3>(9) = 2  (number of times 3 is used)
+
+but this is to base 3, and not to base
+
+2 4 8 32 128
+
+
+it makes weird sense, there seems to be a connection
+
+
+
+hmm so if we use multiplication as the core operation with lets say 2 as the base, instead of addition, to make a number system, then log<that number system> is our number system
+
+
+
+then we take a log again, we get prime numbers hmmm.
+
+so the operation that brings down from a system defined by multiplication, when used, also brings down addition to the core operators of multiplication in the addition numner system state.
+
+
+
+so there should be an analogue in multiplication. there would be an operator acts like how multiply works in ours (its the opeartor "raised to" in addition spacE?)
+
+that would be basically counting the number of times the exponentiation operator in our space is used. 
+
+
+
+log2 of those primes, is pretty much our primes.
+
+now ln<our numbers> then should be inside a space where addition is defined. 
+
+what operation when combined becomes addition. 
+
+
+This is a problem of multiplication being a simple copmosition of addition.  
