@@ -70,7 +70,7 @@ def zeros_with_1_at(length, idx_of_1):
 
 
 def show_single_channel_red_green_black(
-    images, figsize=None, ncols=2, axis="on", viztype="global", mode="dark", suptitle="", ax_titles=None
+    images, figsize=None, ncols=2, axis="on", viztype="global", mode="light", suptitle="", ax_titles=None
 ):
     if len(images) == 1:
         ncols = 1
@@ -227,10 +227,18 @@ def show_72(x, **kwargs):
     )
     plt.show()
 
-def get_receptive(y, x, ksize=3, stride=2, padding=1):
-    ys = y*stride - padding
-    xs = x*stride - padding
-    return (ys, xs), (ys+ksize, xs+ksize)
+# def get_receptive(y, x, ksize=3, stride=2, padding=1):
+#     ys = y*stride - padding
+#     xs = x*stride - padding
+#     return (ys, xs), (ys+ksize, xs+ksize)
+
+def get_receptive(y, x, ksize=(3,3), stride=(2,2), padding=(1,1), dilation=(1,1)):
+    ys = y * stride[0] - padding[0]
+    xs = x * stride[1] - padding[1]
+    effective_ky = dilation[0] * (ksize[0] - 1) + 1
+    effective_kx = dilation[1] * (ksize[1] - 1) + 1
+    return (ys, xs), (ys + effective_ky, xs + effective_kx)
+
 
 def otsu_threshold(data, bins=256):
     hist, bin_edges = np.histogram(data, bins=bins)

@@ -1,18 +1,38 @@
 import numpy as np
+from torch import nn
+from dataclasses import dataclass
+from itertools import batched
 import matplotlib.pyplot as plt
 import torch
-from pt_to_api.utils import *
+# from pt_to_api.utils import *
 from pt_to_api.utils import (
     show_single_channel_red_green_black as S,
 )
-from sklearn.metrics.pairwise import (
-    cosine_similarity
-)
+from sklearn.metrics.pairwise import cosine_similarity
 from scipy.optimize import linear_sum_assignment
 from .core import SingleRun
 
 
 MODE = "light"
+
+
+class NormaliseStdScaler:
+    def __init__(self):
+        self.global_std_ = None
+
+    def fit(self, X):
+        X = np.array(X)
+        self.global_std_ = X.std()
+        return self
+
+    def transform(self, X):
+        X = np.array(X)
+        return X / self.global_std_
+
+    def inverse_transform(self, X):
+        X = np.array(X)
+        return X * self.global_std_
+
 
 class MeanPerDimGlobalStdScaler:
     def __init__(self):
@@ -22,7 +42,7 @@ class MeanPerDimGlobalStdScaler:
     def fit(self, X):
         X = np.array(X)
         self.means_ = X.mean(axis=0)
-        self.global_std_ = X.std()
+        self.global_std_ = (X - self.means_).std()  # std of demeaned X
         return self
 
     def transform(self, X):
@@ -34,7 +54,9 @@ class MeanPerDimGlobalStdScaler:
         return (X * self.global_std_) + self.means_
 
 
-def show_closest_component_of_W_for_each_component(components, W_true, figsize=(5, 2)):
+def show_closest_component_of_W_for_each_component(
+    components, W_true, image_shape, figsize=(5, 2), comps_per_row=3
+):
     """
     Given two arrays of numpy vectors of same shapes
     for every component in `components`, this function shows the array in `W_true`
@@ -45,16 +67,35 @@ def show_closest_component_of_W_for_each_component(components, W_true, figsize=(
     for i in range(len(components)):
         j = np.argmax(sims[i])
         pairs.append((i, j, sims[i][j]))
-    for i, j, score in pairs:
+    for batch in batched(pairs, comps_per_row):
+        ax_titles, comps, scores = [], [], []
+
+        for i, j, score in batch:
+            comps.extend(
+                [components[i].reshape(image_shape), W_true[j].reshape(image_shape)]
+            )
+            ax_titles.extend([f"component\n{score:.5f}", "ground_truth"])
+            # scores.append(score)
         S(
-            [components[i].reshape(3, 3), W_true[j].reshape(3, 3)],
+            comps,
             figsize,
+            2 * comps_per_row,
             mode=MODE,
-            suptitle=f"similarity score={score}",
-            ax_titles=["component", "ground_truth"],
+            # suptitle=f"similarity score={score}",
+            ax_titles=ax_titles,
             viztype="local",
         )
         plt.show()
+    # for i, j, score in pairs:
+    #     S(
+    #         [components[i].reshape(image_shape), W_true[j].reshape(image_shape)],
+    #         figsize,
+    #         mode=MODE,
+    #         suptitle=f"similarity score={score}",
+    #         ax_titles=["component", "ground_truth"],
+    #         viztype="local",
+    #     )
+    #     plt.show()
 
 
 def evaluate_recovery(W_learned, W_true, threshold=0.95):
@@ -174,8 +215,12 @@ def std_ratios(v1, v2):
         return rat.item()
     return rat
 
-def get_metrics_from_run(run: SingleRun, W_true, support_overlap_threshold=0.01):
-    _, _, sim_vector, mean_sim = match_atoms(W_true, run.components)
+
+def get_metrics_from_run(run: SingleRun, W_true=None, support_overlap_threshold=0.01):
+    if W_true is not None:
+        _, _, sim_vector, mean_sim = match_atoms(W_true, run.components)
+    else:
+        sim_vector, mean_sim = None, None
 
     # decoder max vals matrix
     decoder_maxes = run.model.decoder.weight.max(dim=0)[0]
@@ -200,18 +245,20 @@ def get_metrics_from_run(run: SingleRun, W_true, support_overlap_threshold=0.01)
         # "gram": gram_orthogonality_error(run.components.T),
     }
 
+
 def aggregate_metrics(dicts):
     keys = dicts[0].keys()
     result = {}
     for key in keys:
         vals = [d[key] for d in dicts]
-        if key == 'vec_sim':
+        if key == "vec_sim":
             result[key] = np.stack(vals).mean(axis=0)
-        elif key == 'mse':
+        elif key == "mse":
             result[key] = sum(v.item() for v in vals) / len(vals)
         else:
             result[key] = sum(vals) / len(vals)
     return result
+
 
 def print_summary(X, W_true, codes_true, run: SingleRun):
     print("standard devications")
@@ -221,9 +268,21 @@ def print_summary(X, W_true, codes_true, run: SingleRun):
     print("\tcodes:", run.codes.std(), "sigma_s", run.hyperparameters["sigma_s"])
     print("\tcomponents:", run.components.std())
     print("\trecon:", run.recon.std())
-    print("\tdecoder:", run.model.decoder.weight.std().item(), "sigma_0:", run.hyperparameters["sigma_0"])
-    print("\tencoder:", run.model.encoder.weight.std().item(), "sigma_enc:", run.hyperparameters["sigma_enc"])
-    print("\tMSE:", (X - run.recon).std(), "sigma_eps:", run.hyperparameters["sigma_eps"])
+    print(
+        "\tdecoder:",
+        run.model.decoder.weight.std().item(),
+        "sigma_0:",
+        run.hyperparameters["sigma_0"],
+    )
+    print(
+        "\tencoder:",
+        run.model.encoder.weight.std().item(),
+        "sigma_enc:",
+        run.hyperparameters["sigma_enc"],
+    )
+    print(
+        "\tMSE:", (X - run.recon).std(), "sigma_eps:", run.hyperparameters["sigma_eps"]
+    )
 
 
 def get_device(dim):
@@ -231,21 +290,64 @@ def get_device(dim):
         return "cpu"
     else:
         return "mps"
-    
 
 
-def support_overlap(W, threshold=0.01):
+def support_overlap_matrix(W, threshold=0.01):
     # W: (n_components, n_dims)
     W = torch.tensor(W)
     abs_W = W.abs()
     maxvals = abs_W.max(dim=1, keepdim=True).values  # (n_components, 1)
-    support = (abs_W > threshold * maxvals)  # (n_components, n_dims) binary
-    
+    support = abs_W > threshold * maxvals  # (n_components, n_dims) binary
+
     # pairwise intersection over union (or just intersection)
     support_f = support.float()
     intersection = support_f @ support_f.T  # (n_components, n_components)
     support_sizes = support.sum(dim=1).float()  # (n_components,)
     min_sizes = torch.min(support_sizes.unsqueeze(1), support_sizes.unsqueeze(0))
-    
+
     overlap = intersection / min_sizes  # normalized: 0=disjoint, 1=fully overlapping
+    return overlap
+
+def support_overlap(W, threshold=0.01):
+    overlap = support_overlap_matrix(W, threshold)
     return overlap.fill_diagonal_(0).mean()
+
+
+@dataclass
+class StandardInitStrategy:
+    def __repr__(self):
+        return "'StandardInitStrategy'"
+
+@dataclass
+class NoInitStrategy:
+    def __repr__(self):
+        return "'NoInitStrategy'"
+
+@dataclass
+class SvdInitStrategy:
+    def __repr__(self):
+        return "'SvdInitStrategy'"
+
+@dataclass
+class IcaInitStrategy:
+    iters: int
+
+    def __repr__(self):
+        return f"'IcaInitStrategy({self.iters})'"
+
+@dataclass
+class WarmupInitStrategy:
+    warmup_epochs: int
+
+    def __repr__(self):
+        return f"'WarmupInitStrategy({self.warmup_epochs})'"
+
+
+@dataclass
+class OnlyInitEncoderStrategy:
+    def __repr__(self):
+        return "'OnlyInitEncoderStrategy'"
+
+
+
+InitStrategy = SvdInitStrategy | WarmupInitStrategy | StandardInitStrategy| IcaInitStrategy | NoInitStrategy | OnlyInitEncoderStrategy
