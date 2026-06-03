@@ -8,7 +8,7 @@ from torch import nn
 import torch
 from torch import optim
 from .utils import InitStrategy, StandardInitStrategy, SvdInitStrategy, IcaInitStrategy, SingleRun, WarmupInitStrategy
-from .train import get_hyperparameters_and_init, warmup_with_l2, recon_loss, weights_loss, gauss_loss, get_scaled_hyperparamters, init_encoder_using_normal
+from .train import get_hyperparameters_and_init, warmup_with_l2, recon_loss, weights_loss, gauss_loss, get_scaled_hyperparamters, init_encoder_using_normal, get_inferred_sigma_eps_if_needed
 import numpy as np
 from dataclasses import dataclass
 from typing import Literal
@@ -98,7 +98,7 @@ def train(
     X_t = X_t.to(device)
 
     sigma_eps, baseline_loss = get_inferred_sigma_eps_if_needed(
-        X, n_components, lr, baseline_epochs, batch_size, sigma_eps_override, verbose, device
+        X, n_components, lr, baseline_epochs, batch_size, sigma_eps_override, verbose, train_baseline, device=device
     )
     if initialised_model is None:
         model = Autoencoder(input_dim, n_components)
@@ -237,23 +237,6 @@ def train(
     )
 
 
-def get_inferred_sigma_eps_if_needed(
-    X, n_components, lr, baseline_epochs, batch_size, sigma_eps_override, verbose, device
-):
-    if sigma_eps_override is not None:
-        print("sigma_eps_override passed, skipping baseline run")
-        sigma_eps = sigma_eps_override
-        baseline_loss = None
-    else:
-        baseline_run = train_baseline(X, n_components, lr, baseline_epochs, batch_size, verbose, device)
-        sigma_eps = np.sqrt(baseline_run.loss)
-        tol = X.std() / 10_000
-        if sigma_eps < tol:
-            print(f"WARM: sigma_eps={sigma_eps} is less than tolerance={tol}, this can have undesired behavior")
-            sigma_eps = tol
-        print("baseline MSE", baseline_run.loss)
-        baseline_loss = baseline_run.loss
-    return sigma_eps, baseline_loss
 
 
 def train_baseline(
