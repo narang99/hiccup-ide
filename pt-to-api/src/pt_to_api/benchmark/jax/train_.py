@@ -1,0 +1,232 @@
+import gc
+from pt_to_api.benchmark.init_strats import (
+    InitStrategy,
+    StandardInitStrategy,
+    NoInitStrategy,
+)
+import numpy as np
+from functools import partial
+import time
+import jax
+import jax.numpy as jnp
+from flax import nnx
+from typing import Literal
+from pt_to_api.benchmark.anneal import (
+    CosineAnnealReconError,
+    ReconErrSchedule,
+)
+from pt_to_api.benchmark.hyperparams import (
+    get_scaled_hyperparamters,
+    get_inferred_sigma_eps_if_needed,
+)
+from pt_to_api.benchmark.core import SingleRun
+from pt_to_api.benchmark.jax.core import (
+    ModelTrainStepUnconditionalParams,
+    get_batches,
+    Autoencoder,
+)
+from pt_to_api.benchmark.jax.init_models import parallel_init_models
+from pt_to_api.benchmark.jax.steps import parallel_eval_step, parallel_train_step
+from pt_to_api.benchmark.jax.train_baseline_ import train_baseline
+from pt_to_api.benchmark.jax.ckpt import BestModelManager
+
+
+def train(
+    X,
+    n_components,
+    n_models=10,
+    lr=1e-2,
+    epochs=2000,
+    batch_size=64,
+    verbose=True,
+    init_strategy: InitStrategy = StandardInitStrategy(),
+    use_ln_term=False,
+    sigma_s_rel_to_0="equal",
+    baseline_epochs=1000,
+    sigma_eps_override=None,
+    recon_err_schedule: ReconErrSchedule = CosineAnnealReconError(1000),
+    weights_algo: Literal["cyclic", "random"] = "random",
+    seed=42,
+) -> list[SingleRun]:
+    print(f"Training {n_models} models in parallel with JAX vmap")
+
+    # Parameter validation (same as single version)
+    if not isinstance(init_strategy, (StandardInitStrategy, NoInitStrategy)):
+        raise ValueError("Only StandardInitStrategy and NoInitStrategy supported")
+
+    X_jax = jnp.array(X, dtype=jnp.float32)
+    input_dim = X_jax.shape[1]
+
+    p = get_scaled_hyperparameters_after_inferring_sigma_eps(
+        X,
+        n_components,
+        lr,
+        baseline_epochs,
+        batch_size,
+        sigma_eps_override,
+        sigma_s_rel_to_0,
+        verbose,
+        # baseline train is deterministic, we dont care, just need sigma_eps
+        nnx.Rngs(0),
+    )
+    print("shared scaled_hyperparameters", p)
+
+    # first key used for the main training code
+    # remaining used for model initialisation
+    all_keys = jax.random.split(jax.random.PRNGKey(seed), n_models + 1)
+    key, keys = all_keys[0], all_keys[1:]
+
+    models, optimizers, metrics = parallel_init_models(
+        keys, input_dim, n_components, p, init_strategy, lr
+    )
+    best_model_manager = BestModelManager(n_models)
+
+    get_uncond = partial(
+        ModelTrainStepUnconditionalParams,
+        sigma_eps=p["sigma_eps"],
+        sigma_0=p["sigma_0"],
+        sigma_s=p["sigma_s"],
+        alpha=p["alpha"],
+    )
+
+    last_print_time = time.time()
+    for epoch in range(epochs):
+        recon_err_multiplier = recon_err_schedule.get_multiplier(epoch, epochs)
+        epoch_mod = epoch % n_components if weights_algo == "random" else 0
+        uncond_params = get_uncond(
+            recon_err_multiplier=recon_err_multiplier, epoch_mod=epoch_mod
+        )
+
+        for key, batch in get_batches(X_jax, batch_size, key):
+            parallel_train_step(
+                models, optimizers, batch, uncond_params, use_ln_term, weights_algo
+            )
+
+        if verbose and epoch % 50 == 0:
+            metrics.reset()
+            # no shuffling in eval steps
+            for _, batch in get_batches(X_jax, batch_size, None):
+                parallel_eval_step(
+                    models, metrics, batch, uncond_params, use_ln_term, weights_algo
+                )
+            best_model_manager.update_and_ckpt(models, metrics, "mse")
+            print_metrics_at_eval(epoch, metrics, last_print_time)
+            last_print_time = time.time()
+
+    return get_single_runs(best_model_manager, X_jax, n_components, p)
+    # # Create results from final models
+    # results = []
+    # for j in range(n_models):
+    #     # Final evaluation for this model
+    #     recon, codes, _ = models[j](X_jax)
+    #     final_loss = float(jnp.mean((X_jax - recon) ** 2))
+
+    #     results.append(SingleRun(
+    #         models[j],
+    #         np.array(codes),
+    #         np.array(models[j].decoder.kernel.T),
+    #         np.array(recon),
+    #         final_loss,
+    #         p,
+    #         baseline_loss,
+    #     ))
+
+    # print(f"Completed training {n_models} models.")
+    # return results
+
+
+def get_single_runs(
+    best_model_manager: BestModelManager,
+    X_jax: jnp.ndarray,
+    n_components: int,
+    hyperparameters: dict,
+) -> list[SingleRun]:
+    input_dim = X_jax.shape[1]
+    decoders, encoders, models = (
+        restore_best_encoder_and_decoder_weights_in_single_run_format(
+            best_model_manager, input_dim, n_components
+        )
+    )
+    all_recons, all_codes = [], []
+
+    # run eval again
+    for model in models:
+        recon, codes, _ = model(X_jax)
+        all_recons.append(np.array(recon))
+        all_codes.append(np.array(codes))
+        gc.collect()
+
+    return [
+        SingleRun(
+            codes=all_codes[i],
+            encoder=encoders[i],
+            components=decoders[i],
+            recon=all_recons[i],
+            loss=float(best_model_manager.best_losses[i]),
+            hyperparameters=hyperparameters,
+        )
+        for i in range(len(models))
+    ]
+
+
+def restore_best_encoder_and_decoder_weights_in_single_run_format(
+    best_model_manager: BestModelManager, input_dim, n_components
+):
+    # best_model_states = best_model_manager.load_best_model_states()
+    best_models = best_model_manager.load_best_models(
+        nnx.eval_shape(lambda: Autoencoder(input_dim, n_components, nnx.Rngs(0)))
+    )
+    # Flax follows [input, output]
+    # encoder: [dimensions, n_components]
+    # decoder: [n_components, dimensions]
+    # we want [n_components, dimensions] for both in run format
+    decoders, encoders = [], []
+    for m in best_models:
+        decoders.append(np.array(m.decoder.kernel))
+        encoders.append(np.array(m.encoder.kernel.T))
+    return decoders, encoders, best_models
+
+
+def get_scaled_hyperparameters_after_inferring_sigma_eps(
+    X,
+    n_components,
+    lr,
+    baseline_epochs,
+    batch_size,
+    sigma_eps_override,
+    sigma_s_rel_to_0,
+    verbose,
+    rngs,
+):
+    input_dim = X.shape[1]
+    # Get sigma_eps (same for all models)
+    sigma_eps, _ = get_inferred_sigma_eps_if_needed(
+        X,
+        n_components,
+        lr,
+        baseline_epochs,
+        batch_size,
+        sigma_eps_override,
+        verbose,
+        partial(train_baseline, rngs=rngs),
+    )
+
+    # Get scaled hyperparameters once (shared by all models)
+    scaled_hyperparameters = get_scaled_hyperparamters(
+        X.std(),
+        input_dim,
+        n_components,
+        sigma_eps=sigma_eps,
+        w_to_eps_ratio=5,
+        alpha_constant=5000,
+        sigma_s_rel_to_0=sigma_s_rel_to_0,
+    )
+    return scaled_hyperparameters
+
+
+def print_metrics_at_eval(epoch, metrics, last_print_time):
+    avg_losses = metrics.compute()
+    print(f"epoch {epoch:4d} | duration={time.time() - last_print_time:.2f}s")
+    for seed_i in range(len(next(iter(avg_losses.values())))):
+        parts = " | ".join(f"{k}: {v[seed_i]:.4f}" for k, v in avg_losses.items())
+        print(f"\tseed {seed_i}: {parts}")

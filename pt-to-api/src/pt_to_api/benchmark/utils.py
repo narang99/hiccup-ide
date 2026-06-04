@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from itertools import batched
 import matplotlib.pyplot as plt
 import torch
+
 # from pt_to_api.utils import *
 from pt_to_api.utils import (
     show_single_channel_red_green_black as S,
@@ -13,49 +14,8 @@ from scipy.optimize import linear_sum_assignment
 from .core import SingleRun
 
 
-MODE = "light"
-
-
-class NormaliseStdScaler:
-    def __init__(self):
-        self.global_std_ = None
-
-    def fit(self, X):
-        X = np.array(X)
-        self.global_std_ = X.std()
-        return self
-
-    def transform(self, X):
-        X = np.array(X)
-        return X / self.global_std_
-
-    def inverse_transform(self, X):
-        X = np.array(X)
-        return X * self.global_std_
-
-
-class MeanPerDimGlobalStdScaler:
-    def __init__(self):
-        self.means_ = None
-        self.global_std_ = None
-
-    def fit(self, X):
-        X = np.array(X)
-        self.means_ = X.mean(axis=0)
-        self.global_std_ = (X - self.means_).std()  # std of demeaned X
-        return self
-
-    def transform(self, X):
-        X = np.array(X)
-        return (X - self.means_) / self.global_std_
-
-    def inverse_transform(self, X):
-        X = np.array(X)
-        return (X * self.global_std_) + self.means_
-
-
 def show_closest_component_of_W_for_each_component(
-    components, W_true, image_shape, figsize=(5, 2), comps_per_row=3
+    components, W_true, image_shape, figsize=(5, 2), comps_per_row=3, mode="light"
 ):
     """
     Given two arrays of numpy vectors of same shapes
@@ -80,22 +40,12 @@ def show_closest_component_of_W_for_each_component(
             comps,
             figsize,
             2 * comps_per_row,
-            mode=MODE,
+            mode=mode,
             # suptitle=f"similarity score={score}",
             ax_titles=ax_titles,
             viztype="local",
         )
         plt.show()
-    # for i, j, score in pairs:
-    #     S(
-    #         [components[i].reshape(image_shape), W_true[j].reshape(image_shape)],
-    #         figsize,
-    #         mode=MODE,
-    #         suptitle=f"similarity score={score}",
-    #         ax_titles=["component", "ground_truth"],
-    #         viztype="local",
-    #     )
-    #     plt.show()
 
 
 def evaluate_recovery(W_learned, W_true, threshold=0.95):
@@ -223,7 +173,7 @@ def get_metrics_from_run(run: SingleRun, W_true=None, support_overlap_threshold=
         sim_vector, mean_sim = None, None
 
     # decoder max vals matrix
-    decoder_maxes = run.model.decoder.weight.max(dim=0)[0]
+    decoder_maxes = run.components.max(axis=1)[0]
 
     return {
         "mse": run.loss,
@@ -232,13 +182,13 @@ def get_metrics_from_run(run: SingleRun, W_true=None, support_overlap_threshold=
             decoder_maxes.mean().item(), run.hyperparameters["sigma_0"]
         ),
         "decoder_sigma_ratio": std_ratios(
-            run.model.decoder.weight.std(), run.hyperparameters["sigma_0"]
+            run.components.std(), run.hyperparameters["sigma_0"]
         ),
         "decoder_sigma_per_col_ratio": std_ratios(
-            run.model.decoder.weight.sum(dim=1).std(), run.hyperparameters["sigma_0"]
+            run.components.sum(axis=0).std(), run.hyperparameters["sigma_0"]
         ),
         "encoder_sigma_ratio": std_ratios(
-            run.model.encoder.weight.std(), run.hyperparameters["sigma_enc"]
+            run.encoder.std(), run.hyperparameters["sigma_enc"]
         ),
         "mean_sim": mean_sim,
         "vec_sim": sim_vector,
@@ -270,13 +220,13 @@ def print_summary(X, W_true, codes_true, run: SingleRun):
     print("\trecon:", run.recon.std())
     print(
         "\tdecoder:",
-        run.model.decoder.weight.std().item(),
+        run.components.std(),
         "sigma_0:",
         run.hyperparameters["sigma_0"],
     )
     print(
         "\tencoder:",
-        run.model.encoder.weight.std().item(),
+        run.encoder.std(),
         "sigma_enc:",
         run.hyperparameters["sigma_enc"],
     )
@@ -308,46 +258,7 @@ def support_overlap_matrix(W, threshold=0.01):
     overlap = intersection / min_sizes  # normalized: 0=disjoint, 1=fully overlapping
     return overlap
 
+
 def support_overlap(W, threshold=0.01):
     overlap = support_overlap_matrix(W, threshold)
     return overlap.fill_diagonal_(0).mean()
-
-
-@dataclass
-class StandardInitStrategy:
-    def __repr__(self):
-        return "'StandardInitStrategy'"
-
-@dataclass
-class NoInitStrategy:
-    def __repr__(self):
-        return "'NoInitStrategy'"
-
-@dataclass
-class SvdInitStrategy:
-    def __repr__(self):
-        return "'SvdInitStrategy'"
-
-@dataclass
-class IcaInitStrategy:
-    iters: int
-
-    def __repr__(self):
-        return f"'IcaInitStrategy({self.iters})'"
-
-@dataclass
-class WarmupInitStrategy:
-    warmup_epochs: int
-
-    def __repr__(self):
-        return f"'WarmupInitStrategy({self.warmup_epochs})'"
-
-
-@dataclass
-class OnlyInitEncoderStrategy:
-    def __repr__(self):
-        return "'OnlyInitEncoderStrategy'"
-
-
-
-InitStrategy = SvdInitStrategy | WarmupInitStrategy | StandardInitStrategy| IcaInitStrategy | NoInitStrategy | OnlyInitEncoderStrategy
