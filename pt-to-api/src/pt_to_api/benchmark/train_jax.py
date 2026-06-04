@@ -5,13 +5,13 @@ JAX/NNX implementation of autoencoder training with sparse dictionary learning.
 import time
 import jax
 import jax.numpy as jnp
-from jax import random
 from flax import nnx
 import optax
 import numpy as np
 from dataclasses import dataclass
 from typing import Literal
 import math
+from typing import NamedTuple
 
 from .utils import SingleRun, InitStrategy, StandardInitStrategy, NoInitStrategy
 from .train_x import (
@@ -29,6 +29,15 @@ from .train import (
     get_scaled_hyperparamters,
     get_inferred_sigma_eps_if_needed,
 )
+
+
+class ModelTrainStepUnconditionalParams(NamedTuple):
+    sigma_eps: float
+    sigma_0: float
+    sigma_s: float
+    alpha: int
+    recon_err_multiplier: float
+    epoch_mod: int
 
 
 def weights_loss_batched(alpha, sigma_0, W_batch, start_idx=0):
@@ -58,36 +67,85 @@ def weights_loss_all_starts(alpha, sigma_0, W_batch):
 
 
 def compute_full_loss(
-    model,
+    model: nnx.Module,
     batch,
-    sigma_eps,
-    alpha,
-    sigma_x,
-    sigma_s,
-    recon_err_multiplier,
-    epoch_mod,
+    uncond_params: ModelTrainStepUnconditionalParams,
     use_ln_term,
     weights_algo,
 ):
     """Pure function to compute full loss with all components."""
+    u = uncond_params
+
     recon, codes, latent_perm = model(batch)
-    _recon_loss = recon_loss(batch, recon, sigma_eps)
-    _recon_loss *= recon_err_multiplier
+    # alpha, recon_err_multiplier, epoch_mod = uncond_params.alpha, uncond_params.recon_err_multiplier, uncond_params.epoch_mod
+    # sigma_eps, sigma_0, sigma_s = uncond_params.sigma_eps, uncond_params.sigma_0, uncond_params.sigma_s
+
+    _recon_loss = recon_loss(batch, recon, u.sigma_eps) * u.recon_err_multiplier
 
     if weights_algo == "random":
-        comp1, comp2 = weights_loss_batched(alpha, sigma_x, latent_perm, epoch_mod)
+        comp1, comp2 = weights_loss_batched(u.alpha, u.sigma_0, latent_perm, u.epoch_mod)
     else:
-        comp1, comp2 = weights_loss_all_starts(alpha, sigma_x, latent_perm)
+        comp1, comp2 = weights_loss_all_starts(u.alpha, u.sigma_0, latent_perm)
 
     if use_ln_term:
         weight_loss = comp1 + comp2
     else:
         weight_loss = comp1
 
-    codes_loss = gauss_loss(codes, 0) / (sigma_s * sigma_s)
+    codes_loss = gauss_loss(codes, 0) / (u.sigma_s * u.sigma_s)
     loss = _recon_loss + weight_loss + codes_loss
 
     return loss, (_recon_loss, weight_loss, codes_loss)
+
+
+def train_step(
+    model,
+    optimizer,
+    batch,
+    uncond_params: ModelTrainStepUnconditionalParams,
+    use_ln_term,
+    weights_algo,
+):
+    (loss, (recon_loss_val, weight_loss_val, codes_loss_val)), grads = (
+        nnx.value_and_grad(compute_full_loss, has_aux=True)(
+            model,
+            batch,
+            uncond_params,
+            use_ln_term,
+            weights_algo,
+        )
+    )
+
+    optimizer.update(model, grads)
+    return loss, recon_loss_val, weight_loss_val, codes_loss_val
+
+
+# make sure parallel_train_step and jit_train_step are using same configuration for jit
+jit_train_step = nnx.jit(train_step, static_argnames=["use_ln_term", "weights_algo"])
+
+# its preferred to jit over vmapped function, not the other way round
+# so we have the single function jitted above separately for use in a normal un-seeded training pipeline
+# i might remove that train code though, since its a degenerated case of 1 n_models
+@nnx.jit(static_argnames=["use_ln_term", "weights_algo"])
+@nnx.vmap(
+    in_axes=(0, 0, None, None, None, None), out_axes=0
+)
+def parallel_train_step(
+    model,
+    optimizer,
+    batch,
+    uncond_params: ModelTrainStepUnconditionalParams,
+    use_ln_term,
+    weights_algo,
+):
+    return train_step(
+        model,
+        optimizer,
+        batch,
+        uncond_params,
+        use_ln_term,
+        weights_algo,
+    )
 
 
 def compute_baseline_loss(model, batch):
@@ -96,39 +154,6 @@ def compute_baseline_loss(model, batch):
     return recon_loss(batch, recon, 1.0)  # sigma_eps=1 for baseline
 
 
-# using "static_argnames" would recompile the function for each type
-# we then have total 4 compiled versions, thats fine
-@nnx.jit(static_argnames=["use_ln_term", "weights_algo"])  
-def train_step(
-    model,
-    optimizer,
-    batch,
-    sigma_eps,
-    alpha,
-    sigma_x,
-    sigma_s,
-    recon_err_multiplier,
-    epoch_mod,
-    use_ln_term,
-    weights_algo,
-):
-    (loss, (recon_loss_val, weight_loss_val, codes_loss_val)), grads = (
-        nnx.value_and_grad(compute_full_loss, has_aux=True)(
-            model,
-            batch,
-            sigma_eps,
-            alpha,
-            sigma_x,
-            sigma_s,
-            recon_err_multiplier,
-            epoch_mod,
-            use_ln_term,
-            weights_algo,
-        )
-    )
-
-    optimizer.update(model, grads)
-    return loss, recon_loss_val, weight_loss_val, codes_loss_val
 
 
 @nnx.jit
@@ -154,11 +179,11 @@ class Autoencoder(nnx.Module):
 def train_baseline(
     X,
     n_components,
+    rngs,
     lr=1e-3,
     epochs=2000,
     batch_size=256,
     verbose=True,
-    seed=42,
 ) -> SingleRun:
     """
     Train the autoencoder with just reconstruction loss to find baseline.
@@ -188,12 +213,12 @@ def train_baseline(
     optimizer = nnx.Optimizer(model, optax.adam(lr), wrt=nnx.Param)
 
     # Training loop
-    key = random.PRNGKey(seed)
+    key = jax.random.PRNGKey(seed)
 
     for epoch in range(epochs):
         # Shuffle data
-        key, subkey = random.split(key)
-        idx = random.permutation(subkey, n_samples)
+        key, subkey = jax.random.split(key)
+        idx = jax.random.permutation(subkey, n_samples)
         permuted_X = X_jax[idx]
 
         epoch_losses = []
@@ -221,27 +246,32 @@ def train_baseline(
     )
 
 
-def init_model_parameters_jax(model, scaled_hyperparameters, n_components, init_strategy, rngs):
+def init_model_parameters_jax(
+    model, scaled_hyperparameters, n_components, init_strategy, rngs
+):
     """Initialize JAX/NNX model parameters using proper PRNG keys."""
     if isinstance(init_strategy, StandardInitStrategy):
         # Standard normal initialization for encoder and decoder
         sigma_enc = scaled_hyperparameters["sigma_enc"]
         sigma_0 = scaled_hyperparameters["sigma_0"]
-        
+
         # Initialize encoder weights with normal distribution
         encoder_key = rngs.params()
-        encoder_weights = random.normal(encoder_key, model.encoder.kernel.shape) * sigma_enc
+        encoder_weights = (
+            jax.random.normal(encoder_key, model.encoder.kernel.shape) * sigma_enc
+        )
         model.encoder.kernel.value = encoder_weights
-        
-        # Initialize decoder weights with normal distribution  
+
+        # Initialize decoder weights with normal distribution
         decoder_key = rngs.params()
-        decoder_weights = random.normal(decoder_key, model.decoder.kernel.shape) * sigma_0
+        decoder_weights = (
+            jax.random.normal(decoder_key, model.decoder.kernel.shape) * sigma_0
+        )
         model.decoder.kernel.value = decoder_weights
-        
+
     elif isinstance(init_strategy, NoInitStrategy):
         # Keep default initialization
         print("using default NNX initialization")
-        pass
     else:
         raise ValueError(f"Unsupported initialization strategy: {init_strategy}")
 
@@ -260,11 +290,37 @@ def get_hyperparameters_and_init_jax(
         alpha_constant=5000,
         sigma_s_rel_to_0=sigma_s_rel_to_0,
     )
-    
+    print("going to initialise model with", scaled_hyperparameters)
+
     # Initialize model parameters using proper PRNG
-    init_model_parameters_jax(model, scaled_hyperparameters, n_components, init_strategy, rngs)
-    
+    init_model_parameters_jax(
+        model, scaled_hyperparameters, n_components, init_strategy, rngs
+    )
+
     return scaled_hyperparameters
+
+
+def init_single_model(
+    s, input_dim, n_components, scaled_hyperparameters, init_strategy, lr
+):
+    jax.debug.print("init model seed {seed_val}", seed_val=s)
+    rngs = nnx.Rngs(s)
+    model = Autoencoder(input_dim, n_components, rngs)
+    # Initialize model parameters using shared hyperparameters
+    init_model_parameters_jax(
+        model, scaled_hyperparameters, n_components, init_strategy, rngs
+    )
+    optimizer = nnx.Optimizer(model, optax.adam(lr), wrt=nnx.Param)
+    return model, optimizer
+
+
+@nnx.vmap(in_axes=(0, None, None, None, None, None), out_axes=0)
+def parallel_init_models(
+    seeds, input_dim, n_components, scaled_hyperparameters, init_strategy, lr
+):
+    return init_single_model(
+        seeds, input_dim, n_components, scaled_hyperparameters, init_strategy, lr
+    )
 
 
 def train(
@@ -322,48 +378,22 @@ def train(
     print("\tuse_ln", use_ln_term)
     print("\tsigma_s_rel_to_0", sigma_s_rel_to_0)
 
+    rngs = nnx.Rngs(seed)
     X_jax = jnp.array(X, dtype=jnp.float32)
     n_samples, input_dim = X_jax.shape
 
-    sigma_eps, baseline_loss = get_inferred_sigma_eps_if_needed(
-        X,
-        n_components,
-        lr,
-        baseline_epochs,
-        batch_size,
-        sigma_eps_override,
-        verbose,
-        train_baseline,
-        seed=seed,
+    scaled_hyperparameters = get_scaled_hyperparameters_after_inferring_sigma_eps(
+        X, n_components, lr, baseline_epochs, batch_size, sigma_eps_override, sigma_s_rel_to_0, verbose, nnx.Rngs(seed)
     )
-
+    print("shared scaled_hyperparameters", scaled_hyperparameters)
     if initialised_model is None:
-        rngs = nnx.Rngs(seed)
         model = Autoencoder(input_dim, n_components, rngs)
-
-        # Initialize using JAX-specific strategy
-        scaled_hyperparameters = get_hyperparameters_and_init_jax(
-            model,
-            X,
-            n_components,
-            input_dim,
-            sigma_eps,
-            init_strategy,
-            sigma_s_rel_to_0,
-            rngs,
+        init_model_parameters_jax(
+            model, scaled_hyperparameters, n_components, init_strategy, rngs
         )
     else:
         print("using initialised model")
         model = initialised_model
-        scaled_hyperparameters = get_scaled_hyperparamters(
-            X.std(),
-            input_dim,
-            n_components,
-            sigma_eps=sigma_eps,
-            w_to_eps_ratio=5,
-            alpha_constant=5000,
-            sigma_s_rel_to_0=sigma_s_rel_to_0,
-        )
 
     best_model_state = None
     best_recon_loss = float("inf")
@@ -383,33 +413,31 @@ def train(
     optimizer = nnx.Optimizer(model, optax.adam(lr), wrt=nnx.Param)
 
     # Training loop
-    key = random.PRNGKey(seed)
+    key = jax.random.PRNGKey(seed)
     last_print_time = time.time()
     total_batches = math.ceil(n_samples / batch_size)
 
     for epoch in range(epochs):
         # Shuffle
-        key, subkey = random.split(key)
-        idx = random.permutation(subkey, n_samples)
+        key, subkey = jax.random.split(key)
+        idx = jax.random.permutation(subkey, n_samples)
         permuted_X_jax = X_jax[idx]
 
         epoch_recon_loss = []
         recon_err_multiplier = recon_err_schedule.get_multiplier(epoch, epochs)
+        uncond_params = ModelTrainStepUnconditionalParams(
+            sigma_eps, sigma_0, sigma_s, alpha, recon_err_multiplier, epoch_mod
+        )
 
         for i in range(0, n_samples, batch_size):
             batch = permuted_X_jax[i : i + batch_size]
             epoch_mod = epoch % n_components if weights_algo == "random" else 0
 
-            loss, _recon_loss, weight_loss, codes_loss = train_step(
+            loss, _recon_loss, weight_loss, codes_loss = jit_train_step(
                 model,
                 optimizer,
                 batch,
-                sigma_eps,
-                alpha,
-                sigma_x,
-                sigma_s,
-                recon_err_multiplier,
-                epoch_mod,
+                uncond_params,
                 use_ln_term,
                 weights_algo,
             )
@@ -420,7 +448,9 @@ def train(
                 or jnp.isnan(weight_loss)
                 or jnp.isnan(codes_loss)
             ):
-                print(f"NaN detected: recon={_recon_loss:.4f}, weight={weight_loss:.4f}, codes={codes_loss:.4f}")
+                print(
+                    f"NaN detected: recon={_recon_loss:.4f}, weight={weight_loss:.4f}, codes={codes_loss:.4f}"
+                )
                 break
 
             epoch_recon_loss.append(float(_recon_loss))
@@ -454,3 +484,177 @@ def train(
         scaled_hyperparameters,
         baseline_loss,
     )
+
+
+def train_parallel(
+    X,
+    n_components,
+    n_models=10,
+    lr=1e-2,
+    epochs=2000,
+    batch_size=64,
+    verbose=True,
+    init_strategy: InitStrategy = StandardInitStrategy(),
+    use_ln_term=False,
+    sigma_s_rel_to_0="equal",
+    baseline_epochs=1000,
+    sigma_eps_override=None,
+    recon_err_schedule=CosineAnnealReconError(1000),
+    weights_algo: Literal["cyclic", "random"] = "random",
+    seed=42,
+) -> list[SingleRun]:
+    # checkpointing is going to be more complicated than torch.save now
+    # im hoping this pays off bc
+    # in any case, for checkpointing we need orbax
+    # extract the model like below
+    # batched_state = nnx.state(models)
+    # model0 = jax.tree.map(lambda x: x[0], batched_state)
+    # for the loss you are interested in
+    # so this is one thing runs would need checkpoints and the whole components thing (npy files)
+    # or i could just plain put the encoder and decoder in the run and load as pt objects later :)
+    # that would be evil but fits the training pipeline so its fine
+    # its too late now though, i should sleep. need to finish this tomorrow, took way longer than i thought it would
+    # for now: we have `train` working
+    # this needs to work too though
+    """
+    Train multiple autoencoders in parallel with different random seeds using vmap.
+
+    Args:
+        X: numpy array (n_samples, input_dim)
+        n_models: number of models to train in parallel
+        n_components: number of dictionary atoms
+        All other args same as single train() function
+
+    Returns:
+        List of SingleRun results, one for each model
+    """
+    print(f"Training {n_models} models in parallel with JAX vmap")
+
+    # Parameter validation (same as single version)
+    if not isinstance(init_strategy, (StandardInitStrategy, NoInitStrategy)):
+        raise ValueError("Only StandardInitStrategy and NoInitStrategy supported")
+
+    X_jax = jnp.array(X, dtype=jnp.float32)
+    n_samples, input_dim = X_jax.shape
+
+    # baseline train is deterministic
+    # we dont care
+    p = get_scaled_hyperparameters_after_inferring_sigma_eps(
+        X, n_components, lr, baseline_epochs, batch_size, sigma_eps_override, sigma_s_rel_to_0, verbose, nnx.Rngs(0)
+    )
+    print("shared scaled_hyperparameters", p)
+
+    all_keys = jax.random.split(jax.random.PRNGKey(seed), n_models + 1)
+    # first key used for the main training code
+    # remaining used for model initialisation
+    key, keys = all_keys[0], all_keys[1:]
+
+    models, optimizers = parallel_init_models(
+        keys, input_dim, n_components, p, init_strategy, lr
+    )
+
+
+    # Training loop
+    last_print_time = time.time()
+    for epoch in range(epochs):
+        # Shuffle (same for all models)
+        key, subkey = jax.random.split(key)
+        idx = jax.random.permutation(subkey, n_samples)
+        permuted_X_jax = X_jax[idx]
+
+        epoch_recon_losses = [[] for _ in range(n_models)]
+        recon_err_multiplier = recon_err_schedule.get_multiplier(epoch, epochs)
+        uncond_params = ModelTrainStepUnconditionalParams(
+            p["sigma_eps"], p["sigma_0"], p["sigma_s"], p["alpha"], recon_err_multiplier, epoch_mod
+        )
+
+        for i in range(0, n_samples, batch_size):
+            batch = permuted_X_jax[i : i + batch_size]
+            epoch_mod = epoch % n_components if weights_algo == "random" else 0
+
+            # Parallel training step
+            all_losses, all_recon_losses, all_weight_losses, all_codes_losses = (
+                parallel_train_step(
+                    models,
+                    optimizers,
+                    batch,
+                    uncond_params,
+                    use_ln_term,
+                    weights_algo,
+                )
+            )
+
+            # Check for NaN in any model
+            for j in range(n_models):
+                if (
+                    jnp.isnan(all_recon_losses[j])
+                    or jnp.isnan(all_weight_losses[j])
+                    or jnp.isnan(all_codes_losses[j])
+                ):
+                    print(f"NaN detected in model {j}: recon={all_recon_losses[j]:.4f}")
+                    break
+            else:
+                # No NaN detected, continue
+                for j in range(n_models):
+                    epoch_recon_losses[j].append(float(all_recon_losses[j]))
+
+        if verbose and epoch % 50 == 0:
+            avg_losses = [
+                np.mean(losses) if losses else float("nan")
+                for losses in epoch_recon_losses
+            ]
+            print(
+                f"epoch {epoch:4d} | avg recon losses: {avg_losses[:3]}... | duration={time.time() - last_print_time:.2f}s"
+            )
+            last_print_time = time.time()
+
+    return models
+    # # Create results from final models
+    # results = []
+    # for j in range(n_models):
+    #     # Final evaluation for this model
+    #     recon, codes, _ = models[j](X_jax)
+    #     final_loss = float(jnp.mean((X_jax - recon) ** 2))
+
+    #     results.append(SingleRun(
+    #         models[j],
+    #         np.array(codes),
+    #         np.array(models[j].decoder.kernel.T),
+    #         np.array(recon),
+    #         final_loss,
+    #         p,
+    #         baseline_loss,
+    #     ))
+
+    # print(f"Completed training {n_models} models.")
+    # return results
+
+
+def get_scaled_hyperparameters_after_inferring_sigma_eps(
+    X, n_components, lr, baseline_epochs, batch_size, sigma_eps_override, sigma_s_rel_to_0, verbose, rngs
+):
+    n_samples, input_dim = X.shape
+    # Get sigma_eps (same for all models)
+    sigma_eps, baseline_loss = get_inferred_sigma_eps_if_needed(
+        X,
+        n_components,
+        lr,
+        baseline_epochs,
+        batch_size,
+        sigma_eps_override,
+        verbose,
+        train_baseline,
+        rngs=rngs,
+    )
+
+    # Get scaled hyperparameters once (shared by all models)
+    scaled_hyperparameters = get_scaled_hyperparamters(
+        X.std(),
+        input_dim,
+        n_components,
+        sigma_eps=sigma_eps,
+        w_to_eps_ratio=5,
+        alpha_constant=5000,
+        sigma_s_rel_to_0=sigma_s_rel_to_0,
+    )
+    return scaled_hyperparameters
