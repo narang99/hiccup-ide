@@ -76,9 +76,19 @@ def train(
     all_keys = jax.random.split(jax.random.PRNGKey(seed), n_models + 1)
     key, keys = all_keys[0], all_keys[1:]
 
-    models, optimizers, metrics = parallel_init_models(
+    models, optimizers = parallel_init_models(
         keys, input_dim, n_components, p, init_strategy, lr
     )
+    metrics = [
+        nnx.MultiMetric(
+            loss=nnx.metrics.Average("loss"),
+            recon_loss=nnx.metrics.Average("recon_loss"),
+            weight_loss=nnx.metrics.Average("weight_loss"),
+            codes_loss=nnx.metrics.Average("codes_loss"),
+            mse=nnx.metrics.Average("mse"),
+        )
+        for _ in range(n_models)
+    ]
     best_model_manager = BestModelManager(n_models)
 
     get_uncond = partial(
@@ -103,36 +113,26 @@ def train(
             )
 
         if verbose and epoch % 50 == 0:
-            metrics.reset()
             # no shuffling in eval steps
+            for metric in metrics:
+                metric.reset()
             for _, batch in get_batches(X_jax, batch_size, None):
-                parallel_eval_step(
+                loss, loss_result = parallel_eval_step(
                     models, metrics, batch, uncond_params, use_ln_term, weights_algo
+                )
+            # update metrics
+            for i in range(loss.shape[0]):
+                metrics[i].update(
+                    loss=loss[i],
+                    recon_loss=loss_result.recon_loss[i],
+                    weight_loss=loss_result.weight_loss[i],
+                    codes_loss=loss_result.codes_loss[i],
+                    mse=loss_result.unscaled_mse[i],
                 )
             best_model_manager.update_and_ckpt(models, metrics, "mse")
             print_metrics_at_eval(epoch, metrics, last_print_time)
-            last_print_time = time.time()
 
     return get_single_runs(best_model_manager, X_jax, n_components, p)
-    # # Create results from final models
-    # results = []
-    # for j in range(n_models):
-    #     # Final evaluation for this model
-    #     recon, codes, _ = models[j](X_jax)
-    #     final_loss = float(jnp.mean((X_jax - recon) ** 2))
-
-    #     results.append(SingleRun(
-    #         models[j],
-    #         np.array(codes),
-    #         np.array(models[j].decoder.kernel.T),
-    #         np.array(recon),
-    #         final_loss,
-    #         p,
-    #         baseline_loss,
-    #     ))
-
-    # print(f"Completed training {n_models} models.")
-    # return results
 
 
 def get_single_runs(
@@ -225,8 +225,8 @@ def get_scaled_hyperparameters_after_inferring_sigma_eps(
 
 
 def print_metrics_at_eval(epoch, metrics, last_print_time):
-    avg_losses = metrics.compute()
+    avg_losses = [m.compute() for m in metrics]
     print(f"epoch {epoch:4d} | duration={time.time() - last_print_time:.2f}s")
-    for seed_i in range(len(next(iter(avg_losses.values())))):
-        parts = " | ".join(f"{k}: {v[seed_i]:.4f}" for k, v in avg_losses.items())
-        print(f"\tseed {seed_i}: {parts}")
+    for i in range(len(avg_losses)):
+        parts = " | ".join(f"{k}: {v:.4f}" for k, v in avg_losses[i].items())
+        print(f"\tseed {i}: {parts}")

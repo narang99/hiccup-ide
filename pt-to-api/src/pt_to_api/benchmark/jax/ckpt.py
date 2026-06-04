@@ -26,7 +26,7 @@ class BestModelManager:
             self._tmpdir.cleanup()
 
     def update_and_ckpt(self, models, metrics, metric_key):
-        mets = np.array(metrics.compute()[metric_key])
+        mets = np.array([m.compute()[metric_key] for m in metrics])
         model_state = nnx.state(models)
         for i in range(len(self.best_losses)):
             if self.best_losses[i] > mets[i]:

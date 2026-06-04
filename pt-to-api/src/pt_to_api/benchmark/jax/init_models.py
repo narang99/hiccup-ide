@@ -29,14 +29,7 @@ def init_single_model(
         model, scaled_hyperparameters, n_components, init_strategy, rngs
     )
     optimizer = nnx.Optimizer(model, optax.adam(lr), wrt=nnx.Param)
-    metrics = nnx.MultiMetric(
-        loss=nnx.metrics.Average("loss"),
-        recon_loss=nnx.metrics.Average("recon_loss"),
-        weight_loss=nnx.metrics.Average("weight_loss"),
-        codes_loss=nnx.metrics.Average("codes_loss"),
-        mse=nnx.metrics.Average("mse"),
-    )
-    return model, optimizer, metrics
+    return model, optimizer
 
 
 def init_model_parameters(
