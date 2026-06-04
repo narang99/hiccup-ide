@@ -55,7 +55,8 @@ def train(
         raise ValueError("Only StandardInitStrategy and NoInitStrategy supported")
 
     X_jax = jnp.array(X, dtype=jnp.float32)
-    input_dim = X_jax.shape[1]
+    n_samples, input_dim = X_jax.shape
+    print("total training samples", n_samples)
 
     p = get_scaled_hyperparameters_after_inferring_sigma_eps(
         X,
@@ -112,7 +113,7 @@ def train(
                 models, optimizers, batch, uncond_params, use_ln_term, weights_algo
             )
 
-        if verbose and epoch % 50 == 0:
+        if verbose and epoch % 200 == 0:
             # no shuffling in eval steps
             for metric in metrics:
                 metric.reset()
@@ -130,7 +131,8 @@ def train(
                     mse=loss_result.unscaled_mse[i],
                 )
             best_model_manager.update_and_ckpt(models, metrics, "mse")
-            print_metrics_at_eval(epoch, metrics, last_print_time)
+            print(f"epoch {epoch} | duration = {time.time() - last_print_time}")
+            last_print_time = time.time()
 
     return get_single_runs(best_model_manager, X_jax, n_components, p)
 
