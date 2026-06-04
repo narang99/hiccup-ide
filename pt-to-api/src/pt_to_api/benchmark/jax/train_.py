@@ -49,6 +49,7 @@ def train(
     seed=42,
 ) -> list[SingleRun]:
     print("yahahhahaha")
+    print("yohohohooho")
     print(f"Training {n_models} models")
 
     # Parameter validation (same as single version)
