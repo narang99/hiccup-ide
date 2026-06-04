@@ -48,7 +48,8 @@ def train(
     weights_algo: Literal["cyclic", "random"] = "random",
     seed=42,
 ) -> list[SingleRun]:
-    print(f"Training {n_models} models in parallel with JAX vmap")
+    print("yahahhahaha")
+    print(f"Training {n_models} models")
 
     # Parameter validation (same as single version)
     if not isinstance(init_strategy, (StandardInitStrategy, NoInitStrategy)):
