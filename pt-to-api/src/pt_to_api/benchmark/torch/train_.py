@@ -47,6 +47,27 @@ class Autoencoder(nn.Module):
         return recon, codes, latent_perm
 
 
+def autoencoder_from_single_run(run: SingleRun) -> Autoencoder:
+    n_components, input_dim = run.encoder.shape
+    model = Autoencoder(input_dim, n_components)
+    # run storea everything as [n-components, dimensions]
+    # torch has [output-dim, input-dim]
+    # encoder takes dimensions input and n_components output.
+    # so we put [n-components, dimensions]
+    device = model.encoder.weight.device
+    model.encoder.weight.data = torch.tensor(
+        run.encoder, dtype=torch.float32, device=device
+    )
+    # model.encoder.kernel.set_value(run.encoder.T)
+
+    # decoder takes n-components input and dimensions output
+    # encoder wants [dimensions, n_components]
+    model.decoder.weight.data = torch.tensor(
+        run.components.T, dtype=torch.float32, device=device
+    )
+    return model
+
+
 @dataclass
 class CosineAnnealingWithWarmRestartsSchedType:
     T_0: int
