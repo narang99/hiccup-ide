@@ -424,3 +424,22 @@ what operation when combined becomes addition.
 
 
 This is a problem of multiplication being a simple copmosition of addition.  
+
+
+fastai, part 1 is done. im also quite fluent with most of the stuff now since ive been working on interpretability.  
+The other thing is that the algorithm we have is simply giving us disjointness over ICA, a bit better than ICA, nothing else. It might be useful to proving that disjointness might be the thing for our kernel?  
+If ICA and disjoint equations give similar results, its a useful direction.   
+
+
+
+
+see how the samples change when we increase n_components actually.  
+- with cycled weight loss also (not cycled but like starting from rand rows)
+- check if we can make sigma eps learnable with the full MSE loss, to see if noise can be catered to like this.  
+
+
+Good, we notice components successively decomposing.  
+- The thing is, its hard to know which components have been decomposed from what.  
+- If I know what the decompositions are, I can find the MSE change in those dims
+- Actually, I can find MSE change per dim, and print the top, 4 or something, and see if it is the same the decomposed dims.  
+  - A dim whose loss changes significantly has definitely decomposed

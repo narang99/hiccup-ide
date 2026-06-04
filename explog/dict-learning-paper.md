@@ -269,3 +269,171 @@ So what are the important hyperparameters?
   - for now, do i want to think a lot? i can just run them.  
   - but ive wasted time like this.  
   - hmm i need clean result. lets first run this thing for 1000 in colab i guess. we need to use drive for correct shelve usage
+
+
+- ohk, have run in colab, for pure case, init strategies.  
+  - for 1000 and 10,000 dims
+  - it seems some babysitting is always needed lol
+  - the best way might be what i had in mind, clustering and then finding the most similar ones, the algorithm is simple:
+    - run i for some k runs
+      - for each component, calculate how MSE changes with it.  
+      - cluster the components, starting with maximum MSE changes.  
+      - pick the top MSE changer, with some threshold on the number of repetations required (do not do clusters with 1 object at all)
+      - now, the dimensions it explains are good to go, we work without them. 
+      - repeat. break when
+        - we get zero clusters (many dead atoms compared to previously picked atoms).  
+        - The MSE does not change a lot (by some tol).  
+        - n_components have been picked.  
+  - technically this is not very difficult. The only problem is that runs can take time. Am I willing to wait?  
+    - This is worse for higher dimensions. We are running `k*n_components` times for every test.  
+    - Is there something I can do to make this faster?
+      - The obvious speed up is to take out multiple disjoint atoms from each run.  
+      - So after discarding bad clusters, we have a set of good clusters
+      - Each has MSE, we can simply say "if they explain variance within a threshold", like cluster1 is the winner with 0.1 and cluster2 is second, with 0.05, and the variance threshold is 0.05, we can use cluster2.  
+      - The best way is to cut up the clusters in disjoint cluster sets. From each disjoint set, pick the winner. Thats the easiest.
+      - How do i cut by disjoint set? We calculate the support overlap. If someone has support overlap > thres with someone else, they are in the same cluster, we can do this by taking `1-support-overlap`. This algorithm would need testing though. Testing on two cases might be good, Gaussian noise, and perturbations. For 100 dims, 20 atoms is fine.  
+      - this is a fair strategy.  
+      - but needs testing, would take the whole day. Should do fastai with it too. But is this worth the write up? It is if it gives consistently good mean similarity.  
+      - Testing would be the bulk of the time.  
+      - We do algo0 first (one cluster per run).   
+      - then we see if algo1 is good. But for that to work, I'll not do the automatic selection right now, I'll check out the results everytime.  
+  
+- well, ive been running the loss on the W, i should run it on WS and see if it works.  
+  - for each vector `s` we have `n` coefficients, which are all multiplied to their corresponding basis vector.  
+  - The column regularizer is on this intermediate matrix.  
+
+- ill nmove on now, for tomorrow
+  - finish collaborative learning notebooks, taht finishes part1 of the course. i can either do this or skip and do the next lecture (much more interesting). might do that
+  - use ica and the new thing to finish one kernel in MNIST.
+
+
+
+
+# ICA / PCA / SVD
+
+All give the same results with overlap though.  Can this be non-overlapping at all?  
+Who knows imma needs to check.   
+
+For us, the noise is a lot though.  
+It is interesting. I can make out some atoms which are coming together. What can I do?  
+
+
+
+Problem:
+
+- noise, makes it less interpretable. I need a metric of whenever a new component branches off.   
+- I can start with 2 components. make one. freeze it. train more. get one more. freeze. then one more. freeze. and so on.   
+  - This might give us the top level components
+  - Then it is time to see which ones can be decomposed further.  
+  - We unfreeze one, copy it in another atom. Train those two. See if the MSE changes for the better. If not, then that does not need further decomposition.  
+  - We do this for every atom. Which atom is good for decomposition? the one with the highest MSE in its dimensions (in its dimensions is the key).  
+  - We continue until we feel we can decompose, then we bail.   
+- The code technically makes the first atom catch all. thats okay i think. Maybe. Lets see.  
+
+# June 1 notes
+
+- fastai collab filtering is done, very easy. Need to recap a bit of 9 and start 10.  
+
+- Lecture 10 fastai
+- Move forward with decomposition somehow lol
+  - I can either tweak it a bit more
+    - run on more data to see the stability
+    - run multiple seeds and find the stable ones
+
+
+
+The problem right now is truly that I dont know what decompositions are "correct".  
+- A decomposition happens: is that worth it? We can find it by finding the MSE difference from that decomposition.  
+In this case, I first need to figure out what decomposed into what. We can do this manually for now, would be interesting.  
+- interesting to see the number of samples a pattern was positive for. 
+
+
+Main problem is I myself don't know a good decomposition criteria, I should work on that first.  
+
+
+huh, i think the recon annealing thing might just give similar results across runs.  
+
+
+- Get all the original components that were extracted by doing multiple runs for the same seed.
+- find the unique ones
+- now they would have overlaps. we want to get the best combination
+- if i try to train with all the components added, it might add new components, this would remove the purpose
+- an interesting thing i can do, is keep the weight loss, keep the codes loss, BUT freeze the weights. the codes would find the best combination, might be interesting to check this out.   
+  - finally something good clicked hehe.   
+
+
+- how do i find whether the stuff is working though?  
+  - finally i would have a set of coefficients, i would like to know the "groups".  
+  - A group is a set of overlapping dimensions whcih dont come together. overlap is soft and hard to calculate. 
+  - so we find the people whose codes dont come with each other (im a code, i wanna know others who were always near 0, we can find mean and shit for this, idk. it does seem like correlation matrix)
+  - wait, top level first
+  - hmmm, grad descent can btw cheat also, it might find components which do overlap for differnet cases, hmmmmmmmmmmmmmmmm
+  - the best case would be to just find the components whose `s` would be very low generally, we prune them out.   
+
+
+- we still have slight stability problems, BUT. we know that some of them are extremely common and come up all the time.  
+- I'll simply cluster the values across seeds then, it should work, good feeling about it yessssssss
+- We will be pragmatic, we only pick the stable ones
+
+
+Ohk, looking at the outputs, I can now guess which ones are most "stable". The question is on whether we simply use them or not.  
+And how do i quantify it?   
+
+A small problem with clustering is that it can get weird quickly.  
+
+
+- No more of coincidence programming, im losing discipline in my hurry to do more experiments, in my hurry to not waste nights whcih could have been useful computing, it just gives more pain later. Make it work first on a smaller scale to perfection, then run the model on a larger scale.  
+
+
+
+- The thing is working. Now what are the next steps.  
+
+- First is cleaning this up. And running this for all the others.  
+- So i need to get the stuff working
+
+
+What were the steps until now?
+
+- Collect patches (run the whole model on the full DS and get the dataset)
+  - First go through the kernel's contribution graphs, see which POIs are useful, then use them.  
+  - I've to do POI by POI which is a problem of my attribution method (i dont know if i can take from all the points and threshold correctly [since the POIs have different thresholds])
+  - This is for now okay, I'll also need to try more reliable methods for getting patches (which would be basically all methods which make sense to me for now, I also dont mind doing neg and pos separately to maintain the signs and all).  
+  - Select thresholds
+  - Run the model again, get the internal activations this time for points, with thresholding
+- Save the full samples.  
+- Take a random sample, save it (this is the training sample, important)
+- Train a model on that random sample, across components, across seeds
+- Each model has important scaler values that it was trained on, we would want to save them with the model. So we save the run and the scaler itself
+- Find the elbow
+- Pick some epoch. use its min loss val (i would like to also not use very low score stuff, but that is an internal detail)
+
+
+It might be useful to keep a separate notebook to show GMM thresholds are good.  
+
+# June 3
+
+- Runs for 4 kernels are done i think. Im analysing one to see if there are any problems. if yes, im going to run them again. But first we will verify
+- The trend has changed a bit, its interesting. The loss now goes to a minima and then shoots up. It seems its because of dead atoms for now.  
+- It is important to reiterate that every intermediate step has a set of choices. How to threshold attributions? Which algorithm to use for attribution? How to threshold coefficients? How to calculate scores?
+  - For now, I will need to keep track of everything. And keep moving with whatever I have.
+  - Debugging later would be painful, but I cant really fixate on everything
+  - At this point, the codebase is also reasonably big. With complicated pieces.  
+  - Each has been tested, with its own proofs and all. But I dont have perfect proofs. 
+    - Although, model run strategies do have enough proof i think (I need to defend cosine annealing and not using log term)
+  - Ive fixed the thresholding for coefficients also
+  - Need to make sure i dont forget the bigger picture
+
+- The scores are pretty reliable and stable now. They dont change or do any weird stuff.  
+
+# June 4
+- JAX is ready. Need to test on colab. Also need to test if model can be retrieved correctly. Will be done in colab now.  
+- We use the older structure (directly saving SingleRun), it now contains encoder and decoder separately as np arrays, for compatibility between torch and JAX.   
+  - Its the easiest way to get stuff done rn, JAX stores checkpoints directories and all. not interested right now at all.  
+
+next steps?
+- Test on colab. Check seed wise perf
+  - Add support for git in colab (im getting auth problems)
+  - uv install pt-to-api in the colab notebook now
+  - run across 1 seed and multiple seeds to see if we are actually getting a boost
+  - then retreive the model to see if its working correctly end to end
+  - run for one kernel tonight at least.  
