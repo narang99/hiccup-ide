@@ -118,7 +118,7 @@ def train(
                 metric.reset()
             for _, batch in get_batches(X_jax, batch_size, None):
                 loss, loss_result = parallel_eval_step(
-                    models, metrics, batch, uncond_params, use_ln_term, weights_algo
+                    models, batch, uncond_params, use_ln_term, weights_algo
                 )
             # update metrics
             for i in range(loss.shape[0]):

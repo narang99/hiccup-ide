@@ -6,7 +6,7 @@ from flax import nnx
 
 @nnx.jit(static_argnames=["use_ln_term", "weights_algo"])
 @nnx.vmap(in_axes=(0, None, None, None, None, None), out_axes=0)
-def parallel_eval_step(model, metrics, batch, uncond_params, use_ln_term, weights_algo):
+def parallel_eval_step(model, batch, uncond_params, use_ln_term, weights_algo):
     loss, loss_result = compute_full_loss(
         model,
         batch,
