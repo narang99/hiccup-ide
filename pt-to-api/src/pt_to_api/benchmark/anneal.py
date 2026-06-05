@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 
 @dataclass
@@ -12,10 +12,15 @@ class ConstantReconError:
 class CosineAnnealReconError:
     max_factor: int
     min_factor: int = 1
+    hold_frac: float = 0.2
 
     def get_multiplier(self, current_epoch: int, total_epochs):
         return cosine_anneal(
-            self.min_factor, self.max_factor, current_epoch, total_epochs
+            self.min_factor,
+            self.max_factor,
+            current_epoch,
+            total_epochs,
+            self.hold_frac,
         )
 
 
