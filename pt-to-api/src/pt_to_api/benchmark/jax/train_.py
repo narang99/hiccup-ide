@@ -148,7 +148,7 @@ def train(
                 batch_size,
             )
             log_to_tensorboard(writers, metrics, n_components, epoch)
-            best_model_manager.update_and_ckpt(models, metrics, "loss")
+            best_model_manager.update_and_ckpt(models, metrics, "mse")
             print(f"epoch {epoch} | duration = {time.time() - last_print_time}")
             last_print_time = time.time()
 
