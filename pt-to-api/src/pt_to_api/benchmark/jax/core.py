@@ -16,28 +16,13 @@ class ModelTrainStepUnconditionalParams(NamedTuple):
     epoch_mod: int
 
 
-# class Autoencoder(nnx.Module):
-#     def __init__(self, input_dim, n_components, rngs):
-#         self.encoder = nnx.Linear(input_dim, n_components, rngs=rngs, use_bias=False)
-#         self.decoder = nnx.Linear(n_components, input_dim, rngs=rngs, use_bias=False)
-
-#     def __call__(self, x):
-#         codes = self.encoder(x)
-#         latent = codes[..., None] * self.decoder.kernel[None, ...]
-#         recon = jnp.sum(latent, axis=1)
-#         latent_perm = jnp.transpose(latent, (0, 2, 1))  # [batch, columns, components]
-#         return recon, codes, latent_perm
-
-
 class Autoencoder(nnx.Module):
     def __init__(self, input_dim, n_components, rngs):
-        self.encoder = nnx.Linear(input_dim, 20, rngs=rngs, use_bias=False)
-        self.fat = nnx.Linear(20, n_components, rngs=rngs, use_bias=False)
+        self.encoder = nnx.Linear(input_dim, n_components, rngs=rngs, use_bias=False)
         self.decoder = nnx.Linear(n_components, input_dim, rngs=rngs, use_bias=False)
 
     def __call__(self, x):
-        codes = self.fat(nnx.relu(self.encoder(x)))
-
+        codes = self.encoder(x)
         latent = codes[..., None] * self.decoder.kernel[None, ...]
         recon = jnp.sum(latent, axis=1)
         latent_perm = jnp.transpose(latent, (0, 2, 1))  # [batch, columns, components]

@@ -66,5 +66,12 @@ I might also reduce the number of epochs, the descent is already finished in 500
 ## Stuff to try for loss chasing
 
 - Hyperparameters vectorize
+  - is it worth it?
+  - nah no need to nitpick. lets do the runs again.
 - No init
+  - works
 - Fatter encoder (easiest to do rn)
+  - does not work
+
+- Its best to start another layer, with no init. that works out well.
+- Then we come back to layer 2, chan 5
