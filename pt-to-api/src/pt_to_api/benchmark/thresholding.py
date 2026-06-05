@@ -3,13 +3,16 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.mixture import GaussianMixture
 
+
 @dataclass
 class NonNegative:
     threshold: float
 
+
 @dataclass
 class NonPositive:
     threshold: float
+
 
 @dataclass
 class MixedSign:
@@ -18,6 +21,7 @@ class MixedSign:
     pos_max: float
     neg_max: float
 
+
 @dataclass
 class Ambiguous:
     t_pos: float
@@ -25,22 +29,29 @@ class Ambiguous:
     pos_max: float
     neg_max: float
 
+
 SignResult = NonNegative | NonPositive | MixedSign | Ambiguous
+
 
 def find_threshold_using_gmm(values, conservatism=0):
     values = np.array(values)
     gmm = GaussianMixture(n_components=2, random_state=0)
     gmm.fit(values.reshape(-1, 1))
-    
+
     garbage_idx = np.argmax(gmm.means_)
     real_idx = 1 - garbage_idx
-    
+
     midpoint = (gmm.means_[garbage_idx] + gmm.means_[real_idx]) / 2
-    gap = gmm.means_[real_idx] - gmm.means_[garbage_idx]  # signed, points away from garbage
-    
+    gap = (
+        gmm.means_[real_idx] - gmm.means_[garbage_idx]
+    )  # signed, points away from garbage
+
     return (midpoint - conservatism * gap).item()
 
-def threshold_assuming_noise_at_0_with_only_one_side_active(values: np.ndarray, threshold_fn: Callable = find_threshold_using_gmm) -> SignResult:
+
+def threshold_assuming_noise_at_0_with_only_one_side_active(
+    values: np.ndarray, threshold_fn: Callable = find_threshold_using_gmm
+) -> SignResult:
     """
     Determines the sign structure of the data and returns the appropriate threshold.
 
@@ -62,8 +73,8 @@ def threshold_assuming_noise_at_0_with_only_one_side_active(values: np.ndarray, 
     pos = values[values > 0]
     neg = values[values < 0]
 
-    t_neg = threshold_fn(np.abs(neg)) if len(neg) > 0 else 0
-    t_pos = threshold_fn(pos) if len(pos) > 0 else 0
+    t_neg = threshold_fn(np.abs(neg)) if len(neg) > 1 else 0
+    t_pos = threshold_fn(pos) if len(pos) > 1 else 0
 
     pos_max = pos.max() if len(pos) > 0 else 0
     neg_max = abs(neg.min()) if len(neg) > 0 else 0

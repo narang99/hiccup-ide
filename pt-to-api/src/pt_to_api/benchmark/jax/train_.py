@@ -1,34 +1,39 @@
 import gc
-from pt_to_api.benchmark.init_strats import (
-    InitStrategy,
-    StandardInitStrategy,
-    NoInitStrategy,
-)
-import numpy as np
-from functools import partial
+import shutil
 import time
+from functools import partial
+from pathlib import Path
+from typing import Literal
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 from flax import nnx
-from typing import Literal
+from tensorboardX.writer import SummaryWriter
+
 from pt_to_api.benchmark.anneal import (
     CosineAnnealReconError,
     ReconErrSchedule,
 )
-from pt_to_api.benchmark.hyperparams import (
-    get_scaled_hyperparamters,
-    get_inferred_sigma_eps_if_needed,
-)
 from pt_to_api.benchmark.core import SingleRun
+from pt_to_api.benchmark.hyperparams import (
+    get_inferred_sigma_eps_if_needed,
+    get_scaled_hyperparamters,
+)
+from pt_to_api.benchmark.init_strats import (
+    InitStrategy,
+    NoInitStrategy,
+    StandardInitStrategy,
+)
+from pt_to_api.benchmark.jax.ckpt import BestModelManager
 from pt_to_api.benchmark.jax.core import (
+    Autoencoder,
     ModelTrainStepUnconditionalParams,
     get_batches,
-    Autoencoder,
 )
 from pt_to_api.benchmark.jax.init_models import parallel_init_models
 from pt_to_api.benchmark.jax.steps import parallel_eval_step, parallel_train_step
 from pt_to_api.benchmark.jax.train_baseline_ import train_baseline
-from pt_to_api.benchmark.jax.ckpt import BestModelManager
 
 
 def train(
@@ -47,6 +52,8 @@ def train(
     recon_err_schedule: ReconErrSchedule = CosineAnnealReconError(1000),
     weights_algo: Literal["cyclic", "random"] = "random",
     seed=42,
+    eval_every=200,
+    tensorboard_log_dir=None,
 ) -> list[SingleRun]:
     print(f"Training {n_models} models")
 
@@ -54,8 +61,8 @@ def train(
     if not isinstance(init_strategy, (StandardInitStrategy, NoInitStrategy)):
         raise ValueError("Only StandardInitStrategy and NoInitStrategy supported")
 
-    X_jax = jnp.array(X, dtype=jnp.float32)
-    n_samples, input_dim = X_jax.shape
+    x_jax = jnp.array(X, dtype=jnp.float32)
+    n_samples, input_dim = x_jax.shape
     print("total training samples", n_samples)
 
     p = get_scaled_hyperparameters_after_inferring_sigma_eps(
@@ -90,6 +97,22 @@ def train(
         )
         for _ in range(n_models)
     ]
+    log_dir = (
+        Path(tensorboard_log_dir)
+        if tensorboard_log_dir is not None
+        else Path("tensorboard/experiment")
+    )
+    print(f"Tensorboard log dir: {log_dir}")
+    # we get separate log directory for every n_components
+    # we remove them for this new run
+    # all seeds use the same metric name (comps_{comp_name}.{metric_key})
+    # thus they are overlaid on the same graph
+    log_dirs = [log_dir / f"seed_{i}" for i in range(n_models)]
+    for d in log_dirs:
+        shutil.rmtree(d, ignore_errors=True)
+    writers = [
+        SummaryWriter(log_dir=str(log_dir / f"seed_{i}")) for i in range(n_models)
+    ]
     best_model_manager = BestModelManager(n_models)
 
     get_uncond = partial(
@@ -108,33 +131,60 @@ def train(
             recon_err_multiplier=recon_err_multiplier, epoch_mod=epoch_mod
         )
 
-        for key, batch in get_batches(X_jax, batch_size, key):
+        for key, batch in get_batches(x_jax, batch_size, key):
             parallel_train_step(
                 models, optimizers, batch, uncond_params, use_ln_term, weights_algo
             )
 
-        if verbose and epoch % 200 == 0:
+        if verbose and epoch % eval_every == 0:
             # no shuffling in eval steps
-            for metric in metrics:
-                metric.reset()
-            for _, batch in get_batches(X_jax, batch_size, None):
-                loss, loss_result = parallel_eval_step(
-                    models, batch, uncond_params, use_ln_term, weights_algo
-                )
-            # update metrics
-            for i in range(loss.shape[0]):
-                metrics[i].update(
-                    loss=loss[i],
-                    recon_loss=loss_result.recon_loss[i],
-                    weight_loss=loss_result.weight_loss[i],
-                    codes_loss=loss_result.codes_loss[i],
-                    mse=loss_result.unscaled_mse[i],
-                )
-            best_model_manager.update_and_ckpt(models, metrics, "mse")
+            do_eval_steps(
+                x_jax,
+                models,
+                metrics,
+                uncond_params,
+                use_ln_term,
+                weights_algo,
+                batch_size,
+            )
+            log_to_tensorboard(writers, metrics, n_components, epoch)
+            best_model_manager.update_and_ckpt(models, metrics, "loss")
             print(f"epoch {epoch} | duration = {time.time() - last_print_time}")
             last_print_time = time.time()
 
-    return get_single_runs(best_model_manager, X_jax, n_components, p)
+    return get_single_runs(best_model_manager, x_jax, n_components, p)
+
+
+def do_eval_steps(
+    x_jax, models, metrics, uncond_params, use_ln_term, weights_algo, batch_size: int
+):
+    for metric in metrics:
+        metric.reset()
+    for _, batch in get_batches(x_jax, batch_size, None):
+        loss, loss_result = parallel_eval_step(
+            models, batch, uncond_params, use_ln_term, weights_algo
+        )
+        # update metrics
+        for i in range(loss.shape[0]):
+            metrics[i].update(
+                loss=loss[i],
+                recon_loss=loss_result.recon_loss[i],
+                weight_loss=loss_result.weight_loss[i],
+                codes_loss=loss_result.codes_loss[i],
+                mse=loss_result.unscaled_mse[i],
+            )
+
+
+def log_to_tensorboard(writers, metrics, n_components, epoch):
+    for writer, metric in zip(writers, metrics):
+        computed = metric.compute()
+        for metric_key in ["loss", "recon_loss", "weight_loss", "codes_loss", "mse"]:
+            writer.add_scalar(
+                f"comps_{n_components}.{metric_key}",
+                float(computed[metric_key]),
+                epoch,
+            )
+            writer.flush()
 
 
 def get_single_runs(

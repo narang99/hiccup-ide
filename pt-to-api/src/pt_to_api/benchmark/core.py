@@ -18,6 +18,36 @@ class SingleRun:
     baseline_loss: float | None = None
 
 
+class LazySingleRun:
+    def __init__(self, path: str):
+        self._pickle_path = path
+        data: SingleRun = self._load_from_file()
+        self.loss = data.loss
+        self.hyperparameters = data.hyperparameters
+        self.baseline_loss = data.baseline_loss
+
+    def _load_from_file(self) -> SingleRun:
+        import torch
+
+        return torch.load(self._pickle_path, "cpu", weights_only=False)
+
+    @property
+    def codes(self) -> np.ndarray:
+        return self._load_from_file().codes
+
+    @property
+    def encoder(self) -> np.ndarray:
+        return self._load_from_file().encoder
+
+    @property
+    def components(self) -> np.ndarray:
+        return self._load_from_file().components
+
+    @property
+    def recon(self) -> np.ndarray:
+        return self._load_from_file().recon
+
+
 @dataclass(frozen=True)
 class RunId:
     n_components: int
