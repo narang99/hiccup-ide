@@ -43,7 +43,7 @@ def get_scaled_hyperparamters(
     n_components,
     sigma_eps,
     w_to_eps_ratio=5,
-    alpha_constant=10_000.0,
+    alpha_constant=5000.0,
     sigma_s_rel_to_0="equal",
 ):
     """
@@ -53,7 +53,8 @@ def get_scaled_hyperparamters(
     alpha_constant: the c in alpha = c / sigma_0^2
     """
     if sigma_s_rel_to_0 == "equal":
-        sigma_0 = sigma_s = sigma_x / np.sqrt(n_components)
+        # sigma_0 = sigma_s = sigma_x / np.sqrt(n_components)
+        sigma_0 = sigma_s = 1
         # sigma_0 = sigma_s = sigma_x
     elif sigma_s_rel_to_0 == "less":
         sigma_s = sigma_eps * w_to_eps_ratio

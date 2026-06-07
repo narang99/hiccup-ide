@@ -244,8 +244,35 @@ def get_device(dim):
         return "mps"
 
 
+def support_overlap_matrix_batched(W, threshold=0.05):
+    # [B, n-components, dims]
+    W = torch.tensor(W)
+
+    # [B, n-components, dims]
+    abs_W = W.abs()
+
+    # [B, n-components, 1]
+    # do i need different maxes though? idts. use the useful one only
+    maxvals = abs_W.max(dim=2, keepdim=True).values
+
+    # [B, n-components, dims]
+    support = abs_W > threshold * maxvals
+    support_f = support.float()
+
+    # [B, n-components, dims], [B, n-components, dims] -> [B, n-components, n-components]
+    intersection = torch.einsum("bid,bjd->bij", support_f, support_f)
+
+    # [B, n-components]
+    support_sizes = support.sum(dim=2).float()
+
+    # [B, n-components, n-components]
+    min_sizes = torch.min(support_sizes[:, :, None], support_sizes[:, None, :])
+
+    overlap = intersection / min_sizes
+    return overlap.mean(dim=0)
+
+
 def support_overlap_matrix(W, threshold=0.01):
-    # W: (n_components, n_dims)
     W = torch.tensor(W)
     abs_W = W.abs()
     maxvals = abs_W.max(dim=1, keepdim=True).values  # (n_components, 1)
