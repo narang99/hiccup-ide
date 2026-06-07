@@ -120,7 +120,7 @@ def train(
 
         for key, batch in get_batches(x_jax, batch_size, key):
             # now we need to scalar it
-            grads = parallel_train_step(
+            parallel_train_step(
                 models,
                 optimizers,
                 batch,
@@ -130,7 +130,7 @@ def train(
                 alpha_multiplier,
                 epoch_mod,
             )
-            log_grads_to_tensorboard(writers, grads, n_components, epoch)
+            # log_grads_to_tensorboard(writers, grads, n_components, epoch)
 
         if verbose and epoch % eval_every == 0:
             # no shuffling in eval steps

@@ -48,20 +48,20 @@ def parallel_train_step(
         alpha_multiplier,
         epoch_mod,
     )
-    _, recon_grads = nnx.value_and_grad(main_recon_loss_fn, has_aux=True)(
-        model, batch, uncond_params
-    )
-    _, weight_grads = nnx.value_and_grad(main_weight_loss_fn, has_aux=False)(
-        model,
-        batch,
-        uncond_params,
-        use_ln_term,
-        weights_algo,
-        alpha_multiplier,
-        epoch_mod,
-    )
+    # _, recon_grads = nnx.value_and_grad(main_recon_loss_fn, has_aux=True)(
+    #     model, batch, uncond_params
+    # )
+    # _, weight_grads = nnx.value_and_grad(main_weight_loss_fn, has_aux=False)(
+    #     model,
+    #     batch,
+    #     uncond_params,
+    #     use_ln_term,
+    #     weights_algo,
+    #     alpha_multiplier,
+    #     epoch_mod,
+    # )
     optimizer.update(model, grads)
-    return grads, recon_grads, weight_grads
+    return grads
 
 
 @nnx.jit
