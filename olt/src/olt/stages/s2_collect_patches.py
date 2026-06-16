@@ -175,7 +175,7 @@ class PatchExtractor:
     ):
         input_shards = raw_iter_shards(self.images_shards_base_dir / str(label))
         attribution_shards = raw_iter_shards(
-            self.attribution_shards_base_dir / str(label) / self.current_layer_name
+            self.attribution_shards_base_dir / self.current_layer_name / str(label)
         )
         attribution_shard_name_to_path = {p.name: p for p in attribution_shards}
         with torch.no_grad():

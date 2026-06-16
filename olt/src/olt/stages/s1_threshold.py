@@ -112,7 +112,7 @@ def get_all_stacked_attributions(
     This will return [B, C, H, W], a single tensor containing the attributions of all samples for a given imagenet label and layer
     """
     attribution_shards = raw_iter_shards(
-        base_attr_dir / str(imagenet_label) / layer_name
+        base_attr_dir / layer_name / str(imagenet_label)
     )
 
     cat_res = []
