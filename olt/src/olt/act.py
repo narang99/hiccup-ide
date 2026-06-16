@@ -23,7 +23,8 @@ class ModelSnapshot:
     def _get_hook(self, name: str):
         def hook_fn(module, input, output):
             # Store the main activation output
-            self.activations[name] = output.detach().cpu()
+            self.activations[name] = input[0].detach().cpu()
+            # self.activations[name] = output.detach().cpu()
 
         return hook_fn
 
