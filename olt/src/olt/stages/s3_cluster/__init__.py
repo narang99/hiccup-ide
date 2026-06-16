@@ -9,7 +9,7 @@ from torch import nn
 from olt.path import RemotePath, remote_mkdir
 from olt.stages.s2_collect_patches import read_all_patches
 
-from .run_hdbscan import TrainedModelWithoutMedoids, sweep_train_hdbscan
+from .run_hdbscan import TrainedModel, sweep_train_hdbscan
 
 
 def train_models_for_layer(
@@ -89,7 +89,7 @@ def train_clusterer_for_single_neuron(
     return best, rest, meta
 
 
-def model_to_meta(trained_model: TrainedModelWithoutMedoids):
+def model_to_meta(trained_model: TrainedModel):
     clusterer = trained_model["clusterer"]
     score = trained_model["dbcv"]
     labels = clusterer.labels_

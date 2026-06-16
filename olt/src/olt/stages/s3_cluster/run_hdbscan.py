@@ -11,12 +11,6 @@ class TrainedModel(TypedDict):
 
     clusterer: Any
     dbcv: float
-    medoids: dict
-
-
-class TrainedModelWithoutMedoids(TypedDict):
-    clusterer: Any
-    dbcv: float
 
 
 def predict_labels(X, hdbscan_module, trained_model: TrainedModel):
@@ -37,14 +31,14 @@ def _predict_labels(X, hdbscan_module, trained_model: TrainedModel):
     return labels
 
 
-def _predict_recons(X, labels, trained_model: TrainedModel):
+def _predict_recons(X, labels, medoids):
     noise_label = -1
     reconstructed = np.empty_like(X)
     for i, label in enumerate(labels):
-        if label == noise_label or label not in trained_model["medoids"]:
+        if label == noise_label or label not in medoids:
             reconstructed[i] = np.random.randn(X.shape[1]).astype(X.dtype)
         else:
-            reconstructed[i] = trained_model["medoids"][label]
+            reconstructed[i] = medoids[label]
     return reconstructed
 
 
@@ -67,7 +61,6 @@ def sweep_train_hdbscan(
     best = {
         "clusterer": best["clusterer"],
         "dbcv": best["dbcv"],
-        "medoids": _get_medoids(best["clusterer"].labels_, data),
     }
 
     rest = [
