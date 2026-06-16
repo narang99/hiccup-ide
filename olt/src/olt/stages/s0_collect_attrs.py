@@ -18,6 +18,7 @@ def collect_attributions(
     attribution_shards_base_path: RemotePath,
     model,
     read_shard_batch_size: int = 64,
+    device="cpu",
 ):
     for label in tqdm(all_labels):
         run_attribution_and_write(
@@ -29,6 +30,7 @@ def collect_attributions(
             attribution_shards_base_path,
             read_shard_batch_size,
             show_progress=False,
+            device=device,
         )
 
 
@@ -40,6 +42,7 @@ def run_attribution_and_write(
     layer_name: str,
     out_dir: RemotePath,
     batch_size: int,
+    device="cpu",
     n_steps: int = 128,
     internal_batch_size: int | None = None,
     show_progress=True,
@@ -52,9 +55,8 @@ def run_attribution_and_write(
 
     attribution shape would be [C, H, W], where C is the number of output channels of the layer. H,W is the shape of the output activation of the layer
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device)
-    out_dir = Path(out_dir) / str(imagenet_label) / layer_name
+    out_dir = Path(out_dir) / layer_name / str(imagenet_label)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     shard_it = raw_iter_shards(base_images_shard_dir / str(imagenet_label))
