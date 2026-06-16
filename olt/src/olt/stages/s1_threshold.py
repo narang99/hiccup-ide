@@ -15,6 +15,33 @@ from ..path import RemotePath, remote_mkdir
 from ..shards import raw_iter_shards, read_attribution_shard
 
 
+def get_collected_thresholds_for_layer(
+    layer_name: str, total_channels: int, threshold_base_dir: RemotePath
+):
+    """Return the collected thresholds as a tensor of shape [total_channels, 1, 1] for a given layer"""
+    pos_thresholds, neg_thresholds = [], []
+    for channel in range(total_channels):
+        threshold_file = (
+            threshold_base_dir / layer_name / str(channel) / "thresholds.json"
+        )
+        with open(threshold_file) as f:
+            content = json.load(f)
+        pos_thresholds.append(content["positive"])
+        neg_thresholds.append(content["negative"])
+
+    pos_thresholds, neg_thresholds = (
+        torch.tensor(pos_thresholds),
+        torch.tensor(neg_thresholds),
+    )
+
+    # make them [C, 1, 1] shape
+    # for next step
+    pos_thresholds = pos_thresholds[:, None, None]
+    neg_thresholds = neg_thresholds[:, None, None]
+
+    return pos_thresholds, neg_thresholds
+
+
 def calculate_thresholds_for_layer_attributions(
     base_attr_dir: RemotePath,
     threshold_store_dir: RemotePath,
