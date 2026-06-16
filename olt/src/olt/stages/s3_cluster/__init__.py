@@ -20,7 +20,6 @@ def train_models_for_layer(
     patches_base_dir: RemotePath,
     hdbscan_module,
     min_cluster_sizes: list[int],
-    min_samples_list: list[int],
 ):
     for channel in channels:
         if _is_done(model_store_dir / layer_name / str(channel) / "meta.json"):
@@ -35,7 +34,6 @@ def train_models_for_layer(
             patches_base_dir,
             hdbscan_module,
             min_cluster_sizes,
-            min_samples_list,
         )
         _persist_clusterer_and_meta(model_store_dir, layer_name, channel, best, meta)
         gc.collect()
@@ -69,7 +67,6 @@ def train_clusterer_for_single_neuron(
     patches_base_dir: RemotePath,
     hdbscan_module,
     min_cluster_sizes: list[int],
-    min_samples_list: list[int],
 ):
     patches = read_all_patches(patches_base_dir, layer_name, channel)
     layer = model.get_submodule(layer_name)
@@ -79,9 +76,7 @@ def train_clusterer_for_single_neuron(
     print(f"############################ {channel} #############################")
     print(f"layer weight shape: {layer_weight.shape}")
     print(f"pws shape: {pws.shape}")
-    best, rest = sweep_train_hdbscan(
-        pws.numpy(), hdbscan_module, min_cluster_sizes, min_samples_list
-    )
+    best, rest = sweep_train_hdbscan(pws.numpy(), hdbscan_module, min_cluster_sizes)
 
     meta = {
         "done": True,
