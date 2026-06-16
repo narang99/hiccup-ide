@@ -13,7 +13,7 @@ dependencies = [
     "hdbscan==0.8.39",
     "huggingface-hub>=1.19.0",
     "matplotlib>=3.11.0",
-    "numpy>=2.4.6",
+    "numpy==2.0",
     "pillow>=12.2.0",
     "torch>=2.11",
     "torch-lucent>=0.1.8",
