@@ -1,6 +1,7 @@
 import gc
 import json
 import pickle
+import time
 
 import numpy as np
 from torch import nn
@@ -20,8 +21,11 @@ def train_models_for_layer(
     hdbscan_module,
     min_cluster_sizes: list[int],
 ):
-
     for channel in channels:
+        if _is_done(model_store_dir / layer_name / str(channel) / "meta.json"):
+            print(f"SKIP: channel={channel}; already done")
+
+        start = time.time()
         best, _, meta = train_clusterer_for_single_neuron(
             model,
             layer_name,
@@ -32,6 +36,15 @@ def train_models_for_layer(
         )
         _persist_clusterer_and_meta(model_store_dir, layer_name, channel, best, meta)
         gc.collect()
+        print(f"train time: {time.time() - start} seconds")
+
+
+def _is_done(meta_file_path: RemotePath):
+    if not meta_file_path.exists():
+        return False
+    with meta_file_path.open("r") as f:
+        content = json.load(f)
+    return content.get("done", False)
 
 
 def _persist_clusterer_and_meta(
@@ -65,6 +78,7 @@ def train_clusterer_for_single_neuron(
     best, rest = sweep_train_hdbscan(pws.numpy(), hdbscan_module, min_cluster_sizes)
 
     meta = {
+        "done": True,
         "best": model_to_meta(best),
         "rest": [model_to_meta(r) for r in rest],
     }
