@@ -10,8 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "datasets>=4.8.5",
     "fastai>=2.8.7",
-    "jax==0.7.2", # colab likes this version
-    "ipykernel>=7.2.0",
+    "jax==0.7.2",
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
     "orbax-checkpoint>=0.12.0",
@@ -21,6 +20,11 @@ dependencies = [
     "tensorboardx>=2.6.5",
     "torch>=2.11.0",
     "flax==0.11.2",
+    "joblib>=1.5.3",
+    "captum>=0.9.0",
+    "torch-lucent>=0.1.8",
+    "webdataset>=1.0.2",
+    "hdbscan==0.8.39",
 ]
 
 [build-system]

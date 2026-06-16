@@ -4,33 +4,36 @@ The constraint is slightly different now.
 Instead of putting the constraint on W, we put it on S*W. Easy. it actually works quite well in practice surprisingly.
 """
 
-from functools import partial
+import math
 import time
-from torch import nn
+from dataclasses import dataclass
+from functools import partial
+from typing import Literal
+
+import numpy as np
 import torch
-from torch import optim
-from pt_to_api.benchmark.core import SingleRun
-from pt_to_api.benchmark.init_strats import (
-    InitStrategy,
-    StandardInitStrategy,
-)
+from torch import nn, optim
+
 from pt_to_api.benchmark.anneal import (
+    ConstantReconError,
     CosineAnnealReconError,
     ReconErrSchedule,
 )
-from pt_to_api.benchmark.torch.model_init import get_hyperparameters_and_init
-from pt_to_api.benchmark.losses import (
-    get_recon_loss,
-    get_gauss_loss,
-)
+from pt_to_api.benchmark.core import SingleRun
 from pt_to_api.benchmark.hyperparams import (
-    get_scaled_hyperparamters,
     get_inferred_sigma_eps_if_needed,
+    get_scaled_hyperparamters,
 )
-import numpy as np
-from dataclasses import dataclass
-from typing import Literal
-import math
+from pt_to_api.benchmark.init_strats import (
+    InitStrategy,
+    NoInitStrategy,
+    StandardInitStrategy,
+)
+from pt_to_api.benchmark.losses import (
+    get_gauss_loss,
+    get_recon_loss,
+)
+from pt_to_api.benchmark.torch.model_init import get_hyperparameters_and_init
 
 
 class Autoencoder(nn.Module):
@@ -101,7 +104,7 @@ def train(
     epochs=2000,
     batch_size=64,
     verbose=True,
-    init_strategy: InitStrategy = StandardInitStrategy(),
+    init_strategy: InitStrategy = NoInitStrategy(),
     initialised_model=None,
     use_ln_term=False,
     sigma_s_rel_to_0="equal",
@@ -112,7 +115,9 @@ def train(
     optim_type: OptimType = AdamOptimType(),
     sched_type: SchedType = NoSchedType(),
     weights_algo: Literal["cyclic", "random"] = "random",
-) -> SingleRun:
+    alpha_schedule: ReconErrSchedule = ConstantReconError(),
+    codes_loss_coeff: float = 1.0,
+) -> list[SingleRun]:
     """
     X: numpy array (n_samples, input_dim)
     n_components: number of dictionary atoms
@@ -216,17 +221,21 @@ def train(
             recon, codes, latent_perm = model(batch)
             _recon_loss = get_recon_loss(batch, recon, sigma_eps)
             _recon_loss *= recon_err_multiplier
+            alpha_to_pass = alpha_schedule.get_multiplier(epoch, epochs) * alpha
             if weights_algo == "random":
                 comp1, comp2 = weights_loss_batched(
-                    alpha, sigma_x, latent_perm, epoch % latent_perm.shape[2]
+                    alpha_to_pass, sigma_x, latent_perm, epoch % latent_perm.shape[2]
                 )
             else:
-                comp1, comp2 = weights_loss_all_starts(alpha, sigma_x, latent_perm)
+                comp1, comp2 = weights_loss_all_starts(
+                    alpha_to_pass, sigma_x, latent_perm
+                )
             if use_ln_term:
                 weight_loss = comp1 + comp2
             else:
                 weight_loss = comp1
-            codes_loss = get_gauss_loss(codes, 0) / (sigma_s * sigma_s)
+            # codes_loss = get_gauss_loss(codes, 0) / (sigma_s * sigma_s)
+            codes_loss = codes_loss_coeff * torch.abs(codes).mean()
             loss = _recon_loss + weight_loss + codes_loss
             if (
                 torch.isnan(_recon_loss)
@@ -268,15 +277,17 @@ def train(
     # decoder shape: [dimensions, n-components]
     # encoder shape: [n-components, dimensions]
     # single-run wants [n-components, dimensions] for both
-    return SingleRun(
-        codes=codes.to("cpu").numpy(),
-        encoder=model.encoder.weight.detach().to("cpu").numpy(),
-        components=model.decoder.weight.T.detach().to("cpu").numpy(),
-        recon=recon.to("cpu").numpy(),
-        loss=((X_t - recon) ** 2).to("cpu").mean(),
-        scaled_hyperparameters=scaled_hyperparameters,
-        baseline_loss=baseline_loss,
-    )
+    return [
+        SingleRun(
+            codes=codes.to("cpu").numpy(),
+            encoder=model.encoder.weight.detach().to("cpu").numpy(),
+            components=model.decoder.weight.T.detach().to("cpu").numpy(),
+            recon=recon.to("cpu").numpy(),
+            loss=((X_t - recon) ** 2).to("cpu").mean(),
+            hyperparameters=scaled_hyperparameters,
+            baseline_loss=baseline_loss,
+        )
+    ]
 
 
 def train_baseline(

@@ -244,7 +244,7 @@ def get_device(dim):
         return "mps"
 
 
-def support_overlap_matrix_batched(W, threshold=0.05):
+def support_overlap_matrix_batched(W, threshold=0.05, tol=1e-7):
     # [B, n-components, dims]
     W = torch.tensor(W)
 
@@ -266,7 +266,7 @@ def support_overlap_matrix_batched(W, threshold=0.05):
     support_sizes = support.sum(dim=2).float()
 
     # [B, n-components, n-components]
-    min_sizes = torch.min(support_sizes[:, :, None], support_sizes[:, None, :])
+    min_sizes = torch.min(support_sizes[:, :, None], support_sizes[:, None, :]) + tol
 
     overlap = intersection / min_sizes
     return overlap.mean(dim=0)

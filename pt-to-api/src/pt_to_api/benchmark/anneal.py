@@ -39,8 +39,8 @@ class CosineIncreaseReconError(CosineAnnealReconError):
 
 def cosine_anneal(min_val, max_val, epoch, total_epochs, hold_frac=0.2):
     decay_epochs = int(total_epochs * (1 - hold_frac))
-    if epoch >= decay_epochs:
-        return min_val
+    # if epoch >= decay_epochs:
+    #     return min_val
     return min_val + 0.5 * (max_val - min_val) * (
         1 + math.cos(math.pi * epoch / decay_epochs)
     )

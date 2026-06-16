@@ -8,6 +8,12 @@ class StandardInitStrategy:
 
 
 @dataclass
+class ZeroInitStrategy:
+    def __repr__(self):
+        return "'ZeroInitStrategy'"
+
+
+@dataclass
 class NoInitStrategy:
     def __repr__(self):
         return "'NoInitStrategy'"

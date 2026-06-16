@@ -1,13 +1,13 @@
 import itertools
-import numpy as np
-from sklearn.decomposition import PCA
-import seaborn as sns
-import matplotlib.pyplot as plt
+import math
+
 import matplotlib.colors as mcolors
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import numpy as np
-import math
+import seaborn as sns
 import torch
+from sklearn.decomposition import PCA
 
 # the std one has too less contrast
 # std_dark_colors = ["red", "black", "green"]
@@ -70,13 +70,19 @@ def zeros_with_1_at(length, idx_of_1):
 
 
 def show_single_channel_red_green_black(
-    images, figsize=None, ncols=2, axis="on", viztype="global", mode="light", suptitle="", ax_titles=None
+    images,
+    figsize=None,
+    ncols=2,
+    axis="on",
+    viztype="global",
+    mode="light",
+    suptitle="",
+    ax_titles=None,
 ):
     if len(images) == 1:
         ncols = 1
     if viztype == "gray":
-        show(images, figsize=figsize, ncols=ncols, axis=axis, cmap="gray")
-        return
+        return show(images, figsize=figsize, ncols=ncols, axis=axis, cmap="gray")
 
     fig, axs, v_limit = _plot_single_channel_red_green_black(
         images, figsize, ncols, axis, viztype, mode, suptitle, ax_titles
@@ -85,7 +91,14 @@ def show_single_channel_red_green_black(
 
 
 def _plot_single_channel_red_green_black(
-    images, figsize=None, ncols=2, axis="on", viztype="global", mode="dark", suptitle="", ax_titles=None
+    images,
+    figsize=None,
+    ncols=2,
+    axis="on",
+    viztype="global",
+    mode="dark",
+    suptitle="",
+    ax_titles=None,
 ):
     if not images:
         return None, None, None
@@ -127,7 +140,7 @@ def _plot_single_channel_red_green_black(
 
         axs[i].imshow(img, **params)
         axs[i].axis(axis)
-    
+
     if ax_titles is not None:
         for i in range(len(axs)):
             if i < len(ax_titles):
@@ -179,6 +192,7 @@ def show(crops, figsize=None, ncols=2, axis="on", cmap=None, titles=None):
         ncols = 1
     fig, axs = _plot(crops, figsize, ncols, axis, cmap, titles)
     plt.show()
+    return axs
 
 
 def to_show_list(tens):
@@ -202,24 +216,29 @@ def mk_rect_on_ax(ax, r, c, h, w, edgecolor="r"):
     )
     ax.add_patch(rect)
 
+
 def get_ratios_for_labels(labels):
     return torch.cat([zeros_with_1_at(10, lb) for lb in labels])
+
 
 def scatter_plot_1d(numbers, suff=""):
     # 2. Create the visualization
     plt.figure(figsize=(20, 3))
-    sns.stripplot(x=numbers, color='blue', alpha=0.5, jitter=True)
+    sns.stripplot(x=numbers, color="blue", alpha=0.5, jitter=True)
 
-    plt.title('1D Clustering Visualization' + suff)
-    plt.xlabel('Value')
-    plt.grid(axis='x', linestyle='--', alpha=0.6)
+    plt.title("1D Clustering Visualization" + suff)
+    plt.xlabel("Value")
+    plt.grid(axis="x", linestyle="--", alpha=0.6)
     plt.show()
 
 
 def show_72_list(xs, **kwargs):
-    res = list(itertools.chain.from_iterable([to_show_list(x.reshape(8,3,3)) for x in xs]))
-    show_single_channel_red_green_black(res, (20, 4*len(xs)), 8, **kwargs)
+    res = list(
+        itertools.chain.from_iterable([to_show_list(x.reshape(8, 3, 3)) for x in xs])
+    )
+    show_single_channel_red_green_black(res, (20, 4 * len(xs)), 8, **kwargs)
     plt.show()
+
 
 def show_72(x, **kwargs):
     show_single_channel_red_green_black(
@@ -227,12 +246,14 @@ def show_72(x, **kwargs):
     )
     plt.show()
 
+
 # def get_receptive(y, x, ksize=3, stride=2, padding=1):
 #     ys = y*stride - padding
 #     xs = x*stride - padding
 #     return (ys, xs), (ys+ksize, xs+ksize)
 
-def get_receptive(y, x, ksize=(3,3), stride=(2,2), padding=(1,1), dilation=(1,1)):
+
+def get_receptive(y, x, ksize=(3, 3), stride=(2, 2), padding=(1, 1), dilation=(1, 1)):
     ys = y * stride[0] - padding[0]
     xs = x * stride[1] - padding[1]
     effective_ky = dilation[0] * (ksize[0] - 1) + 1
@@ -243,36 +264,35 @@ def get_receptive(y, x, ksize=(3,3), stride=(2,2), padding=(1,1), dilation=(1,1)
 def otsu_threshold(data, bins=256):
     hist, bin_edges = np.histogram(data, bins=bins)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-    
+
     total = hist.sum()
     total_mean = (hist * bin_centers).sum() / total
-    
+
     best_thresh = 0
     best_variance = 0
     weight_bg = 0
     mean_bg = 0
-    
+
     for i in range(len(hist)):
         weight_bg += hist[i] / total
         if weight_bg == 0:
             continue
-        
+
         mean_bg += hist[i] * bin_centers[i] / total
         weight_fg = 1 - weight_bg
-        
+
         if weight_fg == 0:
             break
-        
+
         mean_fg = (total_mean - mean_bg) / weight_fg
-        
+
         between_variance = weight_bg * weight_fg * (mean_bg / weight_bg - mean_fg) ** 2
 
         if between_variance > best_variance:
             best_variance = between_variance
             best_thresh = bin_centers[i]
-    
-    return best_thresh
 
+    return best_thresh
 
 
 def explain_variance_with_pca(X):
@@ -281,8 +301,8 @@ def explain_variance_with_pca(X):
 
     plt.figure(figsize=(8, 4))
     plt.plot(range(1, len(cumvar) + 1), cumvar, linewidth=1.5)
-    plt.axhline(y=0.95, color='r', linestyle='--', alpha=0.5, label='95%')
-    plt.axhline(y=0.99, color='g', linestyle='--', alpha=0.5, label='99%')
+    plt.axhline(y=0.95, color="r", linestyle="--", alpha=0.5, label="95%")
+    plt.axhline(y=0.99, color="g", linestyle="--", alpha=0.5, label="99%")
     plt.xlabel("n_components")
     plt.ylabel("cumulative variance explained")
     plt.title("PCA variance explained")
@@ -307,49 +327,54 @@ def show_gram(W, title="", figsize=None):
     plt.show()
     return gram
 
+
 def gram_orthogonality_error(W):
     if not isinstance(W, torch.Tensor):
         W = torch.tensor(W)
-    
+
     W_norm = W / (W.norm(dim=0, keepdim=True) + 1e-8)
     gram = W_norm.T @ W_norm  # (n_components, n_components)
-    
+
     n = gram.shape[0]
     identity = torch.eye(n, device=gram.device, dtype=gram.dtype)
-    
+
     # Normalise gram to [-1, 1] before computing error
     gram_normalised = gram / (gram.abs().max() + 1e-8)
     identity_normalised = identity / (identity.abs().max() + 1e-8)
-    
+
     error = (gram_normalised - identity_normalised).pow(2).mean().sqrt()
     return error.item()
+
 
 def run_single_test(dims_list, atoms_ratio, noise_std_set, term3_set):
     for dim in dims_list:
         for a in atoms_ratio:
             for noise_std in noise_std_set:
                 for term3 in term3_set:
-                
                     print("#######", dim, a, noise_std, term3)
                     gc.collect()
-                    atoms = math.ceil(dim*a)
+                    atoms = math.ceil(dim * a)
                     # keep all active
                     k = atoms
-                    n_samples = 100*atoms
+                    n_samples = 100 * atoms
                     # active_dims = math.ceil(dim*sp_rat)
-        
+
                     device = get_device(dim)
-                    X, W_true, codes_true, dim_partition = gen_fn(dim, atoms, k, n_samples=n_samples, noise_std=noise_std)
-            
+                    X, W_true, codes_true, dim_partition = gen_fn(
+                        dim, atoms, k, n_samples=n_samples, noise_std=noise_std
+                    )
+
                     scaler = MeanPerDimGlobalStdScaler().fit(X)
                     X_scaled = scaler.transform(X)
-    
+
                     mets = []
                     for run_idx in range(NUM_RUNS_PER_TEST):
                         print("RUN:", run_idx)
                         kwargs = {kwarg_key: term3}
-                        run = train(X_scaled, atoms, 1e-3, epochs=4000, device=device, **kwargs)
+                        run = train(
+                            X_scaled, atoms, 1e-3, epochs=4000, device=device, **kwargs
+                        )
                         mets.append(get_metrics_from_run(run, W_true))
                         gc.collect()
-                    
+
                     metrics[(dim, a, noise_std, term3)] = aggregate_metrics(mets)
