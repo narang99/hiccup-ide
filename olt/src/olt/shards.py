@@ -64,3 +64,14 @@ def read_attribution_shard(
     return read_torch_tensor_shard(
         tar_path, batch_size, "attribution.pth", wds_cache_kwargs
     )
+
+
+def read_patches_shard(
+    tar_path: RemotePath, batch_size: int
+) -> Iterator[tuple[list[str], list[torch.Tensor]]]:
+    """Read the shard at tar_path, and return a stream of [list[key], list[attribution-tensor]]
+
+    The returned tensor would be of shape [C, H, W] (no batch dimension)
+    key is the filename of the input from which this attribution was calculated
+    """
+    return read_torch_tensor_shard(tar_path, batch_size, "patch.pth", {})

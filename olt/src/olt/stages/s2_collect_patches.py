@@ -17,6 +17,7 @@ from ..shards import (
     raw_iter_shards,
     read_attribution_shard,
     read_image_shard,
+    read_patches_shard,
     tensor_to_bytes,
 )
 
@@ -161,9 +162,6 @@ class PatchExtractor:
             for label_idx, label in tqdm(
                 enumerate(self.all_labels), total=len(self.all_labels)
             ):
-                if label_idx == 4:
-                    print("hack, skipping 4, for perf chekcing")
-                    continue
                 self._extract_single_label(label, channels_to_keep, writers)
         self.patches_meta.mark_all_channels_done(channels_to_keep)
 
@@ -382,3 +380,17 @@ def get_output_shape(
     Ho = (H + 2 * padding[0] - dilation[0] * (ksize[0] - 1) - 1) // stride[0] + 1
     Wo = (W + 2 * padding[1] - dilation[1] * (ksize[1] - 1) - 1) // stride[1] + 1
     return (B, C, Ho, Wo)
+
+
+def read_all_patches(
+    patches_base_dir: RemotePath, layer_name: str, channel: int
+) -> torch.Tensor:
+    all_patches = []
+    shards = raw_iter_shards(patches_base_dir / layer_name / str(channel))
+
+    for shard in shards:
+        for _, patches in read_patches_shard(shard, 128):
+            all_patches.extend(patches)
+
+    all_patches = torch.cat(all_patches)
+    return all_patches
