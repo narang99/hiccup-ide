@@ -43,7 +43,11 @@ def _predict_recons(X, labels, medoids):
 
 
 def sweep_train_hdbscan(
-    data, hdbscan_module, min_cluster_sizes: list[int], train_kwargs=None
+    data,
+    hdbscan_module,
+    min_cluster_sizes: list[int],
+    min_samples_list: list[int],
+    train_kwargs=None,
 ):
     if not min_cluster_sizes:
         raise Exception(
@@ -52,10 +56,11 @@ def sweep_train_hdbscan(
     data = normalize(data, "l2")
     trained_models = []
     for min_cluster_size in min_cluster_sizes:
-        trained_model = train_hdbscan_model(
-            data, hdbscan_module, min_cluster_size, train_kwargs
-        )
-        trained_models.append(trained_model)
+        for min_samples in min_samples_list:
+            trained_model = train_hdbscan_model(
+                data, hdbscan_module, min_cluster_size, min_samples, train_kwargs
+            )
+            trained_models.append(trained_model)
     trained_models = sorted(trained_models, key=lambda m: m["dbcv"], reverse=True)
     best = trained_models[0]
     best = {
@@ -69,7 +74,9 @@ def sweep_train_hdbscan(
     return best, rest
 
 
-def train_hdbscan_model(data, hdbscan_module, min_cluster_size, train_kwargs=None):
+def train_hdbscan_model(
+    data, hdbscan_module, min_cluster_size, min_samples, train_kwargs=None
+):
     """assumes we get L2 normalized data already, hdbscan_module is either CUML version of stock version. you should use sweep version generally"""
     if train_kwargs is None:
         train_kwargs = {}
@@ -78,6 +85,7 @@ def train_hdbscan_model(data, hdbscan_module, min_cluster_size, train_kwargs=Non
         "prediction_data": True,
         "gen_min_span_tree": True,
         "min_cluster_size": min_cluster_size,
+        "min_samples": min_samples,
     }
     clusterer = hdbscan_module.HDBSCAN(**train_kwargs)
     clusterer.fit(data)
