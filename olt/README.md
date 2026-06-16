@@ -49,3 +49,10 @@ Technically, i can just put only the models. without the data, if something fail
 Ohk, the cluster is too noisy definitely. DBCV is not working out as a great metric it seems. There is one thing though, i definitely need higher min-cluster-sizes, small sizes are stupid
 
 I definitely need a higher cluster size.
+
+Auto clustering is definitely difficult
+
+This might be an artifact of deeplift also btw, deeplift ends up giving more clusters generally.
+I might just try integrated gradients and get some random reports to see if they are any good actually.
+Its not that bad, 2 hours for a layer.
+I would need to run attributions collection in a loop at night basically.

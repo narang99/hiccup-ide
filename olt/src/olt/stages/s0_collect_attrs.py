@@ -19,6 +19,7 @@ def collect_attributions(
     model,
     read_shard_batch_size: int = 64,
     device="cpu",
+    method="deeplift",
 ):
     for label in tqdm(all_labels):
         run_attribution_and_write(
@@ -31,6 +32,7 @@ def collect_attributions(
             read_shard_batch_size,
             show_progress=False,
             device=device,
+            method=method,
         )
 
 
@@ -46,6 +48,7 @@ def run_attribution_and_write(
     n_steps: int = 128,
     internal_batch_size: int | None = None,
     show_progress=True,
+    method="deeplift",
 ):
     """For a given target imagenet label, a model and a layer (using layer name), find the layer attribution of that layer for all inputs of that imagenet label
 
@@ -78,6 +81,7 @@ def run_attribution_and_write(
                         int(imagenet_label),
                         n_steps,
                         internal_batch_size,
+                        method=method,
                     )
                     for key, attr in zip(keys, attributions):
                         sink.write(
