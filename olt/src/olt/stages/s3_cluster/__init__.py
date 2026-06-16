@@ -24,6 +24,7 @@ def train_models_for_layer(
     for channel in channels:
         if _is_done(model_store_dir / layer_name / str(channel) / "meta.json"):
             print(f"SKIP: channel={channel}; already done")
+            continue
 
         start = time.time()
         best, _, meta = train_clusterer_for_single_neuron(
