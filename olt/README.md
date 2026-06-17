@@ -95,3 +95,5 @@ Ohk, RF is not bad. But the first thing i need is reports. its hard to do much w
 - train distilled RF. Keep it running on the floor only
 - Report generation should run both RF and HDBScan, it should flag the outputs where they disagree for each label.
   (RF said this, HDB said that kinda thing).
+
+Good, now ive got a report, no need to run the model again, we simply need to run neuron attribution.
