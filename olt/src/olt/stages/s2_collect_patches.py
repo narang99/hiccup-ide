@@ -230,7 +230,7 @@ class PatchExtractor:
                         "__key__": str(uuid4()),
                         "patch.pth": tensor_to_bytes(channels_patches),
                         "indices.pth": tensor_to_bytes(channels_indices),
-                        "input_keys": json.dumps(ordered_keys).encode("utf-8"),
+                        "input_keys.json": json.dumps(ordered_keys).encode("utf-8"),
                     }
                 )
 
