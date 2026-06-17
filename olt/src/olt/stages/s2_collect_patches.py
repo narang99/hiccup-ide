@@ -202,17 +202,14 @@ class PatchExtractor:
                 raise Exception(
                     f"found different keys in input and attribution while finding patches\n\tinput_keys={input_keys}\n\tattr_keys={attr_keys}"
                 )
-            # start = time.time()
             indices, patches = self._get_indices_and_patches(input_list, attributions)
-            # print("got indices", time.time() - start)
-            # start = time.time()
             self._persist_patches(
-                indices, patches, channels_to_keep, multi_shard_writer
+                input_keys, indices, patches, channels_to_keep, multi_shard_writer
             )
-            # print("persisted in", time.time() - start)
 
     def _persist_patches(
         self,
+        input_keys: list[str],
         indices: torch.Tensor | None,
         patches: list[torch.Tensor] | None,
         channels_to_keep: list[int],
@@ -222,27 +219,20 @@ class PatchExtractor:
             # indices are [B, C, H, W]
             # we only get the patches for which the index channel is in channels to keep
             # and write to the corresponding channel
-            chan_by_patches = self._get_channel_by_patches(
+            chan_by_indices, chan_by_patches = get_channel_by_patches(
                 indices, patches, channels_to_keep
             )
-            for chan, patches in chan_by_patches.items():
+            for chan, channels_patches in chan_by_patches.items():
+                channels_indices = chan_by_indices[chan]
+                ordered_keys = keys_ordered_using_indices(input_keys, channels_indices)
                 multi_shard_writer[chan].write(
-                    {"__key__": str(uuid4()), "patch.pth": tensor_to_bytes(patches)}
+                    {
+                        "__key__": str(uuid4()),
+                        "patch.pth": tensor_to_bytes(channels_patches),
+                        "indices.pth": tensor_to_bytes(channels_indices),
+                        "input_keys": ordered_keys,
+                    }
                 )
-
-    def _get_channel_by_patches(
-        self,
-        indices: torch.Tensor,
-        patches: list[torch.Tensor],
-        channels_to_keep: list[int],
-    ):
-        channel_by_patches: dict[int, list[torch.Tensor]] = defaultdict(list)
-        for i in range(len(indices)):
-            ind, patch = indices[i], patches[i]
-            chan = typing.cast(int, ind[1].item())
-            if chan in channels_to_keep:
-                channel_by_patches[chan].append(patch)
-        return {k: torch.stack(v) for k, v in channel_by_patches.items()}
 
     def _get_indices_and_patches(self, input_list, attributions):
         return get_indices_and_patches_for_batch(
@@ -256,6 +246,40 @@ class PatchExtractor:
             self.input_transform_fn,
             self.device,
         )
+
+
+def keys_ordered_using_indices(input_keys: list[str], channel_indices: torch.Tensor):
+    # channel_indices: [B, C, H, W]
+    # we want to attach `key` by matching it with `B`
+    # key is simply input_keys[B]
+    res = []
+    for ind in channel_indices:
+        b = ind[0]
+        key = input_keys[b]
+        res.append(key)
+    return res
+
+
+def get_channel_by_patches(
+    indices: torch.Tensor,
+    patches: list[torch.Tensor],
+    channels_to_keep: list[int],
+) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+    channel_by_patches: dict[int, list[torch.Tensor]] = defaultdict(list)
+    channel_by_indices: dict[int, list[torch.Tensor]] = defaultdict(list)
+    for i in range(len(indices)):
+        ind, patch = indices[i], patches[i]
+        chan = typing.cast(int, ind[1].item())
+        if chan in channels_to_keep:
+            channel_by_patches[chan].append(patch)
+            channel_by_indices[chan].append(ind)
+    stacked_channel_by_patches = {
+        k: torch.stack(v) for k, v in channel_by_patches.items()
+    }
+    stacked_channel_by_indices = {
+        k: torch.stack(v) for k, v in channel_by_indices.items()
+    }
+    return stacked_channel_by_indices, stacked_channel_by_patches
 
 
 def get_indices_and_patches_for_batch(

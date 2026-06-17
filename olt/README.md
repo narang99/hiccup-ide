@@ -56,3 +56,42 @@ This might be an artifact of deeplift also btw, deeplift ends up giving more clu
 I might just try integrated gradients and get some random reports to see if they are any good actually.
 Its not that bad, 2 hours for a layer.
 I would need to run attributions collection in a loop at night basically.
+
+Colab disconnecting is a pain. we do have sagemaker though. i can use 30 hours of kaggle gpus also. i should start that too. but need cuml support, along with cpu serialisation and testing.
+
+Ohk, so deeplift has a tendency of giving one-off results (with single examples sending a lot of labels. we want to disable them).
+So before generating the report, the IR structure:
+
+We keep a flat csv with the following columns
+
+```json
+{
+  "cluster_label": "...",
+  "imagenet_label": "...",
+  "layer_name": "...",
+  "channel": "...",
+  "input_image_key": "...", // image shard key
+  "location": "..." // [h,w]
+}
+```
+
+For a single neuron we query the layer_name and channel combo. If it only contains one imagenet example, we flag it. easy.
+
+Ohk, now for report generation, we take a layer by channel by clusterer dict.
+Call layer attribution for all existing layers.  
+Go through each channel clusterer present, get those attributions, call our code on the input data, then store the combination in the dataset.
+
+Report generator in the end would go through all image shards, for every input_image_key, it finds all cluster labels and positions. each cluster label also has a marker "valid" label
+During this report generation, we would also like to mark some labels as "bad" for a clusterer (the ones which have only single example). We silence them by default (in the report, they should come in the end, collapsed). The report should also has some sort of red marking to do that.
+The neuron attribution generator now picks the set of locations it wants to check out, goes through the input again, calls neuron deeplift for each location, puts the output in the corresponding directory.
+
+The reporter then simply goes through these, prepares report by overlaying. and we done.
+
+We need sampling of input data, hdbscan can go wonk. it stores the existing data for future predictions, so it can get huge. tis very bad.
+
+Ohk, RF is not bad. But the first thing i need is reports. its hard to do much without them. Some things to consider:
+
+- keep a list of labels which are not good. (add a floor on the number of examples a label should have)
+- train distilled RF. Keep it running on the floor only
+- Report generation should run both RF and HDBScan, it should flag the outputs where they disagree for each label.
+  (RF said this, HDB said that kinda thing).
