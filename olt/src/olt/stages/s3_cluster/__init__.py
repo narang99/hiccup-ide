@@ -4,6 +4,7 @@ import pickle
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn
 
@@ -28,16 +29,25 @@ def train_models_for_layer(
             continue
 
         start = time.time()
-        best, _, meta, indices, input_keys = train_clusterer_for_single_neuron(
-            model,
-            layer_name,
-            channel,
-            patches_base_dir,
-            hdbscan_module,
-            min_cluster_sizes,
+        best, _, meta, indices, input_keys, imagenet_labels = (
+            train_clusterer_for_single_neuron(
+                model,
+                layer_name,
+                channel,
+                patches_base_dir,
+                hdbscan_module,
+                min_cluster_sizes,
+            )
         )
         _persist_clusterer_and_meta(
-            model_store_dir, layer_name, channel, best, meta, indices, input_keys
+            model_store_dir,
+            layer_name,
+            channel,
+            best,
+            meta,
+            indices,
+            input_keys,
+            imagenet_labels,
         )
         gc.collect()
         print(f"train time: {time.time() - start} seconds")
@@ -59,6 +69,7 @@ def _persist_clusterer_and_meta(
     meta,
     indices: torch.Tensor,
     input_keys: list[str],
+    imagenet_labels: list[int],
 ):
     # we would need to store it too now. we only store best
     dest_dir = model_store_dir / layer_name / str(channel)
@@ -67,9 +78,24 @@ def _persist_clusterer_and_meta(
         pickle.dump(best, f)
     with (dest_dir / "meta.json").open("w") as f:
         json.dump(meta, f)
-    with (dest_dir / "input_keys.json").open("w") as f:
-        json.dump(input_keys, f)
-    torch.save(indices, f)
+
+    channels = [int(i[1].item()) for i in indices]
+    positions = [(int(i[2].item()), int(i[3].item())) for i in indices]
+    layer_names = [layer_name for _ in range(len(indices))]
+    cluster_labels = best["clusterer"].labels_
+
+    df = pd.DataFrame(
+        {
+            "channel": channels,
+            "position": positions,
+            "cluster_label": cluster_labels,
+            "imagenet_label": imagenet_labels,
+            "input_image_key": input_keys,
+            "layer_name": layer_names,
+        }
+    )
+    with (dest_dir / "report.csv").open("w") as f:
+        df.to_csv(f)
 
 
 def train_clusterer_for_single_neuron(
