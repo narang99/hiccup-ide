@@ -419,5 +419,5 @@ def read_all_patches(
             all_input_keys.extend(input_keys)
 
     all_patches = torch.cat(all_patches)
-    all_indices = torch.stack(all_indices)
+    all_indices = torch.cat(all_indices)
     return all_patches, all_indices, all_input_keys

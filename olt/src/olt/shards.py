@@ -84,7 +84,7 @@ def read_patches_shard(
         wds.WebDataset(str(tar_path), shardshuffle=False)  # ty: ignore
         .decode(pth_decoder)
         .to_tuple("__key__", "patch.pth", "indices.pth", "input_keys.json")
-        .batched(8, collation_fn=lambda samples: list(zip(*samples)))
+        .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
     for keys, patches, indices, input_keys in dataset:
         yield list(keys), list(patches), list(indices), list(input_keys)
