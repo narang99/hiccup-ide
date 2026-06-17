@@ -1,4 +1,5 @@
 import gc
+import itertools
 import json
 import typing
 from collections import defaultdict
@@ -420,4 +421,6 @@ def read_all_patches(
 
     all_patches = torch.cat(all_patches)
     all_indices = torch.cat(all_indices)
+
+    all_input_keys = list(itertools.chain.from_iterable(all_input_keys))
     return all_patches, all_indices, all_input_keys
