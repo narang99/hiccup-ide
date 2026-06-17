@@ -80,7 +80,7 @@ def train_clusterer_for_single_neuron(
     hdbscan_module,
     min_cluster_sizes: list[int],
 ):
-    patches, indices, input_keys = read_all_patches(
+    patches, indices, input_keys, imagenet_labels = read_all_patches(
         patches_base_dir, layer_name, channel
     )
     layer = model.get_submodule(layer_name)
@@ -100,7 +100,7 @@ def train_clusterer_for_single_neuron(
 
     del pws, patches
 
-    return best, rest, meta, indices, input_keys
+    return best, rest, meta, indices, input_keys, imagenet_labels
 
 
 def model_to_meta(trained_model: TrainedModel):

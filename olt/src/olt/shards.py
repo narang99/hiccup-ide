@@ -69,7 +69,13 @@ def read_attribution_shard(
 def read_patches_shard(
     tar_path: RemotePath, batch_size: int
 ) -> Iterator[
-    tuple[list[str], list[torch.Tensor], list[torch.Tensor], list[list[str]]]
+    tuple[
+        list[str],
+        list[torch.Tensor],
+        list[torch.Tensor],
+        list[list[str]],
+        list[list[int]],
+    ]
 ]:
     """Read the shard at tar_path, and return a stream of
     [list[key], list[patch-tensor], list[index-tensor], list[list[input-key]]]
@@ -92,5 +98,11 @@ def read_patches_shard(
         )
         .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
-    for keys, patches, indices, input_keys in dataset:
-        yield list(keys), list(patches), list(indices), list(input_keys)
+    for keys, patches, indices, input_keys, imagenet_labels in dataset:
+        yield (
+            list(keys),
+            list(patches),
+            list(indices),
+            list(input_keys),
+            list(imagenet_labels),
+        )
