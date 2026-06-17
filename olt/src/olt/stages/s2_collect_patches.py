@@ -408,13 +408,16 @@ def get_output_shape(
 
 def read_all_patches(
     patches_base_dir: RemotePath, layer_name: str, channel: int
-) -> torch.Tensor:
-    all_patches = []
+) -> tuple[torch.Tensor, torch.Tensor, list[str]]:
+    all_patches, all_indices, all_input_keys = [], [], []
     shards = raw_iter_shards(patches_base_dir / layer_name / str(channel))
 
     for shard in shards:
-        for _, patches in read_patches_shard(shard, 128):
+        for _, patches, indices, input_keys in read_patches_shard(shard, 128):
             all_patches.extend(patches)
+            all_indices.extend(indices)
+            all_input_keys.extend(input_keys)
 
     all_patches = torch.cat(all_patches)
-    return all_patches
+    all_indices = torch.stack(all_indices)
+    return all_patches, all_indices, all_input_keys

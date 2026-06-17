@@ -4,6 +4,7 @@ import pickle
 import time
 
 import numpy as np
+import torch
 from torch import nn
 
 from olt.path import RemotePath, remote_mkdir
@@ -27,7 +28,7 @@ def train_models_for_layer(
             continue
 
         start = time.time()
-        best, _, meta = train_clusterer_for_single_neuron(
+        best, _, meta, indices, input_keys = train_clusterer_for_single_neuron(
             model,
             layer_name,
             channel,
@@ -35,7 +36,9 @@ def train_models_for_layer(
             hdbscan_module,
             min_cluster_sizes,
         )
-        _persist_clusterer_and_meta(model_store_dir, layer_name, channel, best, meta)
+        _persist_clusterer_and_meta(
+            model_store_dir, layer_name, channel, best, meta, indices, input_keys
+        )
         gc.collect()
         print(f"train time: {time.time() - start} seconds")
 
@@ -49,7 +52,13 @@ def _is_done(meta_file_path: RemotePath):
 
 
 def _persist_clusterer_and_meta(
-    model_store_dir: RemotePath, layer_name: str, channel: int, best, meta
+    model_store_dir: RemotePath,
+    layer_name: str,
+    channel: int,
+    best,
+    meta,
+    indices: torch.Tensor,
+    input_keys: list[str],
 ):
     # we would need to store it too now. we only store best
     dest_dir = model_store_dir / layer_name / str(channel)
@@ -58,6 +67,9 @@ def _persist_clusterer_and_meta(
         pickle.dump(best, f)
     with (dest_dir / "meta.json").open("w") as f:
         json.dump(meta, f)
+    with (dest_dir / "input_keys.json").open("w") as f:
+        json.dump(input_keys, f)
+    torch.save(indices, f)
 
 
 def train_clusterer_for_single_neuron(
@@ -68,7 +80,15 @@ def train_clusterer_for_single_neuron(
     hdbscan_module,
     min_cluster_sizes: list[int],
 ):
-    patches = read_all_patches(patches_base_dir, layer_name, channel)
+    patches, indices, input_keys = read_all_patches(
+        patches_base_dir, layer_name, channel
+    )
+    print(
+        "len patches, len indices, len input keys",
+        len(patches),
+        len(indices),
+        len(input_keys),
+    )
     layer = model.get_submodule(layer_name)
     layer_weight = layer.weight[channel].reshape(-1).detach().cpu()  # ty: ignore
     pws = patches * layer_weight
@@ -86,7 +106,7 @@ def train_clusterer_for_single_neuron(
 
     del pws, patches
 
-    return best, rest, meta
+    return best, rest, meta, indices, input_keys
 
 
 def model_to_meta(trained_model: TrainedModel):
