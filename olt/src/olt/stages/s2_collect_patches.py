@@ -181,7 +181,11 @@ class PatchExtractor:
             for input_shard in input_shards:
                 attribution_shard = attribution_shard_name_to_path[input_shard.name]
                 self._extract_for_one_shard(
-                    input_shard, attribution_shard, multi_shard_writer, channels_to_keep
+                    input_shard,
+                    attribution_shard,
+                    multi_shard_writer,
+                    channels_to_keep,
+                    label,
                 )
                 gc.collect()
 
@@ -191,6 +195,7 @@ class PatchExtractor:
         attribution_shard: RemotePath,
         multi_shard_writer: MultiShardWriter,
         channels_to_keep: list[int],
+        imagenet_label: int,
     ):
         input_reader = read_image_shard(input_shard, self.input_shard_reader_bs, {})
         attribution_reader = read_attribution_shard(
@@ -205,7 +210,12 @@ class PatchExtractor:
                 )
             indices, patches = self._get_indices_and_patches(input_list, attributions)
             self._persist_patches(
-                input_keys, indices, patches, channels_to_keep, multi_shard_writer
+                input_keys,
+                indices,
+                patches,
+                channels_to_keep,
+                multi_shard_writer,
+                imagenet_label,
             )
 
     def _persist_patches(
@@ -215,6 +225,7 @@ class PatchExtractor:
         patches: list[torch.Tensor] | None,
         channels_to_keep: list[int],
         multi_shard_writer: MultiShardWriter,
+        imagenet_label: int,
     ):
         if indices is not None and patches is not None:
             # indices are [B, C, H, W]
@@ -226,12 +237,16 @@ class PatchExtractor:
             for chan, channels_patches in chan_by_patches.items():
                 channels_indices = chan_by_indices[chan]
                 ordered_keys = keys_ordered_using_indices(input_keys, channels_indices)
+                imagenet_labels = [imagenet_label for _ in range(len(ordered_keys))]
                 multi_shard_writer[chan].write(
                     {
                         "__key__": str(uuid4()),
                         "patch.pth": tensor_to_bytes(channels_patches),
                         "indices.pth": tensor_to_bytes(channels_indices),
                         "input_keys.json": json.dumps(ordered_keys).encode("utf-8"),
+                        "imagenet_labels.json": json.dumps(imagenet_labels).encode(
+                            "utf-8"
+                        ),
                     }
                 )
 

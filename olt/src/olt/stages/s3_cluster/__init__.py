@@ -83,12 +83,6 @@ def train_clusterer_for_single_neuron(
     patches, indices, input_keys = read_all_patches(
         patches_base_dir, layer_name, channel
     )
-    print(
-        "len patches, len indices, len input keys",
-        len(patches),
-        len(indices),
-        len(input_keys),
-    )
     layer = model.get_submodule(layer_name)
     layer_weight = layer.weight[channel].reshape(-1).detach().cpu()  # ty: ignore
     pws = patches * layer_weight
