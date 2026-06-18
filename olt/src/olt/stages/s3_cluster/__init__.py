@@ -80,14 +80,16 @@ def _persist_clusterer_and_meta(
         json.dump(meta, f)
 
     channels = [int(i[1].item()) for i in indices]
-    positions = [(int(i[2].item()), int(i[3].item())) for i in indices]
+    y_positions = [int(i[2].item()) for i in indices]
+    x_positions = [int(i[3].item()) for i in indices]
     layer_names = [layer_name for _ in range(len(indices))]
     cluster_labels = best["clusterer"].labels_
 
     df = pd.DataFrame(
         {
             "channel": channels,
-            "position": positions,
+            "y_position": y_positions,
+            "x_position": x_positions,
             "cluster_label": cluster_labels,
             "imagenet_label": imagenet_labels,
             "input_image_key": input_keys,
