@@ -107,3 +107,32 @@ only cat and car data: {"positive": 3.2870642030502495e-07, "negative": -3.21247
 The problem is evident now, we dont see these occurring. deepdream dreams up stuff which maximises the activation of this kernel, but those maximising things dont have high attribution to the final output it seems.  
 There is only one natural next step, have thresholds per class.
 This will be major code changes i think.
+
+# Check label wise thresholds are fine
+
+plot the distribution of values above threshold below:
+
+```
+from pathlib import Path
+import json
+
+base = Path("./workdir/thresholds/mixed4e_1x1_pre_relu_conv")
+with open(base / "55" / "thresholds.json") as f:
+  content = json.load(f)
+
+apts, ants = [], []
+for chan in range(256):
+    with open(base / str(chan) / "thresholds.json", "r") as f:
+      content = json.load(f)
+      pts = [c["pos_above_elbow_ratio"] for c in content.values()]
+      apts.extend(pts)
+      nts = [c["neg_above_elbow_ratio"] for c in content.values()]
+      ants.extend(nts)
+
+plt.hist(apts)
+plt.show()
+plt.hist(ants)
+plt.show()
+```
+
+This gives reasonable results, maximum 0.08. nothing crazy. label 281 for 55 (cat for mixed4e-pre-relu-1x1 neuron 255) has 0.03 (3%). its fine for now. good to test first.

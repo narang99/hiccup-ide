@@ -56,12 +56,12 @@ def get_collected_thresholds_for_layer(
     label_by_pos_thresholds = {
         # [C, 1, 1]
         label: torch.tensor(pos_thresholds)[:, None, None]
-        for label, pos_thresholds in label_by_pos_thresholds
+        for label, pos_thresholds in label_by_pos_thresholds.items()
     }
     label_by_neg_thresholds = {
         # [C, 1, 1]
         label: torch.tensor(neg_thresholds)[:, None, None]
-        for label, neg_thresholds in label_by_neg_thresholds
+        for label, neg_thresholds in label_by_neg_thresholds.items()
     }
 
     return label_by_pos_thresholds, label_by_neg_thresholds
