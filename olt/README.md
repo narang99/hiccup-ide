@@ -97,3 +97,13 @@ Ohk, RF is not bad. But the first thing i need is reports. its hard to do much w
   (RF said this, HDB said that kinda thing).
 
 Good, now ive got a report, no need to run the model again, we simply need to run neuron attribution.
+
+```
+chan55
+full data threshold: {"positive": 1.4402424312720541e-05, "negative": -1.2457826414902229e-05}
+only cat and car data: {"positive": 3.2870642030502495e-07, "negative": -3.212472279301437e-07}
+```
+
+The problem is evident now, we dont see these occurring. deepdream dreams up stuff which maximises the activation of this kernel, but those maximising things dont have high attribution to the final output it seems.  
+There is only one natural next step, have thresholds per class.
+This will be major code changes i think.

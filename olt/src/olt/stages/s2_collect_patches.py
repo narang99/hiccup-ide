@@ -125,8 +125,8 @@ class PatchExtractor:
         input_layer_name: str,
         current_layer_name: str,
         input_transform_fn,
-        pos_thresholds: torch.Tensor,
-        neg_thresholds: torch.Tensor,
+        pos_thresholds: torch.Tensor,  # should be label_by_pos_thresholds
+        neg_thresholds: torch.Tensor,  # should be label_by_neg_thresholds
         out_dir: RemotePath,
         device="cpu",
         input_shard_reader_bs=64,

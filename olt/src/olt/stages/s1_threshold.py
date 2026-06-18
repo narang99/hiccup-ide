@@ -91,6 +91,12 @@ def calculate_thresholds_for_layer_attributions_for_channels(
     fig,
     axes,
 ) -> None:
+    """calculate the thresholds for each neuron.
+    currently we calculate one positive and negative scaler value for each neuron
+
+    Now we want to actually make thresholds per label (2 scalers per imagenet label)
+    The problem is cat and cars are not coming if you dont keep separate thresholds
+    """
     print(
         f"threshold calculation: {channel_start}:{channel_end} num-labels={len(imagenet_labels)}"
     )
