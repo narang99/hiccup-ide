@@ -125,8 +125,12 @@ class PatchExtractor:
         input_layer_name: str,
         current_layer_name: str,
         input_transform_fn,
-        pos_thresholds: torch.Tensor,  # should be label_by_pos_thresholds
-        neg_thresholds: torch.Tensor,  # should be label_by_neg_thresholds
+        imagenet_label_by_pos_thresholds: dict[
+            int, torch.Tensor
+        ],  # should be label_by_pos_thresholds
+        imagenet_label_by_neg_thresholds: dict[
+            int, torch.Tensor
+        ],  # should be label_by_neg_thresholds
         out_dir: RemotePath,
         device="cpu",
         input_shard_reader_bs=64,
@@ -139,8 +143,8 @@ class PatchExtractor:
         self.input_layer_name = input_layer_name
         self.current_layer_name = current_layer_name
         self.input_transform_fn = input_transform_fn
-        self.pos_thresholds = pos_thresholds
-        self.neg_thresholds = neg_thresholds
+        self.imagenet_label_by_pos_thresholds = imagenet_label_by_pos_thresholds
+        self.imagenet_label_by_neg_thresholds = imagenet_label_by_neg_thresholds
         self.out_dir = out_dir
         self.device = device
         self.input_shard_reader_bs = input_shard_reader_bs
@@ -208,7 +212,9 @@ class PatchExtractor:
                 raise Exception(
                     f"found different keys in input and attribution while finding patches\n\tinput_keys={input_keys}\n\tattr_keys={attr_keys}"
                 )
-            indices, patches = self._get_indices_and_patches(input_list, attributions)
+            indices, patches = self._get_indices_and_patches(
+                input_list, attributions, imagenet_label
+            )
             self._persist_patches(
                 input_keys,
                 indices,
@@ -250,12 +256,12 @@ class PatchExtractor:
                     }
                 )
 
-    def _get_indices_and_patches(self, input_list, attributions):
+    def _get_indices_and_patches(self, input_list, attributions, imagenet_label):
         return get_indices_and_patches_for_batch(
             input_list,
             attributions,  # list[[C, H, W]]
-            self.pos_thresholds,  # [C, 1, 1]
-            self.neg_thresholds,  # [C, 1, 1]
+            self.imagenet_label_by_pos_thresholds[imagenet_label],  # [C, 1, 1]
+            self.imagenet_label_by_neg_thresholds[imagenet_label],  # [C, 1, 1]
             self.model,
             self.input_layer_name,
             self.current_layer_name,
