@@ -20,6 +20,7 @@ def collect_attributions(
     read_shard_batch_size: int = 64,
     device="cpu",
     method="deeplift",
+    n_steps=128,
 ):
     for label in tqdm(all_labels):
         run_attribution_and_write(
@@ -33,6 +34,7 @@ def collect_attributions(
             show_progress=False,
             device=device,
             method=method,
+            n_steps=n_steps,
         )
 
 
