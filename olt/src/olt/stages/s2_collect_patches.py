@@ -421,10 +421,16 @@ def patches_of_single_batch_with_indices(
     ).reshape(b, -1, op_r, op_c)
     patches = patches.detach().cpu()
 
-    start = time.time()
-    res = [patches[ind[0], :, ind[-2], ind[-1]] for ind in indices]
-    print("got patcehs of indices", time.time() - start, "Seconds")
+    b_idx = indices[:, 0]
+    r_idx = indices[:, -2]
+    c_idx = indices[:, -1]
+    res = patches[b_idx, :, r_idx, c_idx]  # shape: (len(indices), C*kH*kW)
     return res
+
+    # start = time.time()
+    # res = [patches[ind[0], :, ind[-2], ind[-1]] for ind in indices]
+    # print("got patcehs of indices", time.time() - start, "Seconds")
+    # return res
 
 
 def get_output_shape(
