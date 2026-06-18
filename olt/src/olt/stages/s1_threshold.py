@@ -20,6 +20,8 @@ from ..shards import raw_iter_shards, read_attribution_shard
 class SingleLabelThreshold(TypedDict):
     positive: float
     negative: float
+    pos_above_elbow_ratio: float
+    neg_above_elbow_ratio: float
 
 
 ChannelThresholdFileData = dict[int, SingleLabelThreshold]
@@ -311,6 +313,8 @@ def _store_single_channel_threshold_result_to_remote_path(
             label: {
                 "positive": thresh_result.positive_threshold,
                 "negative": thresh_result.negative_threshold,
+                "pos_above_elbow_ratio": thresh_result.pos_above_elbow_ratio,
+                "neg_above_elbow_ratio": thresh_result.neg_above_elbow_ratio,
             }
             for label, thresh_result in label_by_thresh_result.items()
         }
