@@ -1,6 +1,7 @@
 import gc
 import itertools
 import json
+import time
 import typing
 from collections import defaultdict
 from uuid import uuid4
@@ -126,10 +127,10 @@ class PatchExtractor:
         current_layer_name: str,
         input_transform_fn,
         imagenet_label_by_pos_thresholds: dict[
-            str, torch.Tensor
+            int, torch.Tensor
         ],  # should be label_by_pos_thresholds
         imagenet_label_by_neg_thresholds: dict[
-            str, torch.Tensor
+            int, torch.Tensor
         ],  # should be label_by_neg_thresholds
         out_dir: RemotePath,
         device="cpu",
@@ -237,9 +238,12 @@ class PatchExtractor:
             # indices are [B, C, H, W]
             # we only get the patches for which the index channel is in channels to keep
             # and write to the corresponding channel
+            start = time.time()
             chan_by_indices, chan_by_patches = get_channel_by_patches(
                 indices, patches, channels_to_keep
             )
+            print("separated into channels", time.time() - start, "seconds")
+            start = time.time()
             for chan, channels_patches in chan_by_patches.items():
                 channels_indices = chan_by_indices[chan]
                 ordered_keys = keys_ordered_using_indices(input_keys, channels_indices)
@@ -255,6 +259,7 @@ class PatchExtractor:
                         ),
                     }
                 )
+            print("finished writing to shards", time.time() - start, "seconds")
 
     def _get_indices_and_patches(self, input_list, attributions, imagenet_label):
         return get_indices_and_patches_for_batch(
