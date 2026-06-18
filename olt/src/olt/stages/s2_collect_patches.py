@@ -229,7 +229,7 @@ class PatchExtractor:
         self,
         input_keys: list[str],
         indices: torch.Tensor | None,
-        patches: list[torch.Tensor] | None,
+        patches: torch.Tensor | None,
         channels_to_keep: list[int],
         multi_shard_writer: MultiShardWriter,
         imagenet_label: int,
@@ -238,12 +238,9 @@ class PatchExtractor:
             # indices are [B, C, H, W]
             # we only get the patches for which the index channel is in channels to keep
             # and write to the corresponding channel
-            start = time.time()
             chan_by_indices, chan_by_patches = get_channel_by_patches(
                 indices, patches, channels_to_keep
             )
-            print("separated into channels", time.time() - start, "seconds")
-            start = time.time()
             for chan, channels_patches in chan_by_patches.items():
                 channels_indices = chan_by_indices[chan]
                 ordered_keys = keys_ordered_using_indices(input_keys, channels_indices)
@@ -259,7 +256,6 @@ class PatchExtractor:
                         ),
                     }
                 )
-            print("finished writing to shards", time.time() - start, "seconds")
 
     def _get_indices_and_patches(self, input_list, attributions, imagenet_label):
         return get_indices_and_patches_for_batch(
@@ -289,24 +285,45 @@ def keys_ordered_using_indices(input_keys: list[str], channel_indices: torch.Ten
 
 def get_channel_by_patches(
     indices: torch.Tensor,
-    patches: list[torch.Tensor],
+    patches: torch.Tensor,
     channels_to_keep: list[int],
 ) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
-    channel_by_patches: dict[int, list[torch.Tensor]] = defaultdict(list)
-    channel_by_indices: dict[int, list[torch.Tensor]] = defaultdict(list)
-    for i in range(len(indices)):
-        ind, patch = indices[i], patches[i]
-        chan = typing.cast(int, ind[1].item())
-        if chan in channels_to_keep:
-            channel_by_patches[chan].append(patch)
-            channel_by_indices[chan].append(ind)
-    stacked_channel_by_patches = {
-        k: torch.stack(v) for k, v in channel_by_patches.items()
-    }
-    stacked_channel_by_indices = {
-        k: torch.stack(v) for k, v in channel_by_indices.items()
-    }
+    chans = indices[:, 1]  # (N,)
+    channels_to_keep_t = torch.tensor(channels_to_keep, device=chans.device)
+
+    stacked_channel_by_patches = {}
+    stacked_channel_by_indices = {}
+
+    for chan in channels_to_keep_t:
+        mask = chans == chan
+        if mask.any():
+            c = chan.item()
+            stacked_channel_by_patches[c] = patches[mask]
+            stacked_channel_by_indices[c] = indices[mask]
+
     return stacked_channel_by_indices, stacked_channel_by_patches
+
+
+# def get_channel_by_patches(
+#     indices: torch.Tensor,
+#     patches: list[torch.Tensor],
+#     channels_to_keep: list[int],
+# ) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+#     channel_by_patches: dict[int, list[torch.Tensor]] = defaultdict(list)
+#     channel_by_indices: dict[int, list[torch.Tensor]] = defaultdict(list)
+#     for i in range(len(indices)):
+#         ind, patch = indices[i], patches[i]
+#         chan = typing.cast(int, ind[1].item())
+#         if chan in channels_to_keep:
+#             channel_by_patches[chan].append(patch)
+#             channel_by_indices[chan].append(ind)
+#     stacked_channel_by_patches = {
+#         k: torch.stack(v) for k, v in channel_by_patches.items()
+#     }
+#     stacked_channel_by_indices = {
+#         k: torch.stack(v) for k, v in channel_by_indices.items()
+#     }
+#     return stacked_channel_by_indices, stacked_channel_by_patches
 
 
 def get_indices_and_patches_for_batch(
@@ -319,7 +336,7 @@ def get_indices_and_patches_for_batch(
     current_layer_name: str,
     input_transform_fn,
     device: str = "cpu",
-) -> tuple[torch.Tensor | None, list[torch.Tensor] | None]:
+) -> tuple[torch.Tensor | None, torch.Tensor | None]:
     input_tensor_list = [input_transform_fn(ip) for ip in input_list]
     input_batch = torch.stack(input_tensor_list).detach()
     # [B, C, H, W]
@@ -401,7 +418,7 @@ def get_indices_of_patches_to_extract(
 
 def patches_of_single_batch_with_indices(
     input_act_of_batch: torch.Tensor, layer, indices: torch.Tensor
-) -> list[torch.Tensor]:
+) -> torch.Tensor:
     op_shape = get_output_shape(
         input_act_of_batch.shape,
         layer.kernel_size,
@@ -426,11 +443,6 @@ def patches_of_single_batch_with_indices(
     c_idx = indices[:, -1]
     res = patches[b_idx, :, r_idx, c_idx]  # shape: (len(indices), C*kH*kW)
     return res
-
-    # start = time.time()
-    # res = [patches[ind[0], :, ind[-2], ind[-1]] for ind in indices]
-    # print("got patcehs of indices", time.time() - start, "Seconds")
-    # return res
 
 
 def get_output_shape(
