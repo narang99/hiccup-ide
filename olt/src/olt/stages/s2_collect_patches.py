@@ -126,10 +126,10 @@ class PatchExtractor:
         current_layer_name: str,
         input_transform_fn,
         imagenet_label_by_pos_thresholds: dict[
-            int, torch.Tensor
+            str, torch.Tensor
         ],  # should be label_by_pos_thresholds
         imagenet_label_by_neg_thresholds: dict[
-            int, torch.Tensor
+            str, torch.Tensor
         ],  # should be label_by_neg_thresholds
         out_dir: RemotePath,
         device="cpu",
@@ -260,8 +260,8 @@ class PatchExtractor:
         return get_indices_and_patches_for_batch(
             input_list,
             attributions,  # list[[C, H, W]]
-            self.imagenet_label_by_pos_thresholds[imagenet_label],  # [C, 1, 1]
-            self.imagenet_label_by_neg_thresholds[imagenet_label],  # [C, 1, 1]
+            self.imagenet_label_by_pos_thresholds[str(imagenet_label)],  # [C, 1, 1]
+            self.imagenet_label_by_neg_thresholds[str(imagenet_label)],  # [C, 1, 1]
             self.model,
             self.input_layer_name,
             self.current_layer_name,

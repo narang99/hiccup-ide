@@ -27,7 +27,9 @@ class SingleLabelThreshold(TypedDict):
 ChannelThresholdFileData = dict[int, SingleLabelThreshold]
 
 
-LabelByThresholds = dict[int, torch.Tensor]
+# hack: needs to be int, not string
+# threshold calculation is using strings so im stuck for now
+LabelByThresholds = dict[str, torch.Tensor]
 
 
 def get_collected_thresholds_for_layer(
@@ -50,8 +52,8 @@ def get_collected_thresholds_for_layer(
             label_by_thresh_result: ChannelThresholdFileData = json.load(f)
 
             for label, thresh_result in label_by_thresh_result.items():
-                label_by_pos_thresholds[str(label)].append(thresh_result["positive"])
-                label_by_neg_thresholds[str(label)].append(thresh_result["negative"])
+                label_by_pos_thresholds[label].append(thresh_result["positive"])
+                label_by_neg_thresholds[label].append(thresh_result["negative"])
 
     label_by_pos_thresholds = {
         # [C, 1, 1]
