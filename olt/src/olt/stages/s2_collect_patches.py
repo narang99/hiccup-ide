@@ -127,10 +127,10 @@ class PatchExtractor:
         current_layer_name: str,
         input_transform_fn,
         imagenet_label_by_pos_thresholds: dict[
-            int, torch.Tensor
+            str, torch.Tensor
         ],  # should be label_by_pos_thresholds
         imagenet_label_by_neg_thresholds: dict[
-            int, torch.Tensor
+            str, torch.Tensor
         ],  # should be label_by_neg_thresholds
         out_dir: RemotePath,
         device="cpu",
@@ -421,7 +421,10 @@ def patches_of_single_batch_with_indices(
     ).reshape(b, -1, op_r, op_c)
     patches = patches.detach().cpu()
 
-    return [patches[ind[0], :, ind[-2], ind[-1]] for ind in indices]
+    start = time.time()
+    res = [patches[ind[0], :, ind[-2], ind[-1]] for ind in indices]
+    print("got patcehs of indices", time.time() - start, "Seconds")
+    return res
 
 
 def get_output_shape(
