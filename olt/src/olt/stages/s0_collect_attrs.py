@@ -21,6 +21,7 @@ def collect_attributions(
     device="cpu",
     method="deeplift",
     n_steps=128,
+    internal_batch_size=128,
 ):
     for label in tqdm(all_labels):
         run_attribution_and_write(
@@ -35,6 +36,7 @@ def collect_attributions(
             device=device,
             method=method,
             n_steps=n_steps,
+            internal_batch_size=internal_batch_size,
         )
 
 
