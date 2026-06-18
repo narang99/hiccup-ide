@@ -3,8 +3,10 @@ import json
 import shutil
 import tempfile
 import typing
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 from uuid import uuid4
 
 import torch
@@ -15,31 +17,52 @@ from ..path import RemotePath, remote_mkdir
 from ..shards import raw_iter_shards, read_attribution_shard
 
 
+class SingleLabelThreshold(TypedDict):
+    positive: float
+    negative: float
+
+
+ChannelThresholdFileData = dict[int, SingleLabelThreshold]
+
+
+LabelByThresholds = dict[int, torch.Tensor]
+
+
 def get_collected_thresholds_for_layer(
     layer_name: str, total_channels: int, threshold_base_dir: RemotePath
-):
-    """Return the collected thresholds as a tensor of shape [total_channels, 1, 1] for a given layer"""
-    pos_thresholds, neg_thresholds = [], []
+) -> tuple[LabelByThresholds, LabelByThresholds]:
+    """
+    we used to return the collected thresholds as a tensor of shape [total_channels, 1, 1] for a given layer
+
+    Now we return dict[label, the-tensor-described-above]
+    label is imagenet label, which is present inside thresholds.json
+    """
+    label_by_pos_thresholds = defaultdict(list)
+    label_by_neg_thresholds = defaultdict(list)
+
     for channel in range(total_channels):
         threshold_file = (
             threshold_base_dir / layer_name / str(channel) / "thresholds.json"
         )
         with open(threshold_file) as f:
-            content = json.load(f)
-        pos_thresholds.append(content["positive"])
-        neg_thresholds.append(content["negative"])
+            label_by_thresh_result: ChannelThresholdFileData = json.load(f)
 
-    pos_thresholds, neg_thresholds = (
-        torch.tensor(pos_thresholds),
-        torch.tensor(neg_thresholds),
-    )
+            for label, thresh_result in label_by_thresh_result.items():
+                label_by_pos_thresholds[label].append(thresh_result["positive"])
+                label_by_neg_thresholds[label].append(thresh_result["negative"])
 
-    # make them [C, 1, 1] shape
-    # for next step
-    pos_thresholds = pos_thresholds[:, None, None]
-    neg_thresholds = neg_thresholds[:, None, None]
+    label_by_pos_thresholds = {
+        # [C, 1, 1]
+        label: torch.tensor(pos_thresholds)[:, None, None]
+        for label, pos_thresholds in label_by_pos_thresholds
+    }
+    label_by_neg_thresholds = {
+        # [C, 1, 1]
+        label: torch.tensor(neg_thresholds)[:, None, None]
+        for label, neg_thresholds in label_by_neg_thresholds
+    }
 
-    return pos_thresholds, neg_thresholds
+    return label_by_pos_thresholds, label_by_neg_thresholds
 
 
 def calculate_thresholds_for_layer_attributions(
@@ -49,6 +72,7 @@ def calculate_thresholds_for_layer_attributions(
     layer_name: str,
     total_channels: int,
     n_channels_in_one_batch: int = 16,
+    plot_thresholds=False,
 ) -> None:
 
     # now how many channels is the question no? that would require us to read one of the attributions lol
@@ -60,8 +84,11 @@ def calculate_thresholds_for_layer_attributions(
         raise Exception(
             f"could not find the number of channels for base={base_attr_dir} layer_name={layer_name}"
         )
-    fig = Figure(figsize=(10, 5))
-    axes = fig.subplots(1, 2)
+    if plot_thresholds:
+        fig = Figure(figsize=(10, 5))
+        axes = fig.subplots(1, 2)
+    else:
+        fig, axes = None, None
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -91,6 +118,10 @@ def calculate_thresholds_for_layer_attributions_for_channels(
     fig,
     axes,
 ) -> None:
+    # note: this can be made faster
+    # we dont need to aggregate labels_by_attrs, its wasteful (in terms of memory also)
+    # we can simply do the calculation per label inside the main loop
+    # for now skipping as i dont want to change a lot of code, but this might be useful speedup
     """calculate the thresholds for each neuron.
     currently we calculate one positive and negative scaler value for each neuron
 
@@ -104,7 +135,7 @@ def calculate_thresholds_for_layer_attributions_for_channels(
     layer_threshold_store = threshold_store_dir / layer_name
 
     # collect all attrs for the given channels
-    res_attrs = []
+    label_by_attrs = {}
     for label in tqdm(imagenet_labels, desc="stage: collection"):
         # [B, C, H, W]
         labels_attributions = get_all_stacked_attributions(
@@ -114,20 +145,19 @@ def calculate_thresholds_for_layer_attributions_for_channels(
             channel_start,
             channel_end,
         )
-        # if labels_attributions is not None:
-        # print(f"got zero attributions for label={label} channels={channel_start}:{channel_end}")
-        res_attrs.append(labels_attributions)
-    # [B, n_channels, H, W]
-    res_attrs = torch.cat(res_attrs)
+        # [B, n_channels, H, W]
+        label_by_attrs[label] = labels_attributions
 
     gc.collect()
     for chan in tqdm(range(n_channels), desc="stage: plotting and calc"):
-        actual_channel = channel_start + chan
-        threshold_result = _get_threshold_calc_result_for_one_channel(
-            res_attrs, chan, tmp_path, fig, axes
+        label_by_threshold_result = (
+            _get_threshold_calc_result_across_labels_for_one_channel(
+                label_by_attrs, chan, tmp_path, fig, axes
+            )
         )
+        actual_channel = channel_start + chan
         _store_single_channel_threshold_result_to_remote_path(
-            layer_threshold_store, actual_channel, threshold_result
+            layer_threshold_store, actual_channel, label_by_threshold_result
         )
 
     gc.collect()
@@ -203,10 +233,23 @@ def get_sorted_pos_and_neg_partitions(
 class ThresholdCalculationResult:
     positive_threshold: float
     negative_threshold: float
-    plot: Path
+    pos_above_elbow_ratio: float
+    neg_above_elbow_ratio: float
+    plot: Path | None
 
 
-def _get_threshold_calc_result_for_one_channel(
+def _get_threshold_calc_result_across_labels_for_one_channel(
+    label_by_attrs: dict[int, torch.Tensor], channel: int, tmp_path: Path, fig, axes
+) -> dict[int, ThresholdCalculationResult]:
+    return {
+        label: _get_threshold_calc_result_for_one_channel_and_label(
+            attrs, channel, tmp_path, fig, axes
+        )
+        for label, attrs in label_by_attrs.items()
+    }
+
+
+def _get_threshold_calc_result_for_one_channel_and_label(
     all_attrs: torch.Tensor,
     channel: int,
     tmp_path: Path,
@@ -226,20 +269,32 @@ def _get_threshold_calc_result_for_one_channel(
     pos_elbow_idx = find_elbow_index_in_sorted_data(pos_vals)
     neg_elbow_idx = find_elbow_index_in_sorted_data(neg_vals)
 
-    axes[0].clear()
-    axes[0].plot(pos_vals)
-    axes[0].axvline(x=pos_elbow_idx, color="red", linestyle="--")
+    pos_threshold = pos_vals[pos_elbow_idx]
+    neg_threshold = neg_vals[neg_elbow_idx]
 
-    axes[1].clear()
-    axes[1].plot(neg_vals)
-    axes[1].axvline(x=neg_elbow_idx, color="red", linestyle="--")
+    pos_above_elbow_ratio = (pos_vals >= pos_threshold).sum() / pos_vals.numel()
 
-    image_path = tmp_path / f"{uuid4()}.jpeg"
-    fig.savefig(image_path, format="jpeg")
+    neg_above_elbow_ratio = (neg_vals >= neg_threshold).sum() / neg_vals.numel()
+
+    if fig is None or axes is None:
+        image_path = None
+    else:
+        axes[0].clear()
+        axes[0].plot(pos_vals)
+        axes[0].axvline(x=pos_elbow_idx, color="red", linestyle="--")
+
+        axes[1].clear()
+        axes[1].plot(neg_vals)
+        axes[1].axvline(x=neg_elbow_idx, color="red", linestyle="--")
+
+        image_path = tmp_path / f"{uuid4()}.jpeg"
+        fig.savefig(image_path, format="jpeg")
 
     return ThresholdCalculationResult(
-        positive_threshold=pos_vals[pos_elbow_idx].item(),
-        negative_threshold=-neg_vals[neg_elbow_idx].item(),
+        positive_threshold=pos_threshold.item(),
+        negative_threshold=-neg_threshold.item(),
+        pos_above_elbow_ratio=pos_above_elbow_ratio.item(),
+        neg_above_elbow_ratio=neg_above_elbow_ratio.item(),
         plot=image_path,
     )
 
@@ -247,17 +302,20 @@ def _get_threshold_calc_result_for_one_channel(
 def _store_single_channel_threshold_result_to_remote_path(
     layer_threshold_store: RemotePath,
     channel: int,
-    thresh_result: ThresholdCalculationResult,
+    label_by_thresh_result: dict[int, ThresholdCalculationResult],
 ) -> None:
     channel_store = layer_threshold_store / str(channel)
     remote_mkdir(channel_store)
     with (channel_store / "thresholds.json").open("w") as f:
-        json.dump(
-            {
+        label_by_store: ChannelThresholdFileData = {
+            label: {
                 "positive": thresh_result.positive_threshold,
                 "negative": thresh_result.negative_threshold,
-            },
-            f,
-        )
+            }
+            for label, thresh_result in label_by_thresh_result.items()
+        }
+        json.dump(label_by_store, f)
 
-    shutil.copy2(thresh_result.plot, channel_store / "thresholds.jpeg")
+    for label, thresh_result in label_by_thresh_result.items():
+        if thresh_result.plot is not None:
+            shutil.copy2(thresh_result.plot, channel_store / f"{label}_thresholds.jpeg")
