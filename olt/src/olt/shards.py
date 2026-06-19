@@ -15,6 +15,7 @@ def read_image_shard(
         wds.WebDataset(str(tar_path), shardshuffle=False, **wds_cache_kwargs)  # ty: ignore
         .decode("pil")
         .to_tuple("__key__", "jpg")
+        .slice(16)
         .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
     for keys, images in dataset:
@@ -47,6 +48,7 @@ def read_torch_tensor_shard(
         wds.WebDataset(str(tar_path), shardshuffle=False, **wds_cache_kwargs)  # ty: ignore
         .decode(pth_decoder)
         .to_tuple("__key__", tensor_key)
+        .slice(16)
         .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
     for keys, attributions in dataset:
@@ -61,9 +63,15 @@ def read_attribution_shard(
     The returned tensor would be of shape [C, H, W] (no batch dimension)
     key is the filename of the input from which this attribution was calculated
     """
-    return read_torch_tensor_shard(
-        tar_path, batch_size, "attribution.pth", wds_cache_kwargs
+    dataset = (
+        wds.WebDataset(str(tar_path), shardshuffle=False, **wds_cache_kwargs)  # ty: ignore
+        .decode(pth_decoder)
+        .to_tuple("__key__", "attribution.pth")
+        .slice(16)
+        .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
+    for keys, attributions in dataset:
+        yield list(keys), list(attributions)
 
 
 def read_patches_shard(

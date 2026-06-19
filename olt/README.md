@@ -136,3 +136,17 @@ plt.show()
 ```
 
 This gives reasonable results, maximum 0.08. nothing crazy. label 281 for 55 (cat for mixed4e-pre-relu-1x1 neuron 255) has 0.03 (3%). its fine for now. good to test first.
+
+# Restrict data for speed
+
+I also would like to see proof about how many cats ended up being in the face cluster (281 label? how many were in faces cluster?).  
+Simply download the report to laptop, check in pandas how many unique keys are present in that cluster.
+
+Ohk, now i need proof that it works. Have downloaded the report. not bad for now.  
+The main problem is that now we have a huge number of objects. should i halve it? Actually lets wait for the results.
+
+Ohk, the data is in gbs now, this way, i would need a day to train a layer lol. i dont have that kind of time. but this is also necessary. We need at least 10 samples per category i think.
+The main problem is the sheer amount of noise that can't be clustered.
+Yea i dont see a way out of this, its fine. first we need the initial test results to see if clustering is even possible.
+
+I will restrict number of samples to 16 i think. thats not a bad number (approx 1/3rd the original data).

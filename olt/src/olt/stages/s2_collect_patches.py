@@ -1,7 +1,6 @@
 import gc
 import itertools
 import json
-import time
 import typing
 from collections import defaultdict
 from uuid import uuid4
@@ -136,6 +135,7 @@ class PatchExtractor:
         device="cpu",
         input_shard_reader_bs=64,
         output_shard_writer_bs=32,
+        samples_per_imagenet_label=None,
     ):
         self.all_labels = all_labels
         self.images_shards_base_dir = image_shards_base_dir
@@ -151,6 +151,7 @@ class PatchExtractor:
         self.input_shard_reader_bs = input_shard_reader_bs
         self.output_shard_writer_bs = output_shard_writer_bs
         self.patches_meta = PatchesMeta(self.out_dir, self.current_layer_name)
+        self.samples_per_imagenet_label = samples_per_imagenet_label
 
     def extract(self, channels_to_keep: list[int]):
         pending_channels = self.patches_meta.channels_not_done(channels_to_keep)
@@ -165,9 +166,7 @@ class PatchExtractor:
             channels_to_keep,
             self.output_shard_writer_bs,
         ) as writers:
-            for label_idx, label in tqdm(
-                enumerate(self.all_labels), total=len(self.all_labels)
-            ):
+            for label in tqdm(self.all_labels, total=len(self.all_labels)):
                 self._extract_single_label(label, channels_to_keep, writers)
         self.patches_meta.mark_all_channels_done(channels_to_keep)
 
