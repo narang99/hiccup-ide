@@ -160,3 +160,24 @@ I will restrict number of samples to 16 i think. thats not a bad number (approx 
 
 - Ohk, we will now analyse this neuron first. then do sampled training and see how it works.
   - for now, i do have the clustering numbers from sampled training (the split of labels, hopefully it matches)
+
+Well we have a problem now. same image can be in multiple imagenet labels. ;\_;  
+And this decreases my dataset size. tis annoying. very annoying.
+
+What can we do? This is a property of the dataset and is hard to reconcile with.
+
+Its time to write about our work. do i need qmd file? or ipynb? I might want to write code later too, for showing csv files. other than that, i dont expect to write a lot of code though.
+What to do? why tis already got complicated lol.
+
+Its best to do ipynb for now, then we'll see if we want more stuff.
+
+Actually, lets do `qmd` only.
+
+Ohk, some things to note.
+
+- We would need better final reports.
+- For clustering details, I should link the older reports.
+
+More things to test for the blog:
+
+- get the count of images in each cluster label from the csv file, currently we are using 50 images each.

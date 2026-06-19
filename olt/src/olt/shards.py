@@ -15,7 +15,7 @@ def read_image_shard(
         wds.WebDataset(str(tar_path), shardshuffle=False, **wds_cache_kwargs)  # ty: ignore
         .decode("pil")
         .to_tuple("__key__", "jpg")
-        .slice(16)
+        # .slice(16)
         .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
     for keys, images in dataset:
@@ -48,7 +48,7 @@ def read_torch_tensor_shard(
         wds.WebDataset(str(tar_path), shardshuffle=False, **wds_cache_kwargs)  # ty: ignore
         .decode(pth_decoder)
         .to_tuple("__key__", tensor_key)
-        .slice(16)
+        # .slice(16)
         .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
     for keys, attributions in dataset:
@@ -67,7 +67,7 @@ def read_attribution_shard(
         wds.WebDataset(str(tar_path), shardshuffle=False, **wds_cache_kwargs)  # ty: ignore
         .decode(pth_decoder)
         .to_tuple("__key__", "attribution.pth")
-        .slice(16)
+        # .slice(16)
         .batched(batch_size, collation_fn=lambda samples: list(zip(*samples)))
     )
     for keys, attributions in dataset:
