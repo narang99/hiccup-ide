@@ -150,3 +150,13 @@ The main problem is the sheer amount of noise that can't be clustered.
 Yea i dont see a way out of this, its fine. first we need the initial test results to see if clustering is even possible.
 
 I will restrict number of samples to 16 i think. thats not a bad number (approx 1/3rd the original data).
+
+# Two things
+
+- now there is a lot of data. we want to analyse it to see if clustering is good.
+  - first see how the cat classes have clustered.
+  - Then see how the car classes have clustered
+  - hopefully they are separate
+
+- Ohk, we will now analyse this neuron first. then do sampled training and see how it works.
+  - for now, i do have the clustering numbers from sampled training (the split of labels, hopefully it matches)
