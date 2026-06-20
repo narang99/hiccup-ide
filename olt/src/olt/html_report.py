@@ -461,8 +461,6 @@ def generate_html_report(
     (out / "index.html").write_text(html, encoding="utf-8")
     print(f"Report saved to {out}")
 
-    archive_report(out)
-
 
 def archive_report(output_dir: Path, tar_path: None | Path = None):
     if tar_path is None:
