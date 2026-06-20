@@ -7,9 +7,11 @@ from contextlib import contextmanager
 from multiprocessing import Pool
 from pathlib import Path
 
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from PIL import Image, ImageDraw
 from tqdm import tqdm
 
 from olt.show import get_local_image_limits, rd_bk_gn
@@ -191,6 +193,24 @@ _TAIL = """\
 # ---------------------------------------------------------------------------
 
 
+def to_pil(img, size):
+    """Convert a numpy/tensor image (H,W,3) or (3,H,W) to a resized PIL RGB image."""
+    if isinstance(img, torch.Tensor):
+        img = img.detach().cpu().numpy()
+    if img.shape[0] == 3:  # (3,H,W) -> (H,W,3)
+        img = img.transpose(1, 2, 0)
+    img = (img - img.min()) / (img.max() - img.min() + 1e-8)
+    img = (img * 255).astype(np.uint8)
+    return Image.fromarray(img).resize(size, Image.BILINEAR)
+
+
+def apply_cmap(arr, cmap, vmin, vmax, size, interpolation=Image.NEAREST):
+    """Apply a matplotlib colormap to a 2D array and return a PIL RGB image."""
+    arr = np.clip((arr - vmin) / (vmax - vmin + 1e-8), 0, 1)
+    rgba = (cmap(arr) * 255).astype(np.uint8)  # cmap returns (H,W,4)
+    return Image.fromarray(rgba, mode="RGBA").convert("RGB").resize(size, interpolation)
+
+
 def render_grid_to_jpeg(
     pairs,
     view,
@@ -206,38 +226,65 @@ def render_grid_to_jpeg(
     """Render a list of (inv_img, neuron_att, third) pairs and save as a JPEG file."""
     n = len(pairs)
     nrows = math.ceil(n / ncols)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * col_sz, nrows * row_sz))
-    axes = np.array(axes).reshape(-1)
+
+    padding = 4  # pixels between cells
+
+    cell_w, cell_h = col_sz * 100, row_sz * 100  # pixels per cell
+    total_w = ncols * cell_w + (ncols - 1) * padding
+    header_h = 40 if suptitle else 0
+    title_h = 20 if titles else 0
+    total_h = nrows * (cell_h + title_h) + header_h + (nrows - 1) * padding
+
+    canvas = Image.new("RGB", (total_w, total_h), color=(20, 21, 23))
+    draw = ImageDraw.Draw(canvas)
+
+    if suptitle:
+        draw.text((total_w // 2, header_h // 2), suptitle, fill="#ffffff", anchor="mm")
 
     for i, (inv_img, neuron_att, third) in enumerate(pairs):
-        ax = axes[i]
+        row, col = divmod(i, ncols)
+        x = col * (cell_w + padding)
+        y = header_h + row * (cell_h + title_h + padding)
+
         if view == "combined":
             overlay = neuron_att.detach().cpu().sum(dim=0).numpy()
             overlay = overlay / np.abs(overlay).max()
-            ax.imshow(inv_img)
-            ax.imshow(overlay, cmap=cmap, alpha=alpha, vmin=-1, vmax=1)
+            base = to_pil(inv_img, size=(cell_w, cell_h))
+            heat = apply_cmap(
+                overlay,
+                cmap,
+                vmin=-1,
+                vmax=1,
+                size=(cell_w, cell_h),
+                interpolation=Image.BILINEAR,
+            )
+            cell = Image.blend(base, heat, alpha=alpha)
         else:
             if isinstance(third, torch.Tensor):
                 overlay = third.cpu().numpy()
             else:
                 overlay = third
             vmin, vmax = get_local_image_limits(overlay)
-            ax.imshow(overlay, cmap=cmap, vmin=vmin, vmax=vmax)
+            cell = apply_cmap(
+                overlay,
+                cmap,
+                vmin=vmin,
+                vmax=vmax,
+                size=(cell_w, cell_h),
+                interpolation=Image.NEAREST,
+            )
+
+        canvas.paste(cell, (x, y))
 
         if titles and i < len(titles):
-            ax.set_title(titles[i], fontsize=6, color="#868e96", pad=2)
-        ax.axis("off")
+            draw.text(
+                (x + cell_w // 2, y + cell_h + title_h // 2),
+                titles[i],
+                fill="#ffffff",
+                anchor="mm",
+            )
 
-    for j in range(len(pairs), len(axes)):
-        axes[j].axis("off")
-
-    fig.patch.set_facecolor("#141517")
-    plt.suptitle(suptitle, color="#c1c2c5", fontsize=10)
-    plt.tight_layout()
-    plt.subplots_adjust(hspace=0.1, wspace=0.05)
-
-    fig.savefig(out_path, format="jpeg", bbox_inches="tight", facecolor="#141517")
-    plt.close(fig)
+    canvas.save(out_path, format="JPEG", quality=95)
 
 
 # ---------------------------------------------------------------------------
@@ -388,10 +435,16 @@ def _render_cluster_worker(args):
 # ---------------------------------------------------------------------------
 
 
+def _get_cluster_size(args):
+    imagenet_map = args[1]
+    return sum(len(d["samples"]) for d in imagenet_map.values())
+
+
 def generate_html_report(
     output_dir,
     clustering_and_attr_src_dir,
     df,
+    max_cluster_size_to_do_in_parallel,
     ncols=5,
     col_sz=2,
     row_sz=2,
@@ -428,6 +481,42 @@ def generate_html_report(
         )
         for block_id, (cluster_label, imagenet_map) in enumerate(ordered)
     ]
+    big_args = [
+        a
+        for a in worker_args
+        if _get_cluster_size(a) >= max_cluster_size_to_do_in_parallel
+    ]
+    small_args = [
+        a
+        for a in worker_args
+        if _get_cluster_size(a) < max_cluster_size_to_do_in_parallel
+    ]
+
+    # def _run(args_list, workers):
+    #     if workers > 1:
+    #         with Pool(workers) as pool:
+    #             return list(
+    #                 tqdm(
+    #                     pool.imap_unordered(
+    #                         _render_cluster_worker, args_list, chunksize=1
+    #                     ),
+    #                     total=len(args_list),
+    #                     desc="rendering clusters",
+    #                 )
+    #             )
+    #     else:
+    #         return [
+    #             _render_cluster_worker(a)
+    #             for a in tqdm(args_list, desc="rendering clusters")
+    #         ]
+
+    # print("running sequential clustering for ", len(big_args))
+    # results = _run(big_args, 1)
+    # print(
+    #     "finished big clusters, starting smaller ones parallely; num clusters = ",
+    #     len(small_args),
+    # )
+    # results += _run(small_args, n_workers)
 
     t0 = time.time()
     if n_workers > 1:
