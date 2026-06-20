@@ -430,20 +430,20 @@ def generate_html_report(
     ]
 
     t0 = time.time()
-    with Pool(n_workers) as pool:
-        results = list(
-            tqdm(
-                pool.imap(_render_cluster_worker, worker_args),
-                total=len(worker_args),
-                desc="rendering clusters",
+    if n_workers > 1:
+        with Pool(n_workers) as pool:
+            results = list(
+                tqdm(
+                    pool.imap(_render_cluster_worker, worker_args),
+                    total=len(worker_args),
+                    desc="rendering clusters",
+                )
             )
-        )
-    print(f"all clusters rendered in {time.time() - t0:.1f}s")
-
-    # t0 = time.time()
-    # with Pool(n_workers) as pool:
-    #     results = pool.map(_render_cluster_worker, worker_args)
-    # print(f"all clusters rendered in {time.time() - t0:.1f}s")
+        print(f"all clusters rendered in {time.time() - t0:.1f}s")
+    else:
+        for worker_arg in tqdm(worker_args, desc="rendering clusters"):
+            results = _render_cluster_worker(worker_arg)
+        print(f"all clusters rendered in {time.time() - t0:.1f}s")
 
     # results come back in submission order, so block_id ordering is preserved
     sections = []
