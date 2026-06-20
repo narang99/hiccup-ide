@@ -217,13 +217,12 @@ def create_report_dir_for_one_input(
 
 
 def prepare_reports_dir_after_sampling(
-    df, report_out_dir, model, flat_images_base, device
+    df, report_out_dir, model, flat_images_base, device, samples_per_cluster_label=100
 ):
     labels = labels_with_unique_inp_keys_below_threshold(df, 2)
     filtered_df = df[~df["cluster_label"].isin(labels)]
 
     combinations = filtered_df[["layer_name", "channel"]].drop_duplicates()
-    samples_per_cluster_label = 100
 
     for _, row in combinations.iterrows():
         # for each laeyr name and channel, we want a different dir
