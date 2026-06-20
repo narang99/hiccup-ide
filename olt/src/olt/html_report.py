@@ -411,7 +411,7 @@ def _render_cluster_worker(args):
     if not pairs:
         return None
 
-    cluster_df = df[df.cluster_label == cluster_label]
+    cluster_df = df[df.cluster_label == int(cluster_label)]
     total_cluster_samples = len(cluster_df)
     uniq_images_in_cluster = cluster_df.input_image_key.nunique()
 

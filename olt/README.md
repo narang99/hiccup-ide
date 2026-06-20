@@ -256,3 +256,13 @@ I need to get less ambitious and put something out first.
   - dbcv likes tight small clusters, with less noise. since we are not using eom, does it monotonically increase as we decrease min-cluster-size?
 - train on a subset, then run approximate-predict on the rest (performance speedup). does it change stuff a lot? we would like to cap to 20k points ideally (10k is also fine). Thats approximately a tenth of the original dataset.
   - there is a problem here though, how do i check cluster similarity?
+  - read about adjusted rand index, it was also what dbcv paper was using for similarity matching in a supervised setting
+
+# Notes
+
+A lot of leaf clusters can be removed if we simply check the number of input image keys per cluster. If it is simply repeating the same thing again and again, we can ignore it.
+I still think an elbow would be useful to find. hmmmm.
+A very useful marker, is the number of unique input image keys inside a single cluster.
+
+Abi tak, im doing hokum only lol. Lets see.
+I need a score.
