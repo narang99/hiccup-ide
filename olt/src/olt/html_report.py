@@ -444,7 +444,7 @@ def generate_html_report(
     output_dir,
     clustering_and_attr_src_dir,
     df,
-    max_cluster_size_to_do_in_parallel,
+    # max_cluster_size_to_do_in_parallel,
     ncols=5,
     col_sz=2,
     row_sz=2,
@@ -481,16 +481,16 @@ def generate_html_report(
         )
         for block_id, (cluster_label, imagenet_map) in enumerate(ordered)
     ]
-    big_args = [
-        a
-        for a in worker_args
-        if _get_cluster_size(a) >= max_cluster_size_to_do_in_parallel
-    ]
-    small_args = [
-        a
-        for a in worker_args
-        if _get_cluster_size(a) < max_cluster_size_to_do_in_parallel
-    ]
+    # big_args = [
+    #     a
+    #     for a in worker_args
+    #     if _get_cluster_size(a) >= max_cluster_size_to_do_in_parallel
+    # ]
+    # small_args = [
+    #     a
+    #     for a in worker_args
+    #     if _get_cluster_size(a) < max_cluster_size_to_do_in_parallel
+    # ]
 
     # def _run(args_list, workers):
     #     if workers > 1:
