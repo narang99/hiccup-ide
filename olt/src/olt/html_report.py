@@ -444,7 +444,6 @@ def generate_html_report(
     output_dir,
     clustering_and_attr_src_dir,
     df,
-    # max_cluster_size_to_do_in_parallel,
     ncols=5,
     col_sz=2,
     row_sz=2,
