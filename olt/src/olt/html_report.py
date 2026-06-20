@@ -292,6 +292,15 @@ def render_grid_to_jpeg(
 # ---------------------------------------------------------------------------
 
 
+def _get_unique_input_key_count_for_cluster_and_imagenet_label_pair(
+    df, cluster_label, imagenet_label
+):
+    return df[
+        (df.cluster_label == int(cluster_label))
+        & (df.imagenet_label == int(imagenet_label))
+    ].input_image_key.nunique()
+
+
 def _load_pairs(imagenet_map, samples_per_cluster, image_shape, cluster_label, df):
     """Flatten all samples across imagenet labels, shuffle, cap, then load tensors."""
 
@@ -300,11 +309,8 @@ def _load_pairs(imagenet_map, samples_per_cluster, image_shape, cluster_label, d
         (
             s,
             label,
-            len(
-                df[
-                    (df.cluster_label == int(cluster_label))
-                    & (df.imagenet_label == int(label))
-                ]
+            _get_unique_input_key_count_for_cluster_and_imagenet_label_pair(
+                df, cluster_label, label
             ),
         )
         for label, data in imagenet_map.items()
@@ -480,42 +486,6 @@ def generate_html_report(
         )
         for block_id, (cluster_label, imagenet_map) in enumerate(ordered)
     ]
-    # big_args = [
-    #     a
-    #     for a in worker_args
-    #     if _get_cluster_size(a) >= max_cluster_size_to_do_in_parallel
-    # ]
-    # small_args = [
-    #     a
-    #     for a in worker_args
-    #     if _get_cluster_size(a) < max_cluster_size_to_do_in_parallel
-    # ]
-
-    # def _run(args_list, workers):
-    #     if workers > 1:
-    #         with Pool(workers) as pool:
-    #             return list(
-    #                 tqdm(
-    #                     pool.imap_unordered(
-    #                         _render_cluster_worker, args_list, chunksize=1
-    #                     ),
-    #                     total=len(args_list),
-    #                     desc="rendering clusters",
-    #                 )
-    #             )
-    #     else:
-    #         return [
-    #             _render_cluster_worker(a)
-    #             for a in tqdm(args_list, desc="rendering clusters")
-    #         ]
-
-    # print("running sequential clustering for ", len(big_args))
-    # results = _run(big_args, 1)
-    # print(
-    #     "finished big clusters, starting smaller ones parallely; num clusters = ",
-    #     len(small_args),
-    # )
-    # results += _run(small_args, n_workers)
 
     t0 = time.time()
     if n_workers > 1:

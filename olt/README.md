@@ -248,3 +248,11 @@ I need to get less ambitious and put something out first.
 
 - im thinking that for leaf mode, DBCV would keep increasing, can we do elbow? test this.
   - dbcv likes sparse micro clusters. lets see how the value looks when we keep increasing it.
+
+# Next steps
+
+- eom vs leaf test on-going
+- leaf : test dbcv curve, how does it look as we increase/decrease min-cluster-size? can we find an elbow?
+  - dbcv likes tight small clusters, with less noise. since we are not using eom, does it monotonically increase as we decrease min-cluster-size?
+- train on a subset, then run approximate-predict on the rest (performance speedup). does it change stuff a lot? we would like to cap to 20k points ideally (10k is also fine). Thats approximately a tenth of the original dataset.
+  - there is a problem here though, how do i check cluster similarity?

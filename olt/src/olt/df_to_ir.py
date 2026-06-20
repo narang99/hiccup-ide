@@ -32,7 +32,13 @@ def labels_with_unique_inp_keys_below_threshold(df, threshold):
     return counts[counts < threshold].index.tolist()
 
 
-def stratified_sample_for_cluster_label(df, layer_name, cluster_label, n_total):
+def stratified_sample_for_cluster_label(
+    df,
+    layer_name,
+    cluster_label,
+    n_total,
+    keep_only_one_sample_per_input_key: bool = True,
+):
     # for a given cluster label, sample images stratified on imagenet_label
     # i think we should add layer_name also since thats the main combo
 
@@ -40,7 +46,15 @@ def stratified_sample_for_cluster_label(df, layer_name, cluster_label, n_total):
     mask = (df["cluster_label"] == cluster_label) & (df["layer_name"] == layer_name)
     cluster_df = df[mask]
 
-    # 2. Sample safely by capping the sample size at len(x)
+    # 2. get only one point per input key
+    # many times, we get the same kind of points for the same image
+    # this leads to noisy clusters (with the same thing coming up again and again)
+    if keep_only_one_sample_per_input_key:
+        cluster_df = cluster_df.groupby("input_image_key", group_keys=False).apply(
+            lambda x: x.sample(1)
+        )
+
+    # 3. Sample by grouping with imagenet_label to diversify the inputs we get
     sampled_indices = (
         cluster_df.groupby("imagenet_label", group_keys=False)
         .apply(
