@@ -136,6 +136,7 @@ def train_clusterer_for_single_neuron(
     hdbscan_module,
     min_cluster_sizes: list[int],
     train_kwargs=None,
+    metric="l2",
 ):
     patches, indices, input_keys, imagenet_labels = read_all_patches(
         patches_base_dir, layer_name, channel
@@ -148,7 +149,11 @@ def train_clusterer_for_single_neuron(
     print(f"layer weight shape: {layer_weight.shape}")
     print(f"pws shape: {pws.shape}")
     best, rest = sweep_train_hdbscan(
-        pws.numpy(), hdbscan_module, min_cluster_sizes, train_kwargs
+        pws.numpy(),
+        hdbscan_module,
+        min_cluster_sizes,
+        train_kwargs,
+        metric=metric,
     )
 
     meta = {

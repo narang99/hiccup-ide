@@ -47,12 +47,17 @@ def sweep_train_hdbscan(
     hdbscan_module,
     min_cluster_sizes: list[int],
     train_kwargs=None,
+    metric="l2",
 ):
     if not min_cluster_sizes:
         raise Exception(
             f"passed empty min cluster sizes to clusterer: {min_cluster_sizes}"
         )
-    data = normalize(data, "l2")
+    if metric == "l2":
+        print("using L2 normalization")
+        data = normalize(data, "l2")
+    else:
+        print("skipping normalization, using raw data")
     trained_models = []
     for min_cluster_size in min_cluster_sizes:
         trained_model = train_hdbscan_model(

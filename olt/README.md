@@ -266,3 +266,20 @@ A very useful marker, is the number of unique input image keys inside a single c
 
 Abi tak, im doing hokum only lol. Lets see.
 I need a score.
+
+The two leaf clusters at 5 and 20 are useful for comparison. This should go into the blog. Along with the EOM clustering behavior.
+
+We see something interesting btw, the top of faces are quite near dog ears (dog ears are clustered out if i decrease min-cluster-size). This alone is worth some writeup i think.
+
+- Ohk, clusters are fine now, leaf at 5/20 is good. we'll keep the 5/20 eom for cluster appendix section, mentioning how eom has the tendency to collapse different things in the same cluster. we'll start writing, and add these as references in the appendix. Show the condensed tree plot also, between eom20 and leaf20.
+
+We first write about the clustering results in the main page, add the above in appendix.
+
+Next steps, we continue analysing this neuron
+
+- cluster stats, how many unique images are present in a given cluster label for each imagenet label? we want to see this for cars, and snout groups
+- run on feature visualisation image. does it reproduce?
+- Plot the output activations of each group. we expect the ones which come up on feature visualisation to have more values in this graph
+- Plot the attributions of output, see if the attribution agrees with the output activation plot.
+- plot dbcv score for each cluster size, see if there is an elbow and if we like it.
+- show the output activation for a single group for 2 different images. Show where the actual activation of detected group is. Other things are noise, this can confuse dictionary learning.
