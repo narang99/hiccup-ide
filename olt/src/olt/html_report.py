@@ -441,8 +441,9 @@ def generate_html_report(
             )
         print(f"all clusters rendered in {time.time() - t0:.1f}s")
     else:
+        results = []
         for worker_arg in tqdm(worker_args, desc="rendering clusters"):
-            results = _render_cluster_worker(worker_arg)
+            results.append(_render_cluster_worker(worker_arg))
         print(f"all clusters rendered in {time.time() - t0:.1f}s")
 
     # results come back in submission order, so block_id ordering is preserved
@@ -456,7 +457,6 @@ def generate_html_report(
                 block_id, cluster_label, n_samples, fname_combined, fname_third
             )
         )
-
     html = _HEAD + "\n".join(sections) + "\n" + _TAIL
     (out / "index.html").write_text(html, encoding="utf-8")
     print(f"Report saved to {out}")
