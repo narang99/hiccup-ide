@@ -411,7 +411,11 @@ def _render_cluster_worker(args):
     if not pairs:
         return None
 
-    suptitle = f"cluster {cluster_label} — {len(pairs)} samples"
+    cluster_df = df[df.cluster_label == cluster_label]
+    total_cluster_samples = len(cluster_df)
+    uniq_images_in_cluster = cluster_df.input_image_key.nunique()
+
+    suptitle = f"cluster {cluster_label} | samples: {total_cluster_samples} | unique input images: {uniq_images_in_cluster} "
     safe_label = (
         str(cluster_label).replace("-", "neg")
         if cluster_label == -1
