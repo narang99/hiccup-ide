@@ -63,6 +63,32 @@ def _is_done(meta_file_path: RemotePath):
     return content.get("done", False)
 
 
+def make_df_from_cluster_results(
+    layer_name: str,
+    best,
+    indices: torch.Tensor,
+    input_keys: list[str],
+    imagenet_labels: list[int],
+):
+    channels = [int(i[1].item()) for i in indices]
+    y_positions = [int(i[2].item()) for i in indices]
+    x_positions = [int(i[3].item()) for i in indices]
+    layer_names = [layer_name for _ in range(len(indices))]
+    cluster_labels = best["clusterer"].labels_
+
+    return pd.DataFrame(
+        {
+            "channel": channels,
+            "y_position": y_positions,
+            "x_position": x_positions,
+            "cluster_label": cluster_labels,
+            "imagenet_label": imagenet_labels,
+            "input_image_key": input_keys,
+            "layer_name": layer_names,
+        }
+    )
+
+
 def _persist_clusterer_and_meta(
     model_store_dir: RemotePath,
     layer_name: str,

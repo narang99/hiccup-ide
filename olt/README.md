@@ -181,3 +181,70 @@ Ohk, some things to note.
 More things to test for the blog:
 
 - get the count of images in each cluster label from the csv file, currently we are using 50 images each.
+- we would like to decrease the dataset after one point, but we do want 50 images right now
+
+# im running very confused
+
+What do i need to test more? One is the polysemantic car neuron these people are talking about which goes onto dogs. Does it only do cars?
+We would like report on 50 images, for the article.
+
+First thing, i need cleaner final reports for my article. for this, i would like to have images which have only single label.  
+That is what we'll do for the final test. for that, i would need new image shards, new attribution shards, etc.
+
+That needs to run in a separate notebook.
+
+Now, do we run on 16 images or 50 images?
+
+We have the results. running on 16 images is fast and i would like to do that. before that however, do we need a result for 50 images? For the report itself, we would need both 50 and 16 image reports.
+
+That is the first task. 50 -> less than 50 cuz some might not be nice.
+
+The other thing is clustering. Im using leaf with a high in cluster size, lets try a smaller size and see the report at least. This is interesting and will be done right now.
+
+Ohk, mai actually report analysis mei aalas karra hu. We want to prove that a lot of cats are coming. But before that, I would like to show the report itself.
+
+Abi im doing aalas in two things.
+
+1. Doing circuit analysis and finding what input pixels we depend on.
+2. redo-ing everything from scratch for cleaner data.
+
+Kaafi chizo mei mai lite lera hu. the main problem is samples having same name, we gotta fix that.
+
+For work to be interesting also, it would make sense to have a way to trace back on major contributions of a given label. Can we use random forests?
+
+ohk, data seems nice, we dont need to change it. the last thing we might need to do is just use 16 images maybe?
+Do i need to do the whole thing again? Well yea i should i think. just need to run attribution analysis on them for now. 16 is useful cuz i can do more experiments rapidly also.
+But, having the 50 directory is also useful, you would like to do experiments with more data when you want. easy. so no need for that right now. we skip.
+
+So what are the next steps? First is making another leaf report for cluster size 5? to see what is caught. the problem is the hyperparameter generally. but, we are not really interested in bulk running for now. the goal is much smaller, to check out neurons one at a time.
+It would be useful to provide correct image categories using deepdream, but in general get attributions and patches will take more than an hour, which is quite painful to work with. even though all of that can be automated easily, ive not done that. cuz of the amount of data involved.
+
+So even if i do one neuron at a time, its gonna take a long time cuz ive to zip through the whole data. can i do something about this? the first thing is using 16 images, which would definitely decrease the time we go through the dataset, and is quite useful. for 16 cases though, we'll need a different work dir. Otherwise we'll mess things up.
+
+Generally though, im gonna work with 16 elements only, helpful for both disk, and attribution work.  
+So we first do that for our simple case. Also, its best if i remove the duplciate images anyways.
+
+After this, we do analysis one by one for neurons which are supposed to be polysemantic.
+
+We consistently see leaf model being better, now there is only the problem of stability of the leaf clusterer. it can change wildly on min-cluster-size lol.
+I would be okay if it was splitting more, but the noise handling has changed, which is a problem
+
+So, fuck doing mass clustering. its not that easy or nice. i need to look at results normally to see what is happening lol.
+
+So clustering now needs to me more of a experimenting thing instead of the thing we have where we write stuff to fs, so ill use the basic clustering code directly.
+
+# Have clean data
+
+I need to get less ambitious and put something out first.
+
+- We see differences in what feature visualisation catches, and what we catch.
+  - we are catching a superset generally.
+  - we would like to see the differences
+- a clustering workflow
+  - test eom vs leaf on neuron255
+  - see different reports. decide what you want to use. im leaning towards leaf
+  - once that is done, the only way to actually verify how the clusters look is through manually checking them out for now
+  - one thing i should do is closely look at leaf-5 size and leaf-20 size. are the noise points similar? in this case, leaf-5 is simply doing a bigger superset of leaf-20 with finer clustering. GMMs won't work though (the data does not follow the long tail thing we have noticed before).
+
+- im thinking that for leaf mode, DBCV would keep increasing, can we do elbow? test this.
+  - dbcv likes sparse micro clusters. lets see how the value looks when we keep increasing it.
