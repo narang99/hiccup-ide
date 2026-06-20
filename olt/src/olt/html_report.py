@@ -69,8 +69,8 @@ _HEAD = """\
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: #f8f9fa;
-    color: #343a40;
+    background: #141517;
+    color: #c1c2c5;
     font-family: "Source Sans 3", "Source Sans Pro", system-ui, -apple-system, sans-serif;
     font-size: 16px;
     line-height: 1.5;
@@ -85,19 +85,19 @@ _HEAD = """\
   h1.report-title {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #343a40;
-    border-bottom: 2px solid #2780e3;
+    color: #e9ecef;
+    border-bottom: 2px solid #4dabf7;
     padding-bottom: 0.5rem;
     margin-bottom: 2rem;
   }
 
   .label-section {
     margin-bottom: 2rem;
-    background: #ffffff;
-    border: 1px solid #dee2e6;
+    background: #1e1f22;
+    border: 1px solid #2c2e33;
     border-radius: 6px;
     padding: 1.25rem 1.5rem;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
 
   .label-header {
@@ -105,10 +105,10 @@ _HEAD = """\
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #2780e3;
+    color: #4dabf7;
     margin-bottom: 0.9rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid #2c2e33;
   }
 
   .grid-block { margin-bottom: 0.5rem; }
@@ -125,19 +125,19 @@ _HEAD = """\
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    background: #2780e3;
-    color: #fff;
+    background: #1971c2;
+    color: #e9ecef;
     padding: 0.18rem 0.65rem;
     border-radius: 999px;
   }
 
-  .total { font-size: 0.83rem; color: #6c757d; }
+  .total { font-size: 0.83rem; color: #868e96; }
 
   .toggle-btn {
     margin-left: auto;
-    background: #fff;
-    border: 1px solid #2780e3;
-    color: #2780e3;
+    background: #1e1f22;
+    border: 1px solid #4dabf7;
+    color: #4dabf7;
     font-family: inherit;
     font-size: 0.82rem;
     font-weight: 600;
@@ -147,12 +147,12 @@ _HEAD = """\
     transition: background 0.15s, color 0.15s;
   }
 
-  .toggle-btn:hover { background: #2780e3; color: #fff; }
+  .toggle-btn:hover { background: #1971c2; color: #e9ecef; border-color: #1971c2; }
 
   .view {
     width: 100%;
     display: block;
-    border: 1px solid #dee2e6;
+    border: 1px solid #2c2e33;
     border-radius: 4px;
   }
 </style>
@@ -225,18 +225,18 @@ def render_grid_to_jpeg(
             ax.imshow(overlay, cmap=cmap, vmin=vmin, vmax=vmax)
 
         if titles and i < len(titles):
-            ax.set_title(titles[i], fontsize=6, color="#444", pad=2)
+            ax.set_title(titles[i], fontsize=6, color="#868e96", pad=2)
         ax.axis("off")
 
     for j in range(len(pairs), len(axes)):
         axes[j].axis("off")
 
-    fig.patch.set_facecolor("#ffffff")
-    plt.suptitle(suptitle, color="#343a40", fontsize=10)
+    fig.patch.set_facecolor("#141517")
+    plt.suptitle(suptitle, color="#c1c2c5", fontsize=10)
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1, wspace=0.05)
 
-    fig.savefig(out_path, format="jpeg", bbox_inches="tight", facecolor="#ffffff")
+    fig.savefig(out_path, format="jpeg", bbox_inches="tight", facecolor="#141517")
     plt.close(fig)
 
 
