@@ -281,5 +281,54 @@ Next steps, we continue analysing this neuron
 - run on feature visualisation image. does it reproduce?
 - Plot the output activations of each group. we expect the ones which come up on feature visualisation to have more values in this graph
 - Plot the attributions of output, see if the attribution agrees with the output activation plot.
+- we see that cats and cars have only positive pointwise mults, they seem to create larger activations. IG however, has given 1e-7 as threhsold for cat (if we use 1e-5 as threshold, which is the global threshold, we dont get any cat points, the methods are disagreeing to some extent). If we see specific pattern in output activation of each category, we would like to use an activation with that pattern at the center and optimise the input image to get close to that pattern, do we get the category we found?
 - plot dbcv score for each cluster size, see if there is an elbow and if we like it.
 - show the output activation for a single group for 2 different images. Show where the actual activation of detected group is. Other things are noise, this can confuse dictionary learning.
+- cluster without "l2", i have a feeling that it might work ☑️
+  - done, this does not work at all lols
+
+I'm having trouble writing, its hard to describe the visualisation. I'll need to do that tomorrow. what might be interesting right now is to look at the activation outputs? Or at least plan it.  
+We would first gather the whole activations for every image which has at least one non -1 label. We would also capture the attribution and the labels, and the input activations. This is basically the dataset of each image.
+
+- We would then like to get all the activation outputs for each label separately first, and plot it in a scatter plot with color (showing the clustering)
+  - the first thing we talk about is that cats and cars have higher activation values
+- second we try to see if there are easy to see bands / clusters.
+  - We can even try clustering using gmm or hdbscan
+- The last part is seeing if the output activations form a pattern. For a given image, only visualise the activations of a given label (everything else is black, keep white only for one cluster label, do for each cluster label). See if there is a pattern other than pure number value.
+  - these would be spread out on dimensions, we would need a way to somehow cluster them? Reduce the dimensions manually?
+  - Just looking at the output might be useful. if two have similar, we would like to see brightness compared together, we'll do that manually in the notebook.
+- then i work on feature visualisation new objective.
+
+Mai likhne mei aalas karra hu, it might be more interesting to actually do the activation gathering work. or do i continue writing?  
+The main problem i have right is me nitpicking on the algorithm section. And on how to present the reports section.  
+I've most likely written all that i can, its just the language and the order.
+
+We have proved that hdbscan is missing stuff i think. from the feature visualisation analysis. good that i took a closer look at the diversity term thing.
+
+PCA is catching extra lol. A ridiculous number of snouts now. We have a new benchmark and report.
+
+Ohk, we are missing stuff. that goes into the blog. the pca thing also does. the next step if finding what that pesky extra green dot is doing.
+
+mixed4d: 447
+1x1: 112
+3x3: 288
+5x5: 64
+pool: 64
+
+112+288 = 400
+447 -> 47th neuron in 5x5 layer:
+
+# output activation capture now
+
+We will use the PCA model to capture all the points which are snouts, and dog legs, and letters.
+
+We'll see about letters, cars, human faces, snouts, and legs for now
+
+- goal: capture the output activation values in a csv. We would also like the patterns which are created by each label (we capture the full output activation, along with the label distribution on that output activation, and then we create activation outputs for each label).
+- capturing the output activations for all is slightly painful, but not impossible, we'll use shards for it too (with the same structure as input keys and all, since we have a csv containing all labels, we good, we basically get the activations the same way we get the attributions)
+
+It is what it is, im lazy right now, maybe chakkar maarke ana chahiye? hahaha hehehe hohoho hihihi.  
+I should though, try to find the snout activation range first, its a good starting point, cuz im lazy hehehe hohoho hahaha  
+maybe if i find something, i will get more interested and focused. hehehe hohoho hahaha
+
+ohk, the easiest thing to do is to do acts of cat in direction of lucid.

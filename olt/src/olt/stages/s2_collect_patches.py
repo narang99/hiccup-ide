@@ -303,28 +303,6 @@ def get_channel_by_patches(
     return stacked_channel_by_indices, stacked_channel_by_patches
 
 
-# def get_channel_by_patches(
-#     indices: torch.Tensor,
-#     patches: list[torch.Tensor],
-#     channels_to_keep: list[int],
-# ) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
-#     channel_by_patches: dict[int, list[torch.Tensor]] = defaultdict(list)
-#     channel_by_indices: dict[int, list[torch.Tensor]] = defaultdict(list)
-#     for i in range(len(indices)):
-#         ind, patch = indices[i], patches[i]
-#         chan = typing.cast(int, ind[1].item())
-#         if chan in channels_to_keep:
-#             channel_by_patches[chan].append(patch)
-#             channel_by_indices[chan].append(ind)
-#     stacked_channel_by_patches = {
-#         k: torch.stack(v) for k, v in channel_by_patches.items()
-#     }
-#     stacked_channel_by_indices = {
-#         k: torch.stack(v) for k, v in channel_by_indices.items()
-#     }
-#     return stacked_channel_by_indices, stacked_channel_by_patches
-
-
 def get_indices_and_patches_for_batch(
     input_list: list[Image.Image],
     attributions: list[torch.Tensor],  # list[[C, H, W]]
