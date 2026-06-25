@@ -280,12 +280,16 @@ def render_grid_to_jpeg(
             else:
                 overlay = third
             vmin, vmax = get_local_image_limits(overlay)
+            oh, ow = overlay.shape[:2]
+            scale = min(cell_w / ow, cell_h / oh)
+            fitted_w, fitted_h = int(ow * scale), int(oh * scale)
+
             cell = apply_cmap(
                 overlay,
                 cmap,
                 vmin=vmin,
                 vmax=vmax,
-                size=(cell_w, cell_h),
+                size=(fitted_w, fitted_h),
                 interpolation=Image.NEAREST,
             )
             cell = _fit_and_pad(cell, cell_w, cell_h, bg=pad_color)
