@@ -11,10 +11,12 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from captum.attr import NeuronDeepLift
 from PIL import Image, ImageDraw
 from tqdm import tqdm
 
 from olt.show import get_local_image_limits, rd_bk_gn
+from olt.tfms import inverse_transform, transform
 
 
 def _get_attribution_pth_files(d, cluster_label):
@@ -531,3 +533,28 @@ def archive_report(output_dir: Path, tar_path: None | Path = None):
         tar.add(output_dir, arcname=output_dir.name)
     print(f"archived to {tar_path}")
     return tar_path
+
+
+def make_overlay_heatmap(model, layer_name, neuron_selector, pil_img, device="cpu"):
+    timg = transform(pil_img)[None].to(device)
+    model = model.to(device)
+    inv_img = inverse_transform(timg)
+    ndl = NeuronDeepLift(model, model.get_submodule(layer_name))
+    attr_res = ndl.attribute(timg, neuron_selector)
+
+    size = (224, 224)
+
+    overlay = attr_res[0].detach().cpu().sum(dim=0).numpy()
+    overlay = overlay / np.abs(overlay).max()
+
+    base = to_pil(inv_img[0], size=size)
+    heat = apply_cmap(
+        overlay,
+        rd_bk_gn,
+        vmin=-1,
+        vmax=1,
+        size=size,
+        interpolation=Image.BILINEAR,
+    )
+    cell = Image.blend(base, heat, alpha=0.8)
+    return cell

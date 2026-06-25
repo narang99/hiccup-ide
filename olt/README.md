@@ -332,3 +332,9 @@ I should though, try to find the snout activation range first, its a good starti
 maybe if i find something, i will get more interested and focused. hehehe hohoho hahaha
 
 ohk, the easiest thing to do is to do acts of cat in direction of lucid.
+
+New reports seem fine, other than changes in what categories are caught, along with csv file differences. this is more work to do for the blog finally (i need to redo the panel tabset, and the csv stats).
+mota mota, pca is giving similar results, an explosion in the counting of snouts. im sure that bright pixel in the mid is eyes and nose or something, makes a lot of sense.
+
+ohk, we have come back to where we were tomorrow. have the activation analysis, with some minor differences. eagles and faces coming in feature viz for high neg is now understood well.  
+The other thing is, pca is not working that well, in fact the original cluster

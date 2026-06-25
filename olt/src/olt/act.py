@@ -75,7 +75,7 @@ class InputOutputModelSnapshot:
         def hook_fn(module, input, output):
             # Store the main activation output
             self.activations[name] = {
-                "input": input[0].detach().cpu().clone(),
+                "input": recursive_detach(input),
                 "output": output.detach().cpu().clone(),
             }
 
@@ -101,3 +101,16 @@ class InputOutputModelSnapshot:
             with torch.no_grad():
                 model(batch)
             return snapshot.activations
+
+
+def recursive_detach(x):
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu()
+    elif isinstance(x, tuple):
+        return tuple(recursive_detach(i) for i in x)
+    elif isinstance(x, list):
+        return [recursive_detach(i) for i in x]
+    elif isinstance(x, dict):
+        return {k: recursive_detach(v) for k, v in x.items()}
+    else:
+        return x
