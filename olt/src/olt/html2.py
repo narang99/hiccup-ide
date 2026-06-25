@@ -297,7 +297,7 @@ def apply_cmap(arr, cmap, vmin, vmax, size, interpolation=Image.NEAREST):
 
 
 def _fit_and_pad(
-    img: Image.Image, cell_w: int, cell_h: int, bg: str = "silver"
+    img: Image.Image, cell_w: int, cell_h: int, bg: str = "2c2e33"
 ) -> Image.Image:
     """Resize PIL image to fit within (cell_w, cell_h) preserving aspect ratio, then pad."""
     img.thumbnail((cell_w, cell_h), Image.BILINEAR)
