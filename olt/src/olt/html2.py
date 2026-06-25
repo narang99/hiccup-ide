@@ -222,6 +222,44 @@ _HEAD = """\
   /* lazy load fade-in */
   .view { opacity: 0; transition: opacity 0.3s ease; }
   .view.loaded { opacity: 1; }
+
+  .tab-bar-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem 1.5rem 0.4rem;
+      border-bottom: 1px solid #2c2e33;
+    }
+
+    .tab-bar-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #495057;
+    }
+
+    .sort-label {
+      font-size: 0.72rem;
+      color: #495057;
+      margin-left: auto;
+    }
+
+    .sort-btn {
+      background: none;
+      border: 1px solid #2c2e33;
+      color: #868e96;
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .sort-btn:hover { color: #c1c2c5; border-color: #868e96; }
+    .sort-btn.active { color: #4dabf7; border-color: #4dabf7; }
 </style>
 </head>
 <body>
@@ -229,25 +267,30 @@ _HEAD = """\
 
 _TAIL = """\
 <script>
+
   function activateTab(tabId) {
-    // deactivate all
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.label-section').forEach(s => s.classList.remove('active'));
+      _currentTab = tabId;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.label-section').forEach(s => s.classList.remove('active'));
 
-    // activate target
-    const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
-    const section = document.getElementById(`section-${tabId}`);
-    if (!btn || !section) return;
-    btn.classList.add('active');
-    section.classList.add('active');
+      const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+      const section = document.getElementById(`section-${tabId}`);
+      if (!btn || !section) return;
+      btn.classList.add('active');
+      section.classList.add('active');
 
-    // lazy load: move data-src -> src for images in this section
-    section.querySelectorAll('img[data-src]').forEach(img => {
-      img.src = img.dataset.src;
-      delete img.dataset.src;
-      img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+      section.querySelectorAll('img[data-src]').forEach(img => {
+        img.src = img.dataset.src;
+        delete img.dataset.src;
+        img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+      });
+    }
+
+    // activate first tab on load — after renderTabs has run
+    window.addEventListener('DOMContentLoaded', () => {
+      renderTabs(TAB_DATA);
+      if (TAB_DATA.length) activateTab(TAB_DATA[0].id);
     });
-  }
 
   function toggleView(btn) {
     const block = btn.closest('.grid-block');
@@ -462,23 +505,76 @@ def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_thir
         </section>"""
 
 
+# def _build_tab_bar(results):
+#     """Build the sticky tab bar HTML from ordered results."""
+#     buttons = []
+#     for result in results:
+#         if result is None:
+#             continue
+#         block_id, cluster_label, n_samples, _, _ = result
+#         label = f"Cluster {cluster_label}"
+#         buttons.append(
+#             f'<button class="tab-btn" data-tab="{block_id}" onclick="activateTab({block_id})">'
+#             f'{label}<span class="tab-count">{n_samples} samples</span></button>'
+#         )
+#     return (
+#         '<div class="tab-bar-wrap"><div class="tab-bar">'
+#         + "".join(buttons)
+#         + "</div></div>"
+#     )
+
+
 def _build_tab_bar(results):
-    """Build the sticky tab bar HTML from ordered results."""
-    buttons = []
-    for result in results:
-        if result is None:
-            continue
-        block_id, cluster_label, n_samples, _, _ = result
-        label = f"Cluster {cluster_label}"
-        buttons.append(
-            f'<button class="tab-btn" data-tab="{block_id}" onclick="activateTab({block_id})">'
-            f'{label}<span class="tab-count">{n_samples} samples</span></button>'
+    valid = [
+        (block_id, cluster_label, n_samples)
+        for block_id, cluster_label, n_samples, _, _ in results
+        if results
+    ]
+    # serialize for JS
+    tab_data = (
+        "["
+        + ",".join(
+            f"{{id:{block_id},label:{cluster_label},count:{n_samples}}}"
+            for block_id, cluster_label, n_samples in valid
+            if block_id is not None
         )
-    return (
-        '<div class="tab-bar-wrap"><div class="tab-bar">'
-        + "".join(buttons)
-        + "</div></div>"
+        + "]"
     )
+
+    return f"""
+<div class="tab-bar-wrap">
+  <div class="tab-bar-header">
+    <span class="tab-bar-label">Clusters</span>
+    <div class="sort-controls">
+      <span class="sort-label">Sort by</span>
+      <button class="sort-btn active" onclick="sortTabs('id', this)">Index</button>
+      <button class="sort-btn" onclick="sortTabs('count', this)">Samples</button>
+    </div>
+  </div>
+  <div class="tab-bar" id="tab-bar"></div>
+</div>
+<script>
+  const TAB_DATA = {tab_data};
+  let _currentTab = null;
+
+  function renderTabs(data) {{
+    const bar = document.getElementById('tab-bar');
+    bar.innerHTML = data.map(t => `
+      <button class="tab-btn ${{_currentTab === t.id ? 'active' : ''}}"
+              data-tab="${{t.id}}"
+              onclick="activateTab(${{t.id}})">
+        ${{t.label}}
+        <span class="tab-count">${{t.count}}</span>
+      </button>`).join('');
+  }}
+
+  function sortTabs(by, btn) {{
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const sorted = [...TAB_DATA].sort((a, b) => by === 'count' ? b.count - a.count : a.id - b.id);
+    renderTabs(sorted);
+  }}
+</script>"""
 
 
 # ---------------------------------------------------------------------------
