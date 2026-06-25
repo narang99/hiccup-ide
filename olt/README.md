@@ -310,10 +310,10 @@ PCA is catching extra lol. A ridiculous number of snouts now. We have a new benc
 Ohk, we are missing stuff. that goes into the blog. the pca thing also does. the next step if finding what that pesky extra green dot is doing.
 
 mixed4d: 447
-1x1: 112
-3x3: 288
-5x5: 64
-pool: 64
+1x1: 112 (112)
+3x3: 288 (400)
+5x5: 64 (464)
+pool: 64 (528)
 
 112+288 = 400
 447 -> 47th neuron in 5x5 layer:
@@ -338,3 +338,23 @@ mota mota, pca is giving similar results, an explosion in the counting of snouts
 
 ohk, we have come back to where we were tomorrow. have the activation analysis, with some minor differences. eagles and faces coming in feature viz for high neg is now understood well.  
 The other thing is, pca is not working that well, in fact the original cluster
+
+- next steps
+  - we have good feature visualisations now, nice proof of our concept
+  - I think i can now write to the blog about these findings
+  - Next we have inter layer work, we will start this in some time
+  - i have a good attack strategy for next layer work. its simply a whole lot of manual work, which is fine for now
+  - just for surity, ill start collecting attributions for layers of interest
+  - the bright spot, we check first
+    - x=12, y=-2 (22,24)
+    - x=12, y=20 (22,24) (24 columns, per row, `24*20 + 12=492` -> number of people before us)
+    - this is the pool layer, tis easy, cuz pool layer is also 1x1
+    - `492-464=28` (28th channel in that layer)
+- im again feeling very bored to start lol. :)
+  - might be best to update the blog i guess.
+  - am bored to do that too, max unproductive today ;\_;
+
+- ooo ill test run on the 492 pixel, its almost done, model train times hehehhehehe :)
+  - tis simple, and gives report, and gives good prelimnary evidence.
+
+- html report needs to handle the shape of the image too lol.

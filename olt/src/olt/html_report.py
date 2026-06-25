@@ -213,6 +213,18 @@ def apply_cmap(arr, cmap, vmin, vmax, size, interpolation=Image.NEAREST):
     return Image.fromarray(rgba, mode="RGBA").convert("RGB").resize(size, interpolation)
 
 
+def _fit_and_pad(
+    img: Image.Image, cell_w: int, cell_h: int, bg: str = "silver"
+) -> Image.Image:
+    """Resize PIL image to fit within (cell_w, cell_h) preserving aspect ratio, then pad."""
+    img.thumbnail((cell_w, cell_h), Image.BILINEAR)
+    canvas = Image.new("RGB", (cell_w, cell_h), color=bg)
+    x = (cell_w - img.width) // 2
+    y = (cell_h - img.height) // 2
+    canvas.paste(img, (x, y))
+    return canvas
+
+
 def render_grid_to_jpeg(
     pairs,
     view,
@@ -224,6 +236,7 @@ def render_grid_to_jpeg(
     alpha=0.8,
     suptitle="",
     titles=None,
+    pad_color="silver",
 ):
     """Render a list of (inv_img, neuron_att, third) pairs and save as a JPEG file."""
     n = len(pairs)
@@ -275,6 +288,7 @@ def render_grid_to_jpeg(
                 size=(cell_w, cell_h),
                 interpolation=Image.NEAREST,
             )
+            cell = _fit_and_pad(cell, cell_w, cell_h, bg=pad_color)
 
         canvas.paste(cell, (x, y))
 
