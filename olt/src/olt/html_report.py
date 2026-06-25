@@ -80,6 +80,63 @@ _HEAD = """\
     line-height: 1.5;
   }
 
+  /* ---------- tab bar ---------- */
+  .tab-bar-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #141517;
+    border-bottom: 2px solid #2c2e33;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #4dabf7 #1e1f22;
+  }
+
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    min-width: max-content;
+    padding: 0 1.5rem;
+  }
+
+  .tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0.65rem 1.1rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #868e96;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -2px; /* sit on top of wrap border */
+  }
+
+  .tab-btn .tab-count {
+    font-size: 0.68rem;
+    font-weight: 400;
+    color: #495057;
+    transition: color 0.15s;
+  }
+
+  .tab-btn:hover { color: #c1c2c5; }
+  .tab-btn:hover .tab-count { color: #868e96; }
+
+  .tab-btn.active {
+    color: #4dabf7;
+    border-bottom-color: #4dabf7;
+  }
+
+  .tab-btn.active .tab-count { color: #74c0fc; }
+
+  /* ---------- content ---------- */
   .container {
     max-width: 1000px;
     margin: 0 auto;
@@ -96,13 +153,15 @@ _HEAD = """\
   }
 
   .label-section {
-    margin-bottom: 2rem;
+    display: none; /* hidden until tab activated */
     background: #1e1f22;
     border: 1px solid #2c2e33;
     border-radius: 6px;
     padding: 1.25rem 1.5rem;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
+
+  .label-section.active { display: block; }
 
   .label-header {
     font-size: 0.95rem;
@@ -159,16 +218,37 @@ _HEAD = """\
     border: 1px solid #2c2e33;
     border-radius: 4px;
   }
+
+  /* lazy load fade-in */
+  .view { opacity: 0; transition: opacity 0.3s ease; }
+  .view.loaded { opacity: 1; }
 </style>
 </head>
 <body>
-<div class="container">
-<h1 class="report-title">Attribution Report</h1>
 """
 
 _TAIL = """\
-</div>
 <script>
+  function activateTab(tabId) {
+    // deactivate all
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.label-section').forEach(s => s.classList.remove('active'));
+
+    // activate target
+    const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+    const section = document.getElementById(`section-${tabId}`);
+    if (!btn || !section) return;
+    btn.classList.add('active');
+    section.classList.add('active');
+
+    // lazy load: move data-src -> src for images in this section
+    section.querySelectorAll('img[data-src]').forEach(img => {
+      img.src = img.dataset.src;
+      delete img.dataset.src;
+      img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+    });
+  }
+
   function toggleView(btn) {
     const block = btn.closest('.grid-block');
     const combined = block.querySelector('.combined');
@@ -185,10 +265,13 @@ _TAIL = """\
       btn.dataset.state      = 'combined';
     }
   }
+
+  // activate first tab on load
+  const firstTab = document.querySelector('.tab-btn');
+  if (firstTab) activateTab(firstTab.dataset.tab);
 </script>
 </body>
 </html>"""
-
 
 # ---------------------------------------------------------------------------
 # Rendering
@@ -214,7 +297,7 @@ def apply_cmap(arr, cmap, vmin, vmax, size, interpolation=Image.NEAREST):
 
 
 def _fit_and_pad(
-    img: Image.Image, cell_w: int, cell_h: int, bg: str = "silver"
+    img: Image.Image, cell_w: int, cell_h: int, bg: str = "2c2e33"
 ) -> Image.Image:
     """Resize PIL image to fit within (cell_w, cell_h) preserving aspect ratio, then pad."""
     img.thumbnail((cell_w, cell_h), Image.BILINEAR)
@@ -363,7 +446,7 @@ def _load_pairs(imagenet_map, samples_per_cluster, image_shape, cluster_label, d
 
 def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_third):
     return f"""
-        <section class="label-section">
+        <section class="label-section" id="section-{block_id}">
           <h2 class="label-header">Cluster {cluster_label}</h2>
           <div class="grid-block">
             <div class="grid-meta">
@@ -373,10 +456,29 @@ def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_thir
                 Show Third
               </button>
             </div>
-            <img class="view combined" id="img-{block_id}-combined" src="{fname_combined}" />
-            <img class="view third"    id="img-{block_id}-third"    src="{fname_third}"    style="display:none" />
+            <img class="view combined" data-src="{fname_combined}" />
+            <img class="view third"    data-src="{fname_third}"    style="display:none" />
           </div>
         </section>"""
+
+
+def _build_tab_bar(results):
+    """Build the sticky tab bar HTML from ordered results."""
+    buttons = []
+    for result in results:
+        if result is None:
+            continue
+        block_id, cluster_label, n_samples, _, _ = result
+        label = f"Cluster {cluster_label}"
+        buttons.append(
+            f'<button class="tab-btn" data-tab="{block_id}" onclick="activateTab({block_id})">'
+            f'{label}<span class="tab-count">{n_samples} samples</span></button>'
+        )
+    return (
+        '<div class="tab-bar-wrap"><div class="tab-bar">'
+        + "".join(buttons)
+        + "</div></div>"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -539,9 +641,31 @@ def generate_html_report(
                 block_id, cluster_label, n_samples, fname_combined, fname_third
             )
         )
-    html = _HEAD + "\n".join(sections) + "\n" + _TAIL
+
+    tab_bar = _build_tab_bar(results)
+    body = (
+        '<div class="container">'
+        '<h1 class="report-title">Attribution Report</h1>'
+        + "\n".join(sections)
+        + "</div>"
+    )
+    html = _HEAD + tab_bar + body + "\n" + _TAIL
     (out / "index.html").write_text(html, encoding="utf-8")
     print(f"Report saved to {out}")
+
+    # sections = []
+    # for result in results:
+    #     if result is None:
+    #         continue
+    #     block_id, cluster_label, n_samples, fname_combined, fname_third = result
+    #     sections.append(
+    #         _section_html(
+    #             block_id, cluster_label, n_samples, fname_combined, fname_third
+    #         )
+    #     )
+    # html = _HEAD + "\n".join(sections) + "\n" + _TAIL
+    # (out / "index.html").write_text(html, encoding="utf-8")
+    # print(f"Report saved to {out}")
 
 
 def archive_report(output_dir: Path, tar_path: None | Path = None):
