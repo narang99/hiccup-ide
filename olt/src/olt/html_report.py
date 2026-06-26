@@ -588,7 +588,7 @@ def generate_html_report(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    with (output_dir / "report.csv").open("w") as f:
+    with (out / "report.csv").open("w") as f:
         df.to_csv(f)
 
     cluster_map = sample_for_label(50, clustering_and_attr_src_dir)

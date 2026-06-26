@@ -385,3 +385,12 @@ The other thing is, pca is not working that well, in fact the original cluster
   - anyways, in the end i would like to see these reports for my last part also, might as well generate them.
 
 - the other important thing is sampling, training model takes 5+ minutes. this makes each neuron takes upwards of 10 minutes.
+  - this will still take 10. the lucent thing takes 3 min. each step is approx 3-4 min anyways. idk if i can offload or do stuff in parallel maybe? the problem is gpu though, for the memory im using, my workload is very small. i cant jax it again, too much mehnat.
+
+I think its time to publish, im not that happy but its fine maybe? doing another layer is fraught with problems, simply because im sure the cluster is not catching anything? Everything takes a long while to run, and im getting confused.
+
+- everytime i try to do bulk runs, im getting sadder results. tis no good.
+- For one thing, the main problem is me not knowing how much data is useful or not.
+  - hmpf
+
+- gotta forget lucent reports, takes 20+ minutes.

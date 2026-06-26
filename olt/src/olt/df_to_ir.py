@@ -231,10 +231,19 @@ def create_report_dir_for_one_input(
 
 
 def prepare_reports_dir_after_sampling(
-    df, report_out_dir, model, flat_images_base, device, samples_per_cluster_label=100
+    df,
+    report_out_dir,
+    model,
+    flat_images_base,
+    device,
+    samples_per_cluster_label=100,
+    skip_clusters_with_only_one_unique_image=True,
 ):
-    labels = labels_with_unique_inp_keys_below_threshold(df, 2)
-    filtered_df = df[~df["cluster_label"].isin(labels)]
+    if skip_clusters_with_only_one_unique_image:
+        labels = labels_with_unique_inp_keys_below_threshold(df, 2)
+        filtered_df = df[~df["cluster_label"].isin(labels)]
+    else:
+        filtered_df = df
 
     combinations = filtered_df[["layer_name", "channel"]].drop_duplicates()
 
@@ -251,7 +260,6 @@ def prepare_reports_dir_after_sampling(
         this_neurons_filtered_df = filtered_df[mask]
         dfs = []
         uniq_cluster_labels = this_neurons_filtered_df["cluster_label"].unique()
-        print("uniq lables", uniq_cluster_labels)
         for cluster_label in uniq_cluster_labels:
             sampled = stratified_sample_for_cluster_label(
                 this_neurons_filtered_df,

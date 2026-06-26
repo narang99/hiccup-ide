@@ -65,7 +65,7 @@ def _is_done(meta_file_path: RemotePath):
 
 def make_df_from_cluster_results(
     layer_name: str,
-    best,
+    labels,
     indices: torch.Tensor,
     input_keys: list[str],
     imagenet_labels: list[int],
@@ -74,7 +74,7 @@ def make_df_from_cluster_results(
     y_positions = [int(i[2].item()) for i in indices]
     x_positions = [int(i[3].item()) for i in indices]
     layer_names = [layer_name for _ in range(len(indices))]
-    cluster_labels = best["clusterer"].labels_
+    cluster_labels = labels
 
     return pd.DataFrame(
         {
