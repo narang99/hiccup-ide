@@ -256,12 +256,12 @@ _TAIL = """\
     if (btn.dataset.state === 'combined') {
       combined.style.display = 'none';
       third.style.display    = 'block';
-      btn.textContent        = 'Show Combined';
+      btn.textContent        = 'Show Overlays';
       btn.dataset.state      = 'third';
     } else {
       third.style.display    = 'none';
       combined.style.display = 'block';
-      btn.textContent        = 'Show Third';
+      btn.textContent        = 'Show Pointwise multiplications';
       btn.dataset.state      = 'combined';
     }
   }
@@ -451,9 +451,9 @@ def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_thir
           <div class="grid-block">
             <div class="grid-meta">
               <span class="tag">cluster {cluster_label}</span>
-              <span class="total">{n_samples} samples</span>
+              <span class="total">{n_samples} unique images</span>
               <button class="toggle-btn" onclick="toggleView(this)" data-state="combined">
-                Show Third
+                Show Pointwise multiplications
               </button>
             </div>
             <img class="view combined" data-src="{fname_combined}" />
@@ -652,20 +652,6 @@ def generate_html_report(
     html = _HEAD + tab_bar + body + "\n" + _TAIL
     (out / "index.html").write_text(html, encoding="utf-8")
     print(f"Report saved to {out}")
-
-    # sections = []
-    # for result in results:
-    #     if result is None:
-    #         continue
-    #     block_id, cluster_label, n_samples, fname_combined, fname_third = result
-    #     sections.append(
-    #         _section_html(
-    #             block_id, cluster_label, n_samples, fname_combined, fname_third
-    #         )
-    #     )
-    # html = _HEAD + "\n".join(sections) + "\n" + _TAIL
-    # (out / "index.html").write_text(html, encoding="utf-8")
-    # print(f"Report saved to {out}")
 
 
 def archive_report(output_dir: Path, tar_path: None | Path = None):
