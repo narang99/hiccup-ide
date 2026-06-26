@@ -372,3 +372,16 @@ The other thing is, pca is not working that well, in fact the original cluster
 - we have one information: it takes a lot of occluding to actually remove the snout from feature viz, there are a lot of redundancies then for sure.
   - A natural step is to look at all the input neurons. its time to actually train the model on the whole mixed4d layer, its gonna be painful but not that bad i think, lets try this out.
 - a problem would be that this would be unattended, the main thing im going to rely on is that within a single layer, the number of captured concepts are of similar scale, and hence the same settings work. We just want to see some of the labels. lets see if this works out.
+
+- lucent inside reports does not look bad. should i do it? is it useful?
+- The main point is getting good datapoints, thats generally hard. so we'll just sample 3 points for each cluster label.
+- how im getting the patch is bad though, i should use unfold technically to get the patch lol.
+- thats just one more pain, or actually, i can just get a patch using our own code which is present for that. for now tho, for this specific example, im nmoving forward without doing that (and note that the channel objective does not work now, we would need to run unfold in the objective function, get the correct patch, and run the code it seems). Which is all quite painful. For now, this is good.
+  - steps to add lucent in reports
+  - generate 3 lucent diversity images per cluster
+  - put them in ir/layer-name/channel/cluster-label/...jpeg
+  - have html-report add them if they presnet
+  - put in try except cuz we would want to skip if possible.
+  - anyways, in the end i would like to see these reports for my last part also, might as well generate them.
+
+- the other important thing is sampling, training model takes 5+ minutes. this makes each neuron takes upwards of 10 minutes.
