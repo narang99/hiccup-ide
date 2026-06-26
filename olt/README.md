@@ -357,4 +357,8 @@ The other thing is, pca is not working that well, in fact the original cluster
 - ooo ill test run on the 492 pixel, its almost done, model train times hehehhehehe :)
   - tis simple, and gives report, and gives good prelimnary evidence.
 
-- html report needs to handle the shape of the image too lol.
+- html report needs to handle the shape of the image too lol. (done)
+
+- onto occlusion analysis now
+  - some of the greens and reds seem too obvious
+  - ill start with the snout one and remove the bright green in right bottom. and run lucent
