@@ -1,5 +1,6 @@
 import math
 import random
+import shutil
 import tarfile
 import time
 from collections import defaultdict
@@ -222,6 +223,39 @@ _HEAD = """\
   /* lazy load fade-in */
   .view { opacity: 0; transition: opacity 0.3s ease; }
   .view.loaded { opacity: 1; }
+
+  /* ---------- lucent report images ---------- */
+  .lucent-section {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #2c2e33;
+  }
+
+  .lucent-header {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #868e96;
+    margin-bottom: 0.75rem;
+  }
+
+  .lucent-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .lucent-img {
+    height: 160px;
+    width: auto;
+    border: 1px solid #2c2e33;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .lucent-img.loaded { opacity: 1; }
 </style>
 </head>
 <body>
@@ -444,7 +478,18 @@ def _load_pairs(imagenet_map, samples_per_cluster, image_shape, cluster_label, d
 # ---------------------------------------------------------------------------
 
 
-def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_third):
+def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_third, lucent_fnames=None):
+    lucent_html = ""
+    if lucent_fnames:
+        imgs = "".join(
+            f'<img class="lucent-img" data-src="{f}" />'
+            for f in lucent_fnames
+        )
+        lucent_html = f"""
+          <div class="lucent-section">
+            <p class="lucent-header">Lucent feature visualizations</p>
+            <div class="lucent-grid">{imgs}</div>
+          </div>"""
     return f"""
         <section class="label-section" id="section-{block_id}">
           <h2 class="label-header">Cluster {cluster_label}</h2>
@@ -458,7 +503,7 @@ def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_thir
             </div>
             <img class="view combined" data-src="{fname_combined}" />
             <img class="view third"    data-src="{fname_third}"    style="display:none" />
-          </div>
+          </div>{lucent_html}
         </section>"""
 
 
@@ -572,6 +617,22 @@ def _get_cluster_size(args):
     return sum(len(d["samples"]) for d in imagenet_map.values())
 
 
+def _copy_lucent_images(src_dir: Path, cluster_label, out: Path) -> list[str]:
+    """Copy lucent-reports/<cluster_label>/*.jpeg into out/ and return relative paths."""
+    lucent_dir = src_dir / "lucent-reports" / str(cluster_label)
+    if not lucent_dir.exists():
+        return []
+    safe_label = "neg1" if cluster_label == -1 else str(cluster_label)
+    dest_subdir = out / f"lucent_{safe_label}"
+    dest_subdir.mkdir(exist_ok=True)
+    paths = []
+    for src_img in sorted(lucent_dir.glob("*.jpeg")) + sorted(lucent_dir.glob("*.jpg")):
+        dest = dest_subdir / src_img.name
+        shutil.copy2(src_img, dest)
+        paths.append(f"lucent_{safe_label}/{src_img.name}")
+    return paths
+
+
 def generate_html_report(
     output_dir,
     clustering_and_attr_src_dir,
@@ -636,9 +697,10 @@ def generate_html_report(
         if result is None:
             continue
         block_id, cluster_label, n_samples, fname_combined, fname_third = result
+        lucent_fnames = _copy_lucent_images(clustering_and_attr_src_dir, cluster_label, out)
         sections.append(
             _section_html(
-                block_id, cluster_label, n_samples, fname_combined, fname_third
+                block_id, cluster_label, n_samples, fname_combined, fname_third, lucent_fnames
             )
         )
 
