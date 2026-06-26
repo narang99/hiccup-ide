@@ -19,7 +19,7 @@ def show_single_channel_red_green_black(
     ncols=2,
     axis="on",
     viztype="global",
-    mode="light",
+    mode="dark",
     suptitle="",
     ax_titles=None,
 ):

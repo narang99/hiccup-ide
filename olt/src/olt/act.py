@@ -75,7 +75,7 @@ class InputOutputModelSnapshot:
         def hook_fn(module, input, output):
             # Store the main activation output
             self.activations[name] = {
-                "input": recursive_detach(input),
+                "input": recursive_detach(input[0]),
                 "output": output.detach().cpu().clone(),
             }
 

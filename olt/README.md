@@ -362,3 +362,13 @@ The other thing is, pca is not working that well, in fact the original cluster
 - onto occlusion analysis now
   - some of the greens and reds seem too obvious
   - ill start with the snout one and remove the bright green in right bottom. and run lucent
+  - occlusion is giving a differnet reuslt, i need to remove like top 50 to get unrecognisable feature viz. it seems many of the older neurons are firing together for the cat thing.
+
+- so sparse pca on last layer is also not working. clustering is also not working (we are only looking at cat data and the pws of the cat lin layer).
+  - so i might have to give up on this for now
+
+# occlusion analysis
+
+- we have one information: it takes a lot of occluding to actually remove the snout from feature viz, there are a lot of redundancies then for sure.
+  - A natural step is to look at all the input neurons. its time to actually train the model on the whole mixed4d layer, its gonna be painful but not that bad i think, lets try this out.
+- a problem would be that this would be unattended, the main thing im going to rely on is that within a single layer, the number of captured concepts are of similar scale, and hence the same settings work. We just want to see some of the labels. lets see if this works out.
