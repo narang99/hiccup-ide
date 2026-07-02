@@ -57,7 +57,7 @@ def run_attribution_and_write(
     """For a given target imagenet label, a model and a layer (using layer name), find the layer attribution of that layer for all inputs of that imagenet label
 
     We assume the input shards are at base_images_shard_dir / imagenet_label
-    The attribution shards would be written to out_dir / imagenet_label / layer_name
+    The attribution shards would be written to out_dir / layer_name / imagenet_label
     The shards would contain {__key__: "file-name", "attribution.pth": tensor of the attribution of the provided layer for the input of "file-name"}
 
     attribution shape would be [C, H, W], where C is the number of output channels of the layer. H,W is the shape of the output activation of the layer

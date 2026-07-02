@@ -286,10 +286,10 @@ def to_pil(img, size):
         img = img.transpose(1, 2, 0)
     img = (img - img.min()) / (img.max() - img.min() + 1e-8)
     img = (img * 255).astype(np.uint8)
-    return Image.fromarray(img).resize(size, Image.BILINEAR)
+    return Image.fromarray(img).resize(size, Image.BILINEAR)  # ty: ignore
 
 
-def apply_cmap(arr, cmap, vmin, vmax, size, interpolation=Image.NEAREST):
+def apply_cmap(arr, cmap, vmin, vmax, size, interpolation=Image.NEAREST):  # ty: ignore
     """Apply a matplotlib colormap to a 2D array and return a PIL RGB image."""
     arr = np.clip((arr - vmin) / (vmax - vmin + 1e-8), 0, 1)
     rgba = (cmap(arr) * 255).astype(np.uint8)  # cmap returns (H,W,4)
@@ -300,7 +300,7 @@ def _fit_and_pad(
     img: Image.Image, cell_w: int, cell_h: int, bg: str = "2c2e33"
 ) -> Image.Image:
     """Resize PIL image to fit within (cell_w, cell_h) preserving aspect ratio, then pad."""
-    img.thumbnail((cell_w, cell_h), Image.BILINEAR)
+    img.thumbnail((cell_w, cell_h), Image.BILINEAR)  # ty: ignore
     canvas = Image.new("RGB", (cell_w, cell_h), color=bg)
     x = (cell_w - img.width) // 2
     y = (cell_h - img.height) // 2
@@ -354,7 +354,7 @@ def render_grid_to_jpeg(
                 vmin=-1,
                 vmax=1,
                 size=(cell_w, cell_h),
-                interpolation=Image.BILINEAR,
+                interpolation=Image.BILINEAR,  # ty: ignore
             )
             cell = Image.blend(base, heat, alpha=alpha)
         else:
@@ -373,7 +373,7 @@ def render_grid_to_jpeg(
                 vmin=vmin,
                 vmax=vmax,
                 size=(fitted_w, fitted_h),
-                interpolation=Image.NEAREST,
+                interpolation=Image.NEAREST,  # ty: ignore
             )
             cell = _fit_and_pad(cell, cell_w, cell_h, bg=pad_color)
 
@@ -404,7 +404,20 @@ def _get_unique_input_key_count_for_cluster_and_imagenet_label_pair(
     ].input_image_key.nunique()
 
 
-def _load_pairs(imagenet_map, samples_per_cluster, image_shape, cluster_label, df):
+def get_reshape_to_2d_act_picker(image_shape):
+    def rsh(act):
+        return act.reshape(image_shape)
+
+    return rsh
+
+
+def _load_pairs(
+    imagenet_map,
+    samples_per_cluster,
+    act_picker,
+    cluster_label,
+    df,
+):
     """Flatten all samples across imagenet labels, shuffle, cap, then load tensors."""
 
     all_samples = [
@@ -430,8 +443,8 @@ def _load_pairs(imagenet_map, samples_per_cluster, image_shape, cluster_label, d
             (
                 plt.imread(img_path),
                 torch.load(sample, weights_only=False, map_location="cpu")[0],
-                torch.load(act_path, weights_only=False, map_location="cpu").reshape(
-                    image_shape
+                act_picker(
+                    torch.load(act_path, weights_only=False, map_location="cpu")
                 ),
             )
         )
@@ -519,7 +532,7 @@ def _render_cluster_worker(args):
         out,
         df,
         samples_per_cluster,
-        image_shape,
+        act_picker,
         ncols,
         col_sz,
         row_sz,
@@ -528,7 +541,7 @@ def _render_cluster_worker(args):
     ) = args
 
     pairs, titles = _load_pairs(
-        imagenet_map, samples_per_cluster, image_shape, cluster_label, df
+        imagenet_map, samples_per_cluster, act_picker, cluster_label, df
     )
     if not pairs:
         return None
@@ -584,6 +597,7 @@ def generate_html_report(
     samples_per_cluster=100,
     cmap=rd_bk_gn,
     n_workers=4,
+    act_picker=None,  # todo: remove image_shape
 ):
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -595,6 +609,9 @@ def generate_html_report(
     print(f"num cluster labels: {len(cluster_map)}")
     ordered = sorted(cluster_map.items(), key=_cluster_sort_key)
 
+    if act_picker is None:
+        act_picker = get_reshape_to_2d_act_picker(image_shape)
+
     worker_args = [
         (
             cluster_label,
@@ -603,7 +620,7 @@ def generate_html_report(
             out,
             df,
             samples_per_cluster,
-            image_shape,
+            act_picker,
             ncols,
             col_sz,
             row_sz,
@@ -682,7 +699,7 @@ def make_overlay_heatmap(model, layer_name, neuron_selector, pil_img, device="cp
         vmin=-1,
         vmax=1,
         size=size,
-        interpolation=Image.BILINEAR,
+        interpolation=Image.BILINEAR,  # ty: ignore
     )
     cell = Image.blend(base, heat, alpha=0.8)
     return cell

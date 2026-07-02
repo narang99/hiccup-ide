@@ -3,6 +3,7 @@ import math
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+from lucent.modelzoo import inceptionv1
 
 colors_dark_v2 = ["#FF3131", "#333333", "#39FF14"]
 rd_bk_gn = mcolors.LinearSegmentedColormap.from_list("RdBkGn", colors_dark_v2)
@@ -98,3 +99,26 @@ def get_local_image_limits(img):
     mx = max(abs(mx), abs(mn))
     lim = (-mx, mx)
     return lim
+
+
+def show_grid(image_list, rows, cols, ax_titles=None):
+    # Initialize the figure layout
+    if ax_titles is None:
+        ax_titles = []
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 3, rows * 3))
+
+    # Flatten axes array for easy 1D iteration
+    axes = axes.flatten()
+
+    for i, img in enumerate(image_list):
+        if i < len(axes):
+            axes[i].imshow(img)
+            axes[i].axis("off")  # Hide the X/Y coordinate ticks
+            if len(ax_titles) > i:
+                axes[i].set_title(ax_titles[i])
+
+    # Hide any remaining empty subplots if image_list is shorter than rows * cols
+    for j in range(i + 1, len(axes)):
+        axes[j].axis("off")
+
+    plt.tight_layout()
