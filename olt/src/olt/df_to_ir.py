@@ -1,4 +1,5 @@
 import shutil
+import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -247,6 +248,7 @@ def prepare_reports_dir_after_sampling(
 
     combinations = filtered_df[["layer_name", "channel"]].drop_duplicates()
 
+    start = time.time()
     for _, row in combinations.iterrows():
         # for each laeyr name and channel, we want a different dir
         layer_name = row["layer_name"]
@@ -269,6 +271,7 @@ def prepare_reports_dir_after_sampling(
             )
             dfs.append(sampled)
         result_df = pd.concat(dfs, ignore_index=True)
+    print("finished sampling at:", time.time() - start, "seconds")
 
     print(
         f"layer_name: {layer_name} channel: {channel} sampled_df_size={len(result_df)} total_cluster_labels={len(uniq_cluster_labels)}"
