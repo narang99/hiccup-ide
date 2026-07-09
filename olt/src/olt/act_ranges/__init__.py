@@ -13,18 +13,23 @@ from olt.act_ranges.layer_utils import (
     get_layer_params,
     receptive_block,
 )
+from olt.act_ranges.plotting import save_combined_scatter_png
 from olt.act_ranges.quarto_report import (
     check_same_sign,
     compute_dep_order,
     dedupe_to_one_origin_per_image,
     dump_cluster_asset,
+    dump_overview_assets,
     print_report_for_neuron,
     render_activation_bar,
     render_dep_neuron_card,
     render_dep_neuron_placeholder_card,
     render_image_tab,
     render_neuron_block,
+    render_overview_block,
+    render_overview_neuron_card,
     render_report,
+    render_scroll_fix_script,
 )
 from olt.act_ranges.reports import crop_top, get_cluster_photo
 from olt.act_ranges.similarity import (
@@ -61,6 +66,7 @@ __all__ = [
     "get_cluster_photo",
     "crop_top",
     "dump_cluster_asset",
+    "dump_overview_assets",
     "render_dep_neuron_card",
     "render_dep_neuron_placeholder_card",
     "render_activation_bar",
@@ -68,8 +74,12 @@ __all__ = [
     "check_same_sign",
     "dedupe_to_one_origin_per_image",
     "render_neuron_block",
+    "render_overview_block",
+    "render_overview_neuron_card",
     "render_image_tab",
     "render_report",
+    "render_scroll_fix_script",
+    "save_combined_scatter_png",
     "print_report_for_neuron",
     "NoiseRatioRangeFilter",
     "NeuronParentAnalyser",

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from olt.act_ranges.plotting import save_combined_scatter_png
 from olt.act_ranges.reports import get_cluster_photo
 
 
@@ -87,6 +88,115 @@ def render_dep_neuron_placeholder_card(dep_layer_name, dep_channel):
         f"Did not fire\n"
         f":::\n"
         f":::\n"
+    )
+
+
+def dump_overview_assets(assets_dump_dir, dep_layer_name, dep_channel, activations, noise_samples):
+    """
+    Always (re)writes one combined scatter PNG for one dep neuron's Overview
+    card, under {assets_dump_dir}/{dep_layer_name}/{dep_channel}/. Reserved
+    filename (parallel to the cluster_ prefix reserved by dump_cluster_asset):
+    overview_scatter.png. Unlike dump_cluster_asset, this is always
+    regenerated (no exists-check) — cheap to recompute from stats_df each run.
+    Returns the dumped Path.
+    """
+    neuron_dir = assets_dump_dir / dep_layer_name / str(dep_channel)
+    scatter_path = neuron_dir / "overview_scatter.png"
+    save_combined_scatter_png(list(activations), list(noise_samples), scatter_path)
+    return scatter_path
+
+
+def render_overview_neuron_card(
+    dep_layer_name,
+    dep_channel,
+    relative_strength,
+    median_output_activation,
+    scatter_ref_path,
+):
+    bar = render_activation_bar(relative_strength, median_output_activation)
+    return (
+        f'::: {{.card .mb-2 .shadow-sm}}\n'
+        f'::: {{.card-header .text-body-secondary .small}}\n'
+        f"{dep_layer_name}:{dep_channel}\n\n"
+        f"{bar}\n"
+        f":::\n\n"
+        f'::: {{.card-body}}\n'
+        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n"
+        f":::\n"
+        f":::\n"
+    )
+
+
+def render_overview_block(
+    dep_order, stats_df, assets_dump_dir, assets_ref_dir, layer_by_channel_by_noise
+):
+    """
+    One card per (dep_layer, dep_channel) in dep_order, aggregating across all
+    rows of stats_df for that dep neuron (not per-image, unlike
+    render_neuron_block): median output_activation drives the activation bar
+    (relative_strength = share of the sum of medians, same-sign-checked via
+    check_same_sign, mirroring render_neuron_block's act_sum logic but on
+    medians instead of one image's values), plus a combined scatter plot of
+    output_activation and raw noise samples.
+    """
+    groups = stats_df.groupby(["dep_layer", "dep_channel"])["output_activation"]
+    medians = {key: groups.get_group(key).median() for key in dep_order}
+    check_same_sign(medians.values())
+    median_sum = sum(medians.values())
+
+    cards = []
+    for dep_layer_name, dep_channel in dep_order:
+        dep_rows = groups.get_group((dep_layer_name, dep_channel))
+        median_output_activation = medians[(dep_layer_name, dep_channel)]
+        relative_strength = (
+            median_output_activation / median_sum if median_sum != 0 else 0.0
+        )
+
+        noise_samples = layer_by_channel_by_noise.get(dep_layer_name, {}).get(
+            str(dep_channel), []
+        )
+        dump_overview_assets(
+            assets_dump_dir, dep_layer_name, dep_channel, dep_rows, noise_samples
+        )
+        scatter_ref_path = (
+            f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
+        )
+        cards.append(
+            render_overview_neuron_card(
+                dep_layer_name,
+                dep_channel,
+                relative_strength,
+                median_output_activation,
+                scatter_ref_path,
+            )
+        )
+    return "\n\n".join(cards)
+
+
+def render_scroll_fix_script():
+    """
+    Raw HTML block (Quarto {=html} raw block, so pandoc passes it through
+    verbatim) that preserves window.scrollY across panel-tabset tab switches,
+    which Bootstrap's tab.js otherwise resets by scrolling the newly-shown tab
+    into view. Meant to be appended once to the fully assembled report
+    content, not per tab.
+    """
+    return (
+        "```{=html}\n"
+        "<script>\n"
+        "document.addEventListener('DOMContentLoaded', function() {\n"
+        "  let savedScrollY = null;\n"
+        "  document.querySelectorAll('[data-bs-toggle=\"tab\"]').forEach(function(tabLink) {\n"
+        "    tabLink.addEventListener('hide.bs.tab', function() {\n"
+        "      savedScrollY = window.scrollY;\n"
+        "    });\n"
+        "    tabLink.addEventListener('shown.bs.tab', function() {\n"
+        "      if (savedScrollY !== null) window.scrollTo(0, savedScrollY);\n"
+        "    });\n"
+        "  });\n"
+        "});\n"
+        "</script>\n"
+        "```\n"
     )
 
 
@@ -202,18 +312,32 @@ def render_report(image_tabs):
 
 
 def print_report_for_neuron(
-    stats_df, base_report_dir, assets_dump_dir, assets_ref_dir, max_input_keys, output_path=None
+    stats_df,
+    base_report_dir,
+    assets_dump_dir,
+    assets_ref_dir,
+    layer_by_channel_by_noise,
+    max_input_keys,
+    output_path=None,
 ):
     """
-    Prints the full Quarto markdown (one tab per input image, labelled by index
-    rather than the (potentially long/unwieldy) input_image_key) to stdout — copy
-    it into a .qmd file to render/test. If output_path is given, also writes it there.
+    Prints the full Quarto markdown to stdout — copy it into a .qmd file to
+    render/test. If output_path is given, also writes it there. The first tab
+    is "Overview": neuron-level stats (median-activation bar + activation/noise
+    scatter plots per dep neuron) aggregated across every image in stats_df,
+    regardless of max_input_keys. The remaining tabs are one per input image,
+    labelled by index rather than the (potentially long/unwieldy)
+    input_image_key.
 
     stats_df: the concatenation of NeuronParentAnalyser.collect_cluster_stats_df
     outputs across multiple input images, for a single neuron — must have exactly
     one (origin_layer, origin_channel) pair and an "input_image_key" column.
     Only the first `max_input_keys` distinct input_image_key values (in the order
-    they first appear) are rendered, even if stats_df has more.
+    they first appear) get their own tab, even if stats_df has more — the
+    Overview tab is unaffected by this cap and aggregates over all of stats_df.
+
+    layer_by_channel_by_noise: same dict passed into NeuronParentAnalyser, used
+    for the Overview tab's raw noise-sample scatter plots.
     """
     origin_layers = stats_df["origin_layer"].unique()
     origin_channels = stats_df["origin_channel"].unique()
@@ -225,6 +349,19 @@ def print_report_for_neuron(
     stats_df = dedupe_to_one_origin_per_image(stats_df)
     dep_order = compute_dep_order(stats_df)
     image_keys = stats_df["input_image_key"].unique()[:max_input_keys]
+
+    overview_tab = render_image_tab(
+        "Overview",
+        [
+            render_overview_block(
+                dep_order,
+                stats_df,
+                assets_dump_dir,
+                assets_ref_dir,
+                layer_by_channel_by_noise,
+            )
+        ],
+    )
 
     image_tabs = [
         render_image_tab(
@@ -241,7 +378,7 @@ def print_report_for_neuron(
         )
         for i, image_key in enumerate(image_keys)
     ]
-    content = render_report(image_tabs)
+    content = render_report([overview_tab] + image_tabs) + "\n\n" + render_scroll_fix_script()
     print(content)
     if output_path is not None:
         Path(output_path).write_text(content)
