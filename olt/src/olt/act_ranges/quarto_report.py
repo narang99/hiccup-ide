@@ -49,44 +49,68 @@ def render_activation_bar(relative_strength, output_activation):
     )
 
 
-def render_dep_neuron_card(
-    dep_layer_name,
-    dep_channel,
-    dep_cid,
-    noise_distance,
-    output_activation,
-    similarity,
-    ref_path,
-    relative_strength,
+def render_overview_tab_body(
+    relative_strength, median_output_activation, scatter_ref_path, firing_count, total_examples
 ):
+    """Content of a neuron card's "Overview" tab (the default tab, see
+    render_neuron_tabset_card): median-activation bar + combined activation/noise
+    scatter plot + a firing-ratio caption. No card/heading wrapper — the card and
+    its "### Overview" tab heading are added by render_neuron_tabset_card."""
+    bar = render_activation_bar(relative_strength, median_output_activation)
+    firing_ratio = firing_count / total_examples if total_examples else 0.0
+    caption = f"fired in {firing_count}/{total_examples} examples ({firing_ratio:.0%})"
+    return (
+        f"{bar}\n\n"
+        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n{caption}"
+    )
+
+
+def render_image_tab_body(dep_cid, noise_distance, output_activation, similarity, ref_path, relative_strength):
+    """Content of a neuron card's per-image tab when the neuron fired for that
+    image: per-image relative-strength bar + its cluster heatmap. No card/heading
+    wrapper — see render_neuron_tabset_card."""
     caption = (
         f"cid={dep_cid} noise_dist={noise_distance:.2f} "
         f"act={output_activation:.2f} sim={similarity:.2f}"
     )
     bar = render_activation_bar(relative_strength, output_activation)
+    return f"{bar}\n\n![{caption}]({ref_path})\n\n{caption}"
+
+
+def render_image_tab_placeholder_body():
+    """Content of a neuron card's per-image tab when the neuron has no row for
+    that particular image — i.e. it didn't fire for it, even though it does for
+    others in the report."""
+    return '<span class="text-body-secondary">Did not fire</span>'
+
+
+def render_neuron_tabset_card(dep_layer_name, dep_channel, overview_tab_body, image_tab_bodies):
+    """
+    One card per (dep_layer, dep_channel) neuron, containing a Quarto
+    panel-tabset scoped to this single card: "Overview" (median stats + scatter
+    plot) is the default tab, followed by one tab per input image (labelled by
+    index, matching the image_keys order used to build image_tab_bodies). Because
+    the tabset lives inside one small card rather than spanning the whole page,
+    any scroll/focus jump Bootstrap's tab.js causes on switch is negligible —
+    you're already looking at this card, so it doesn't disrupt comparing views of
+    the same neuron.
+
+    image_tab_bodies: list of (label, body_markdown) pairs, one per input image
+    tab, in display order — body_markdown from render_image_tab_body or
+    render_image_tab_placeholder_body.
+    """
+    tabs = [f"### Overview\n\n{overview_tab_body}"]
+    tabs += [f"### {label}\n\n{body}" for label, body in image_tab_bodies]
+    tabset_body = "\n\n".join(tabs)
     return (
         f'::: {{.card .mb-2 .shadow-sm}}\n'
         f'::: {{.card-header .text-body-secondary .small}}\n'
-        f"{dep_layer_name}:{dep_channel}\n\n"
-        f"{bar}\n"
-        f":::\n\n"
-        f'::: {{.card-body}}\n'
-        f"![{caption}]({ref_path})\n\n{caption}\n"
-        f":::\n"
-        f":::\n"
-    )
-
-
-def render_dep_neuron_placeholder_card(dep_layer_name, dep_channel):
-    """Card for a dep neuron that has no row for this particular image — i.e. it
-    didn't fire for this image, even though it does for others in the report."""
-    return (
-        f'::: {{.card .mb-2}}\n'
-        f'::: {{.card-header .text-body-secondary .small}}\n'
         f"{dep_layer_name}:{dep_channel}\n"
         f":::\n\n"
-        f'::: {{.card-body .text-body-secondary}}\n'
-        f"Did not fire\n"
+        f'::: {{.card-body}}\n'
+        f'::: {{.panel-tabset}}\n\n'
+        f"{tabset_body}\n\n"
+        f":::\n"
         f":::\n"
         f":::\n"
     )
@@ -105,31 +129,6 @@ def dump_overview_assets(assets_dump_dir, dep_layer_name, dep_channel, activatio
     scatter_path = neuron_dir / "overview_scatter.png"
     save_combined_scatter_png(list(activations), list(noise_samples), scatter_path)
     return scatter_path
-
-
-def render_overview_neuron_card(
-    dep_layer_name,
-    dep_channel,
-    relative_strength,
-    median_output_activation,
-    scatter_ref_path,
-    firing_count,
-    total_examples,
-):
-    bar = render_activation_bar(relative_strength, median_output_activation)
-    firing_ratio = firing_count / total_examples if total_examples else 0.0
-    caption = f"fired in {firing_count}/{total_examples} examples ({firing_ratio:.0%})"
-    return (
-        f'::: {{.card .mb-2 .shadow-sm}}\n'
-        f'::: {{.card-header .text-body-secondary .small}}\n'
-        f"{dep_layer_name}:{dep_channel}\n\n"
-        f"{bar}\n"
-        f":::\n\n"
-        f'::: {{.card-body}}\n'
-        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n{caption}\n"
-        f":::\n"
-        f":::\n"
-    )
 
 
 def check_at_most_one_firing_per_origin(stats_df):
@@ -194,107 +193,14 @@ def split_dep_order_by_frequency(
     fired in at least max(min_count, ceil(min_ratio * total_examples))
     examples, otherwise it's a one-off/noise neuron. Order within each
     sub-list is preserved from dep_order (already sorted by descending
-    median output_activation via compute_dep_order).
+    firing_count, with median output_activation as tie-breaker, via
+    compute_dep_order).
     """
     threshold = max(min_count, math.ceil(min_ratio * total_examples))
     frequent, one_off = [], []
     for key in dep_order:
         (frequent if firing_counts.get(key, 0) >= threshold else one_off).append(key)
     return frequent, one_off
-
-
-def render_overview_block(
-    dep_order,
-    stats_df,
-    assets_dump_dir,
-    assets_ref_dir,
-    layer_by_channel_by_noise,
-    min_ratio=0.1,
-    min_count=2,
-):
-    """
-    One card per (dep_layer, dep_channel) in dep_order, aggregating across all
-    rows of stats_df for that dep neuron (not per-image, unlike
-    render_neuron_block): median output_activation drives the activation bar
-    (relative_strength = share of the sum of medians, same-sign-checked via
-    check_same_sign, mirroring render_neuron_block's act_sum logic but on
-    medians instead of one image's values), plus a combined scatter plot of
-    output_activation and raw noise samples. Cards are segregated into a
-    "Frequently firing" and a "One-off / low frequency" section, per
-    compute_firing_stats/split_dep_order_by_frequency, so neurons that only
-    ever fired once or twice don't clutter the main list.
-    """
-    groups = stats_df.groupby(["dep_layer", "dep_channel"])["output_activation"]
-    medians = {key: groups.get_group(key).median() for key in dep_order}
-    check_same_sign(medians.values())
-    median_sum = sum(medians.values())
-
-    firing_counts, total_examples = compute_firing_stats(stats_df)
-    frequent, one_off = split_dep_order_by_frequency(
-        dep_order, firing_counts, total_examples, min_ratio, min_count
-    )
-
-    def render_card(dep_layer_name, dep_channel):
-        dep_rows = groups.get_group((dep_layer_name, dep_channel))
-        median_output_activation = medians[(dep_layer_name, dep_channel)]
-        relative_strength = (
-            median_output_activation / median_sum if median_sum != 0 else 0.0
-        )
-
-        noise_samples = layer_by_channel_by_noise.get(dep_layer_name, {}).get(
-            str(dep_channel), []
-        )
-        dump_overview_assets(
-            assets_dump_dir, dep_layer_name, dep_channel, dep_rows, noise_samples
-        )
-        scatter_ref_path = (
-            f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
-        )
-        return render_overview_neuron_card(
-            dep_layer_name,
-            dep_channel,
-            relative_strength,
-            median_output_activation,
-            scatter_ref_path,
-            firing_counts.get((dep_layer_name, dep_channel), 0),
-            total_examples,
-        )
-
-    sections = []
-    if frequent:
-        cards = "\n\n".join(render_card(*key) for key in frequent)
-        sections.append(f"### Frequently firing\n\n{cards}")
-    if one_off:
-        cards = "\n\n".join(render_card(*key) for key in one_off)
-        sections.append(f"### One-off / low frequency\n\n{cards}")
-    return "\n\n".join(sections)
-
-
-def render_scroll_fix_script():
-    """
-    Raw HTML block (Quarto {=html} raw block, so pandoc passes it through
-    verbatim) that preserves window.scrollY across panel-tabset tab switches,
-    which Bootstrap's tab.js otherwise resets by scrolling the newly-shown tab
-    into view. Meant to be appended once to the fully assembled report
-    content, not per tab.
-    """
-    return (
-        "```{=html}\n"
-        "<script>\n"
-        "document.addEventListener('DOMContentLoaded', function() {\n"
-        "  let savedScrollY = null;\n"
-        "  document.querySelectorAll('[data-bs-toggle=\"tab\"]').forEach(function(tabLink) {\n"
-        "    tabLink.addEventListener('hide.bs.tab', function() {\n"
-        "      savedScrollY = window.scrollY;\n"
-        "    });\n"
-        "    tabLink.addEventListener('shown.bs.tab', function() {\n"
-        "      if (savedScrollY !== null) window.scrollTo(0, savedScrollY);\n"
-        "    });\n"
-        "  });\n"
-        "});\n"
-        "</script>\n"
-        "```\n"
-    )
 
 
 def dedupe_to_one_origin_per_image(stats_df):
@@ -313,14 +219,17 @@ def dedupe_to_one_origin_per_image(stats_df):
 def compute_dep_order(stats_df):
     """
     Unique (dep_layer, dep_channel) pairs across the whole stats_df, ordered by
-    descending median output_activation — used so every image tab lists dependency
-    neurons in the same order, including ones that didn't fire for that image.
+    descending firing_count (see compute_firing_stats — how many distinct origin
+    instances a dep neuron fired in), with descending median output_activation as
+    a tie-breaker — used so every neuron card lists dependency neurons in the
+    same order (and so section placement in split_dep_order_by_frequency is
+    stable).
     """
-    return (
-        stats_df.groupby(["dep_layer", "dep_channel"])["output_activation"]
-        .median()
-        .sort_values(ascending=False)
-        .index.tolist()
+    firing_counts, _ = compute_firing_stats(stats_df)
+    medians = stats_df.groupby(["dep_layer", "dep_channel"])["output_activation"].median()
+    return sorted(
+        medians.index.tolist(),
+        key=lambda key: (-firing_counts.get(key, 0), -medians[key]),
     )
 
 
@@ -340,72 +249,19 @@ def check_same_sign(values):
         )
 
 
-def render_neuron_block(dep_order, image_stats_df, base_report_dir, assets_dump_dir, assets_ref_dir):
+def compute_image_act_sums(deduped_stats_df):
     """
-    Renders one card per (dep_layer, dep_channel) in `dep_order` (see
-    compute_dep_order), using `image_stats_df` (one image's rows, as produced by
-    NeuronParentAnalyser.collect_cluster_stats_df) to fill each card in — a dep
-    neuron with no row here gets a "Did not fire" placeholder card instead of a
-    heatmap. No wrapping card for the origin (current) neuron — the report writer
-    adds a header for that manually, since it's the same for the whole report.
-
-    assets_dump_dir: real filesystem directory to write asset files under.
-    assets_ref_dir: the path/prefix string used inside the generated markdown image
-    links — may differ from assets_dump_dir (e.g. once this report is copied
-    elsewhere with a different relative asset path).
+    Sum of output_activation across all dep neurons firing for each input image
+    (same-sign-checked per image via check_same_sign), keyed by input_image_key —
+    the denominator for each neuron's per-image relative_strength bar. Computed
+    once up front so every neuron's card can look up its image's sum, instead of
+    each neuron recomputing it from a per-image slice.
     """
-    row_by_dep = {
-        (row["dep_layer"], row["dep_channel"]): row for _, row in image_stats_df.iterrows()
-    }
-    check_same_sign(image_stats_df["output_activation"])
-    act_sum = image_stats_df["output_activation"].sum()
-
-    cards = []
-    for dep_layer_name, dep_channel in dep_order:
-        row = row_by_dep.get((dep_layer_name, dep_channel))
-        if row is None:
-            cards.append(render_dep_neuron_placeholder_card(dep_layer_name, dep_channel))
-            continue
-
-        dep_cid = row["dep_cid"]
-        dump_path = dump_cluster_asset(
-            assets_dump_dir, base_report_dir, dep_layer_name, dep_channel, dep_cid
-        )
-        if dump_path is None:
-            cards.append(render_dep_neuron_placeholder_card(dep_layer_name, dep_channel))
-            continue
-
-        relative_strength = row["output_activation"] / act_sum if act_sum != 0 else 0.0
-        ref_path = f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/cluster_{dep_cid}.jpeg"
-        cards.append(
-            render_dep_neuron_card(
-                dep_layer_name,
-                dep_channel,
-                dep_cid,
-                row["noise_distance"],
-                row["output_activation"],
-                row["similarity"],
-                ref_path,
-                relative_strength,
-            )
-        )
-
-    return "\n\n".join(cards)
-
-
-def render_image_tab(tab_label, neuron_blocks):
-    body = "\n\n".join(neuron_blocks)
-    return (
-        f"## {tab_label}\n\n"
-        f'::: {{style="max-height: 85vh; overflow-y: auto;"}}\n\n'
-        f"{body}\n\n"
-        f":::\n"
-    )
-
-
-def render_report(image_tabs):
-    body = "\n\n".join(image_tabs)
-    return f"::: {{.panel-tabset}}\n\n{body}\n\n:::\n"
+    sums = {}
+    for image_key, group in deduped_stats_df.groupby("input_image_key")["output_activation"]:
+        check_same_sign(group)
+        sums[image_key] = group.sum()
+    return sums
 
 
 def print_report_for_neuron(
@@ -419,21 +275,26 @@ def print_report_for_neuron(
 ):
     """
     Prints the full Quarto markdown to stdout — copy it into a .qmd file to
-    render/test. If output_path is given, also writes it there. The first tab
-    is "Overview": neuron-level stats (median-activation bar + a combined
-    activation/noise scatter plot per dep neuron, segregated into "frequently
-    firing" vs. "one-off / low frequency" — see render_overview_block)
-    aggregated across every row of stats_df, regardless of max_input_keys or
-    per-image dedup. The remaining tabs are one per input image, labelled by
-    index rather than the (potentially long/unwieldy) input_image_key.
+    render/test. If output_path is given, also writes it there.
+
+    The report is one card per dependency neuron (see compute_dep_order for
+    ordering), split into "Frequently firing" and "One-off / low frequency"
+    sections (see split_dep_order_by_frequency). Each card holds its own
+    panel-tabset (render_neuron_tabset_card): an "Overview" tab (median-activation
+    bar + combined activation/noise scatter plot, aggregated across every row of
+    stats_df regardless of max_input_keys or per-image dedup) as the default tab,
+    followed by one tab per input image (labelled by index rather than the
+    potentially long/unwieldy input_image_key), showing that neuron's per-image
+    relative-strength bar and cluster heatmap, or a "Did not fire" placeholder.
+    Scoping the tabset to each card (rather than one tabset for the whole page)
+    means switching tabs to compare a neuron across images doesn't jump you
+    elsewhere on the page.
 
     stats_df: the concatenation of NeuronParentAnalyser.collect_cluster_stats_df
     outputs across multiple input images, for a single neuron — must have exactly
     one (origin_layer, origin_channel) pair and an "input_image_key" column.
     Only the first `max_input_keys` distinct input_image_key values (in the order
-    they first appear) get their own tab, even if stats_df has more — the
-    Overview tab is unaffected by this cap and by the per-image dedup, and
-    aggregates over every raw row of stats_df.
+    they first appear) get their own tab, even if stats_df has more.
 
     layer_by_channel_by_noise: same dict passed into NeuronParentAnalyser, used
     for the Overview tab's raw noise-sample scatter plots.
@@ -449,35 +310,78 @@ def print_report_for_neuron(
     deduped_stats_df = dedupe_to_one_origin_per_image(stats_df)
     image_keys = deduped_stats_df["input_image_key"].unique()[:max_input_keys]
 
-    overview_tab = render_image_tab(
-        "Overview",
-        [
-            render_overview_block(
-                dep_order,
-                stats_df,
-                assets_dump_dir,
-                assets_ref_dir,
-                layer_by_channel_by_noise,
-            )
-        ],
-    )
+    groups = stats_df.groupby(["dep_layer", "dep_channel"])["output_activation"]
+    medians = {key: groups.get_group(key).median() for key in dep_order}
+    check_same_sign(medians.values())
+    median_sum = sum(medians.values())
 
-    image_tabs = [
-        render_image_tab(
-            i,
-            [
-                render_neuron_block(
-                    dep_order,
-                    deduped_stats_df[deduped_stats_df["input_image_key"] == image_key],
-                    base_report_dir,
-                    assets_dump_dir,
-                    assets_ref_dir,
-                )
-            ],
+    firing_counts, total_examples = compute_firing_stats(stats_df)
+    frequent, one_off = split_dep_order_by_frequency(dep_order, firing_counts, total_examples)
+
+    image_act_sums = compute_image_act_sums(deduped_stats_df)
+    row_by_dep_and_image = {
+        (row["dep_layer"], row["dep_channel"], row["input_image_key"]): row
+        for _, row in deduped_stats_df.iterrows()
+    }
+
+    def render_card(dep_layer_name, dep_channel):
+        dep_rows = groups.get_group((dep_layer_name, dep_channel))
+        median_output_activation = medians[(dep_layer_name, dep_channel)]
+        overview_relative_strength = (
+            median_output_activation / median_sum if median_sum != 0 else 0.0
         )
-        for i, image_key in enumerate(image_keys)
-    ]
-    content = render_report([overview_tab] + image_tabs) + "\n\n" + render_scroll_fix_script()
+        noise_samples = layer_by_channel_by_noise.get(dep_layer_name, {}).get(
+            str(dep_channel), []
+        )
+        dump_overview_assets(assets_dump_dir, dep_layer_name, dep_channel, dep_rows, noise_samples)
+        scatter_ref_path = (
+            f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
+        )
+        overview_body = render_overview_tab_body(
+            overview_relative_strength,
+            median_output_activation,
+            scatter_ref_path,
+            firing_counts.get((dep_layer_name, dep_channel), 0),
+            total_examples,
+        )
+
+        image_tabs = []
+        for i, image_key in enumerate(image_keys):
+            row = row_by_dep_and_image.get((dep_layer_name, dep_channel, image_key))
+            dump_path = None
+            if row is not None:
+                dump_path = dump_cluster_asset(
+                    assets_dump_dir, base_report_dir, dep_layer_name, dep_channel, row["dep_cid"]
+                )
+            if row is None or dump_path is None:
+                image_tabs.append((i, render_image_tab_placeholder_body()))
+                continue
+
+            act_sum = image_act_sums[image_key]
+            relative_strength = row["output_activation"] / act_sum if act_sum != 0 else 0.0
+            ref_path = f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/cluster_{row['dep_cid']}.jpeg"
+            image_tabs.append((
+                i,
+                render_image_tab_body(
+                    row["dep_cid"],
+                    row["noise_distance"],
+                    row["output_activation"],
+                    row["similarity"],
+                    ref_path,
+                    relative_strength,
+                ),
+            ))
+
+        return render_neuron_tabset_card(dep_layer_name, dep_channel, overview_body, image_tabs)
+
+    sections = []
+    if frequent:
+        cards = "\n\n".join(render_card(*key) for key in frequent)
+        sections.append(f"## Frequently firing\n\n{cards}")
+    if one_off:
+        cards = "\n\n".join(render_card(*key) for key in one_off)
+        sections.append(f"## One-off / low frequency\n\n{cards}")
+    content = "\n\n".join(sections)
     print(content)
     if output_path is not None:
         Path(output_path).write_text(content)
