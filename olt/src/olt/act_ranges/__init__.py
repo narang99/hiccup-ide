@@ -14,21 +14,22 @@ from olt.act_ranges.layer_utils import (
     receptive_block,
 )
 from olt.act_ranges.plotting import save_combined_scatter_png
-from olt.act_ranges.quarto_report import (
+from olt.act_ranges.quarto_report import print_report_for_neuron
+from olt.act_ranges.report_assets import dump_cluster_asset, dump_overview_assets
+from olt.act_ranges.report_render import (
+    render_activation_bar,
+    render_image_tab_body,
+    render_image_tab_placeholder_body,
+    render_neuron_tabset_card,
+    render_overview_tab_body,
+)
+from olt.act_ranges.report_stats import (
     check_at_most_one_firing_per_origin,
     check_same_sign,
     compute_dep_order,
     compute_firing_stats,
     compute_image_act_sums,
     dedupe_to_one_origin_per_image,
-    dump_cluster_asset,
-    dump_overview_assets,
-    print_report_for_neuron,
-    render_activation_bar,
-    render_image_tab_body,
-    render_image_tab_placeholder_body,
-    render_neuron_tabset_card,
-    render_overview_tab_body,
     split_dep_order_by_frequency,
 )
 from olt.act_ranges.reports import crop_top, get_cluster_photo
