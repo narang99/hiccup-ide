@@ -42,6 +42,7 @@ class DependencyMatch:
     label_by_points: dict
     ratio: float
     point_dist: object
+    op_act: object
 
 
 class NeuronParentAnalyser:
@@ -161,10 +162,13 @@ class NeuronParentAnalyser:
 
         return noise_min, noise_med, noise_max, noise_radius
 
+    def get_activation_value(self, layer_name, channel, y, x, current_act):
+        return current_act[layer_name]["output"][0, channel, y, x]
+
     def get_activation_distance_from_noise(
         self, layer_name, channel, y, x, current_act
     ):
-        op_act = current_act[layer_name]["output"][0, channel, y, x]
+        op_act = self.get_activation_value(layer_name, channel, y, x, current_act)
         noise = self.layer_by_channel_by_noise[layer_name][str(channel)]
         _, noise_med, _, noise_radius = self.get_noise_stats(noise)
         return (op_act - noise_med) / noise_radius
@@ -210,6 +214,7 @@ class NeuronParentAnalyser:
         point_dist = self.get_activation_distance_from_noise(
             dep_layer_name, dep_channel, dep_y, dep_x, current_act
         )
+        op_act = self.get_activation_value(dep_layer_name, dep_channel, dep_y, dep_x, current_act)
 
         return DependencyMatch(
             dep_layer_name=dep_layer_name,
@@ -225,6 +230,7 @@ class NeuronParentAnalyser:
             label_by_points=label_by_points,
             ratio=ratio,
             point_dist=point_dist,
+            op_act=op_act,
         )
 
     def collect_cluster_distances(
@@ -376,9 +382,9 @@ class NeuronParentAnalyser:
         """
         Same traversal as plot_clusters, but instead of plotting, collects
         one row per contributing (dep_layer, dep_channel) with: origin
-        neuron info, similarity, noise distance, above-noise ratio, kind,
-        dep_layer, dep_channel, dep_cid. Returns a DataFrame; optionally
-        writes/appends to csv_path.
+        neuron info, similarity, noise distance, raw output activation,
+        above-noise ratio, kind, dep_layer, dep_channel, dep_cid. Returns a
+        DataFrame; optionally writes/appends to csv_path.
         """
         y0, x0, patch, indices = self.top_contributing_indices(
             y, x, current_act, sum_upto_percent, kind
@@ -408,6 +414,9 @@ class NeuronParentAnalyser:
                     "noise_distance": match.point_dist.item()
                     if hasattr(match.point_dist, "item")
                     else match.point_dist,
+                    "output_activation": match.op_act.item()
+                    if hasattr(match.op_act, "item")
+                    else match.op_act,
                     "above_noise_ratio": match.ratio,
                     "kind": kind,
                     "dep_layer": dep_layer_name,

@@ -13,6 +13,19 @@ from olt.act_ranges.layer_utils import (
     get_layer_params,
     receptive_block,
 )
+from olt.act_ranges.quarto_report import (
+    check_same_sign,
+    compute_dep_order,
+    dedupe_to_one_origin_per_image,
+    dump_cluster_asset,
+    print_report_for_neuron,
+    render_activation_bar,
+    render_dep_neuron_card,
+    render_dep_neuron_placeholder_card,
+    render_image_tab,
+    render_neuron_block,
+    render_report,
+)
 from olt.act_ranges.reports import crop_top, get_cluster_photo
 from olt.act_ranges.similarity import (
     closest_pw,
@@ -47,6 +60,17 @@ __all__ = [
     "get_neuron_closest_cluster",
     "get_cluster_photo",
     "crop_top",
+    "dump_cluster_asset",
+    "render_dep_neuron_card",
+    "render_dep_neuron_placeholder_card",
+    "render_activation_bar",
+    "compute_dep_order",
+    "check_same_sign",
+    "dedupe_to_one_origin_per_image",
+    "render_neuron_block",
+    "render_image_tab",
+    "render_report",
+    "print_report_for_neuron",
     "NoiseRatioRangeFilter",
     "NeuronParentAnalyser",
     "DependencyMatch",
