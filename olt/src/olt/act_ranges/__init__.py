@@ -15,8 +15,10 @@ from olt.act_ranges.layer_utils import (
 )
 from olt.act_ranges.plotting import save_combined_scatter_png
 from olt.act_ranges.quarto_report import (
+    check_at_most_one_firing_per_origin,
     check_same_sign,
     compute_dep_order,
+    compute_firing_stats,
     dedupe_to_one_origin_per_image,
     dump_cluster_asset,
     dump_overview_assets,
@@ -30,6 +32,7 @@ from olt.act_ranges.quarto_report import (
     render_overview_neuron_card,
     render_report,
     render_scroll_fix_script,
+    split_dep_order_by_frequency,
 )
 from olt.act_ranges.reports import crop_top, get_cluster_photo
 from olt.act_ranges.similarity import (
@@ -71,6 +74,9 @@ __all__ = [
     "render_dep_neuron_placeholder_card",
     "render_activation_bar",
     "compute_dep_order",
+    "compute_firing_stats",
+    "check_at_most_one_firing_per_origin",
+    "split_dep_order_by_frequency",
     "check_same_sign",
     "dedupe_to_one_origin_per_image",
     "render_neuron_block",

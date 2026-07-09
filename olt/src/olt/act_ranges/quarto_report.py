@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 from olt.act_ranges.plotting import save_combined_scatter_png
@@ -112,8 +113,12 @@ def render_overview_neuron_card(
     relative_strength,
     median_output_activation,
     scatter_ref_path,
+    firing_count,
+    total_examples,
 ):
     bar = render_activation_bar(relative_strength, median_output_activation)
+    firing_ratio = firing_count / total_examples if total_examples else 0.0
+    caption = f"fired in {firing_count}/{total_examples} examples ({firing_ratio:.0%})"
     return (
         f'::: {{.card .mb-2 .shadow-sm}}\n'
         f'::: {{.card-header .text-body-secondary .small}}\n'
@@ -121,14 +126,91 @@ def render_overview_neuron_card(
         f"{bar}\n"
         f":::\n\n"
         f'::: {{.card-body}}\n'
-        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n"
+        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n{caption}\n"
         f":::\n"
         f":::\n"
     )
 
 
+def check_at_most_one_firing_per_origin(stats_df):
+    """
+    Raises if any (dep_layer, dep_channel) appears more than once for the same
+    origin instance (origin_layer, origin_channel, origin_y, origin_x,
+    input_image_key). current_layer_name is always a 1x1 conv (see
+    NeuronParentAnalyser class docstring), so receptive_block collapses to a
+    single spatial point and a given dep channel can only be a top contributor
+    once per origin — a violation means stats_df has duplicate/corrupted rows
+    upstream (e.g. the same (image, y, x) probe collected into stats_df more
+    than once), not a real second firing, and firing-frequency counts would
+    silently be wrong if we didn't catch it here.
+    """
+    origin_cols = ["origin_layer", "origin_channel", "origin_y", "origin_x", "input_image_key"]
+    dupe_key_cols = ["dep_layer", "dep_channel"] + origin_cols
+    counts = stats_df.groupby(dupe_key_cols).size()
+    violations = counts[counts > 1]
+    if len(violations) > 0:
+        sample = violations.head(5).reset_index(name="row_count")
+        raise ValueError(
+            "compute_firing_stats: found dep neuron(s) appearing more than once for "
+            "the same origin instance, which should be impossible for a 1x1 conv "
+            "current_layer (each dep channel can only be a top contributor once per "
+            "origin). This means stats_df has duplicate rows for that (dep_layer, "
+            "dep_channel, origin_layer, origin_channel, origin_y, origin_x, "
+            "input_image_key) — check how stats_df was assembled (e.g. the same "
+            "image/probe collected twice). "
+            f"{len(violations)} violating combination(s), showing up to 5:\n{sample}"
+        )
+
+
+def compute_firing_stats(stats_df):
+    """
+    Counts how many distinct origin instances each dep neuron fired in, across
+    EVERY row of stats_df. Assumes (and validates via
+    check_at_most_one_firing_per_origin) that a dep neuron appears at most once
+    per origin instance, so firing_count <= total_examples always holds.
+
+    total_examples: number of distinct (origin_layer, origin_channel,
+    origin_y, origin_x, input_image_key) tuples in stats_df — the denominator
+    for firing ratios. input_image_key is included so that two different
+    images which happen to probe the same (origin_layer, origin_channel,
+    origin_y, origin_x) are counted as separate examples, not collapsed into
+    one.
+
+    Returns (firing_counts: dict[(dep_layer, dep_channel), int], total_examples: int).
+    """
+    check_at_most_one_firing_per_origin(stats_df)
+    origin_cols = ["origin_layer", "origin_channel", "origin_y", "origin_x", "input_image_key"]
+    total_examples = stats_df[origin_cols].drop_duplicates().shape[0]
+    firing_counts = stats_df.groupby(["dep_layer", "dep_channel"]).size().to_dict()
+    return firing_counts, total_examples
+
+
+def split_dep_order_by_frequency(
+    dep_order, firing_counts, total_examples, min_ratio=0.1, min_count=2
+):
+    """
+    Splits dep_order into (frequent, one_off) based on each dep neuron's
+    firing count relative to total_examples: a neuron is "frequent" if it
+    fired in at least max(min_count, ceil(min_ratio * total_examples))
+    examples, otherwise it's a one-off/noise neuron. Order within each
+    sub-list is preserved from dep_order (already sorted by descending
+    median output_activation via compute_dep_order).
+    """
+    threshold = max(min_count, math.ceil(min_ratio * total_examples))
+    frequent, one_off = [], []
+    for key in dep_order:
+        (frequent if firing_counts.get(key, 0) >= threshold else one_off).append(key)
+    return frequent, one_off
+
+
 def render_overview_block(
-    dep_order, stats_df, assets_dump_dir, assets_ref_dir, layer_by_channel_by_noise
+    dep_order,
+    stats_df,
+    assets_dump_dir,
+    assets_ref_dir,
+    layer_by_channel_by_noise,
+    min_ratio=0.1,
+    min_count=2,
 ):
     """
     One card per (dep_layer, dep_channel) in dep_order, aggregating across all
@@ -137,15 +219,22 @@ def render_overview_block(
     (relative_strength = share of the sum of medians, same-sign-checked via
     check_same_sign, mirroring render_neuron_block's act_sum logic but on
     medians instead of one image's values), plus a combined scatter plot of
-    output_activation and raw noise samples.
+    output_activation and raw noise samples. Cards are segregated into a
+    "Frequently firing" and a "One-off / low frequency" section, per
+    compute_firing_stats/split_dep_order_by_frequency, so neurons that only
+    ever fired once or twice don't clutter the main list.
     """
     groups = stats_df.groupby(["dep_layer", "dep_channel"])["output_activation"]
     medians = {key: groups.get_group(key).median() for key in dep_order}
     check_same_sign(medians.values())
     median_sum = sum(medians.values())
 
-    cards = []
-    for dep_layer_name, dep_channel in dep_order:
+    firing_counts, total_examples = compute_firing_stats(stats_df)
+    frequent, one_off = split_dep_order_by_frequency(
+        dep_order, firing_counts, total_examples, min_ratio, min_count
+    )
+
+    def render_card(dep_layer_name, dep_channel):
         dep_rows = groups.get_group((dep_layer_name, dep_channel))
         median_output_activation = medians[(dep_layer_name, dep_channel)]
         relative_strength = (
@@ -161,16 +250,24 @@ def render_overview_block(
         scatter_ref_path = (
             f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
         )
-        cards.append(
-            render_overview_neuron_card(
-                dep_layer_name,
-                dep_channel,
-                relative_strength,
-                median_output_activation,
-                scatter_ref_path,
-            )
+        return render_overview_neuron_card(
+            dep_layer_name,
+            dep_channel,
+            relative_strength,
+            median_output_activation,
+            scatter_ref_path,
+            firing_counts.get((dep_layer_name, dep_channel), 0),
+            total_examples,
         )
-    return "\n\n".join(cards)
+
+    sections = []
+    if frequent:
+        cards = "\n\n".join(render_card(*key) for key in frequent)
+        sections.append(f"### Frequently firing\n\n{cards}")
+    if one_off:
+        cards = "\n\n".join(render_card(*key) for key in one_off)
+        sections.append(f"### One-off / low frequency\n\n{cards}")
+    return "\n\n".join(sections)
 
 
 def render_scroll_fix_script():
@@ -323,18 +420,20 @@ def print_report_for_neuron(
     """
     Prints the full Quarto markdown to stdout — copy it into a .qmd file to
     render/test. If output_path is given, also writes it there. The first tab
-    is "Overview": neuron-level stats (median-activation bar + activation/noise
-    scatter plots per dep neuron) aggregated across every image in stats_df,
-    regardless of max_input_keys. The remaining tabs are one per input image,
-    labelled by index rather than the (potentially long/unwieldy)
-    input_image_key.
+    is "Overview": neuron-level stats (median-activation bar + a combined
+    activation/noise scatter plot per dep neuron, segregated into "frequently
+    firing" vs. "one-off / low frequency" — see render_overview_block)
+    aggregated across every row of stats_df, regardless of max_input_keys or
+    per-image dedup. The remaining tabs are one per input image, labelled by
+    index rather than the (potentially long/unwieldy) input_image_key.
 
     stats_df: the concatenation of NeuronParentAnalyser.collect_cluster_stats_df
     outputs across multiple input images, for a single neuron — must have exactly
     one (origin_layer, origin_channel) pair and an "input_image_key" column.
     Only the first `max_input_keys` distinct input_image_key values (in the order
     they first appear) get their own tab, even if stats_df has more — the
-    Overview tab is unaffected by this cap and aggregates over all of stats_df.
+    Overview tab is unaffected by this cap and by the per-image dedup, and
+    aggregates over every raw row of stats_df.
 
     layer_by_channel_by_noise: same dict passed into NeuronParentAnalyser, used
     for the Overview tab's raw noise-sample scatter plots.
@@ -346,9 +445,9 @@ def print_report_for_neuron(
             "stats_df must contain exactly one (origin_layer, origin_channel) pair, got "
             f"origin_layers={list(origin_layers)}, origin_channels={list(origin_channels)}"
         )
-    stats_df = dedupe_to_one_origin_per_image(stats_df)
     dep_order = compute_dep_order(stats_df)
-    image_keys = stats_df["input_image_key"].unique()[:max_input_keys]
+    deduped_stats_df = dedupe_to_one_origin_per_image(stats_df)
+    image_keys = deduped_stats_df["input_image_key"].unique()[:max_input_keys]
 
     overview_tab = render_image_tab(
         "Overview",
@@ -369,7 +468,7 @@ def print_report_for_neuron(
             [
                 render_neuron_block(
                     dep_order,
-                    stats_df[stats_df["input_image_key"] == image_key],
+                    deduped_stats_df[deduped_stats_df["input_image_key"] == image_key],
                     base_report_dir,
                     assets_dump_dir,
                     assets_ref_dir,
