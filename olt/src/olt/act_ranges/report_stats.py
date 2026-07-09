@@ -1,5 +1,7 @@
 import math
 
+import numpy as np
+
 
 def check_at_most_one_firing_per_origin(stats_df):
     """
@@ -119,32 +121,67 @@ def check_same_sign(values):
         )
 
 
-def compute_cluster_breakdown(dep_full_rows):
+def compute_cluster_breakdown(dep_full_rows, outlier_ratio_threshold=0.1):
     """
     Splits one dep neuron's firings (dep_full_rows: the full stats_df rows for a
     single (dep_layer, dep_channel), one row per origin instance it fired in — see
     check_at_most_one_firing_per_origin) by which dependency cluster (dep_cid) each
     firing was closest to. For each dep_cid: how many firings landed there (count),
-    that as a share of this neuron's total firings (ratio), and the median
+    that as a share of this neuron's total firings (ratio), the median
     "similarity" column value among those firings (how closely, on average, the
-    firing point matched that cluster).
+    firing point matched that cluster), and whether it's an "outlier" — a
+    cluster that only accounts for a small slice (ratio < outlier_ratio_threshold)
+    of this neuron's firings, and therefore not representative enough to call a
+    real match (see render_cluster_breakdown, which flags these, and
+    save_combined_scatter_png, which folds them into the "unmatched" bucket
+    instead of giving them their own Kelly color/legend entry).
 
     Returns a list of dicts sorted by descending count (ties broken by descending
-    median_similarity): [{"dep_cid", "count", "ratio", "median_similarity"}, ...].
+    median_similarity): [{"dep_cid", "count", "ratio", "median_similarity",
+    "is_outlier"}, ...].
     """
     total = len(dep_full_rows)
     rows = []
     for cid, group in dep_full_rows.groupby("dep_cid"):
+        ratio = len(group) / total if total else 0.0
         rows.append(
             {
                 "dep_cid": cid,
                 "count": len(group),
-                "ratio": len(group) / total if total else 0.0,
+                "ratio": ratio,
                 "median_similarity": group["similarity"].median(),
+                "is_outlier": ratio < outlier_ratio_threshold,
             }
         )
     rows.sort(key=lambda r: (-r["count"], -r["median_similarity"]))
     return rows
+
+
+def select_cluster_points(label_by_points, max_points_per_cluster=50):
+    """
+    Subsamples every cluster in label_by_points — dict[str(cid), list[float]],
+    i.e. layer_by_channel_by_label_by_points for one (dep_layer, dep_channel)
+    (aka "ACTS_DICT" in the exploration notebooks), the same per-cluster point
+    collection NeuronParentAnalyser.plot_clusters uses for its axes[0] — down
+    to at most max_points_per_cluster points each. A dep neuron can have far
+    more clusters (and far more points per cluster) than the ones it actually
+    matched, and the Overview scatter now plots every cluster, not just
+    matched ones (see save_combined_scatter_png), so capping keeps rendering
+    fast and the plot legible. Sampling uses a fixed seed so re-running report
+    generation on unchanged input data reproduces the same plot.
+
+    Returns dict[dep_cid, list[float]], keyed by int(cid) to match
+    dep_full_rows["dep_cid"] values, for save_combined_scatter_png.
+    """
+    rng = np.random.default_rng(0)
+    sampled = {}
+    for cid_str, points in label_by_points.items():
+        points = list(points)
+        if len(points) > max_points_per_cluster:
+            idx = rng.choice(len(points), size=max_points_per_cluster, replace=False)
+            points = [points[i] for i in idx]
+        sampled[int(cid_str)] = points
+    return sampled
 
 
 def compute_image_act_sums(deduped_stats_df):

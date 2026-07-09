@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from tqdm import tqdm
+
 from olt.act_ranges.report_assets import dump_cluster_asset, dump_overview_assets
 from olt.act_ranges.report_render import (
     render_image_tab_body,
@@ -24,7 +26,10 @@ def print_report_for_neuron(
     assets_dump_dir,
     assets_ref_dir,
     layer_by_channel_by_noise,
+    layer_by_channel_by_label_by_points,
     max_input_keys,
+    max_points_per_cluster=50,
+    outlier_ratio_threshold=0.1,
     output_path=None,
 ):
     """
@@ -52,6 +57,20 @@ def print_report_for_neuron(
 
     layer_by_channel_by_noise: same dict passed into NeuronParentAnalyser, used
     for the Overview tab's raw noise-sample scatter plots.
+    layer_by_channel_by_label_by_points: same dict passed into
+    NeuronParentAnalyser as layer_by_channel_by_label_by_points (aka "ACTS_DICT"
+    in the exploration notebooks) — every cluster's full activation
+    population, used for the Overview tab's per-cluster scatter (see
+    select_cluster_points, save_combined_scatter_png).
+    max_points_per_cluster: cap on how many points from each cluster's
+    population get plotted in the Overview tab's per-cluster scatter (see
+    select_cluster_points) — clusters can otherwise hold far more points than
+    is legible or fast to render.
+    outlier_ratio_threshold: a matched cluster whose firing share falls below
+    this (see compute_cluster_breakdown's is_outlier) is flagged red in the
+    "Firing by cluster" breakdown and excluded from the per-cluster scatter's
+    matched/Kelly-colored set (folded into "unmatched" there instead) — too
+    small a share of firings to call a real match.
     """
     origin_layers = stats_df["origin_layer"].unique()
     origin_channels = stats_df["origin_channel"].unique()
@@ -80,7 +99,7 @@ def print_report_for_neuron(
     }
 
     def render_card(dep_layer_name, dep_channel):
-        dep_rows = groups.get_group((dep_layer_name, dep_channel))
+        dep_full_rows = full_groups.get_group((dep_layer_name, dep_channel))
         median_output_activation = medians[(dep_layer_name, dep_channel)]
         overview_relative_strength = (
             median_output_activation / median_sum if median_sum != 0 else 0.0
@@ -88,12 +107,24 @@ def print_report_for_neuron(
         noise_samples = layer_by_channel_by_noise.get(dep_layer_name, {}).get(
             str(dep_channel), []
         )
-        dump_overview_assets(assets_dump_dir, dep_layer_name, dep_channel, dep_rows, noise_samples)
+        label_by_points = layer_by_channel_by_label_by_points.get(dep_layer_name, {}).get(
+            str(dep_channel), {}
+        )
+        cluster_stats = compute_cluster_breakdown(dep_full_rows, outlier_ratio_threshold)
+        matched_cids = {row["dep_cid"] for row in cluster_stats if not row["is_outlier"]}
+        dump_overview_assets(
+            assets_dump_dir,
+            dep_layer_name,
+            dep_channel,
+            dep_full_rows,
+            noise_samples,
+            label_by_points,
+            matched_cids,
+            max_points_per_cluster,
+        )
         scatter_ref_path = (
             f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
         )
-        dep_full_rows = full_groups.get_group((dep_layer_name, dep_channel))
-        cluster_stats = compute_cluster_breakdown(dep_full_rows)
         overview_body = render_overview_tab_body(
             overview_relative_strength,
             median_output_activation,
@@ -134,10 +165,14 @@ def print_report_for_neuron(
 
     sections = []
     if frequent:
-        cards = "\n\n".join(render_card(*key) for key in frequent)
+        cards = "\n\n".join(
+            render_card(*key) for key in tqdm(frequent, desc="Frequently firing cards")
+        )
         sections.append(f"## Frequently firing\n\n{cards}")
     if one_off:
-        cards = "\n\n".join(render_card(*key) for key in one_off)
+        cards = "\n\n".join(
+            render_card(*key) for key in tqdm(one_off, desc="One-off / low frequency cards")
+        )
         sections.append(f"## One-off / low frequency\n\n{cards}")
     content = "\n\n".join(sections)
     print(content)

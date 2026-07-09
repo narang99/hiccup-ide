@@ -28,27 +28,34 @@ def render_cluster_breakdown(cluster_stats):
     descending firing count. Bar width encodes that cluster's share of this
     neuron's total firings — unlike render_activation_bar's relative_strength,
     these ratios sum to ~100% across the full list of bars, since every firing is
-    attributed to exactly one cluster. Bars are neutral blue (bg-info): cluster
-    share has no positive/negative sign to encode. Each bar's label carries the
-    cluster id, its raw count/share, and its median "similarity" score (how
-    tightly, on average, firings landing in that cluster matched it) so both
-    "which cluster does this neuron mostly fire with" and "how confidently" are
-    visible at a glance without a separate table.
+    attributed to exactly one cluster. Bars are neutral blue (bg-info), except
+    "outlier" clusters (is_outlier, i.e. below compute_cluster_breakdown's
+    outlier_ratio_threshold — too small a share of firings to call a real match)
+    which get red (bg-danger) instead, with " · outlier" appended to the label,
+    matching how save_combined_scatter_png folds these same clusters into its
+    "unmatched" bucket rather than giving them a Kelly color. Each bar's label
+    carries the cluster id, its raw count/share, and its median "similarity"
+    score (how tightly, on average, firings landing in that cluster matched it)
+    so both "which cluster does this neuron mostly fire with" and "how
+    confidently" are visible at a glance without a separate table.
     """
     if not cluster_stats:
         return ""
     bars = []
     for row in cluster_stats:
         width_pct = row["ratio"] * 100
+        color_class = "bg-danger" if row["is_outlier"] else "bg-info"
         label = (
             f"cid={row['dep_cid']} · {row['count']} ({width_pct:.0f}%) · "
             f"median_sim={row['median_similarity']:.2f}"
         )
+        if row["is_outlier"]:
+            label += " · outlier"
         bars.append(
             '<div class="d-flex align-items-center gap-2 mb-1">'
             f'<div class="progress flex-grow-1" style="height: 6px;" role="progressbar" '
             f'aria-valuenow="{width_pct:.0f}" aria-valuemin="0" aria-valuemax="100">'
-            f'<div class="progress-bar bg-info" style="width: {width_pct:.0f}%;"></div>'
+            f'<div class="progress-bar {color_class}" style="width: {width_pct:.0f}%;"></div>'
             f"</div>"
             f'<span class="text-body-secondary small">{label}</span>'
             f"</div>"
