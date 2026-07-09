@@ -119,6 +119,34 @@ def check_same_sign(values):
         )
 
 
+def compute_cluster_breakdown(dep_full_rows):
+    """
+    Splits one dep neuron's firings (dep_full_rows: the full stats_df rows for a
+    single (dep_layer, dep_channel), one row per origin instance it fired in — see
+    check_at_most_one_firing_per_origin) by which dependency cluster (dep_cid) each
+    firing was closest to. For each dep_cid: how many firings landed there (count),
+    that as a share of this neuron's total firings (ratio), and the median
+    "similarity" column value among those firings (how closely, on average, the
+    firing point matched that cluster).
+
+    Returns a list of dicts sorted by descending count (ties broken by descending
+    median_similarity): [{"dep_cid", "count", "ratio", "median_similarity"}, ...].
+    """
+    total = len(dep_full_rows)
+    rows = []
+    for cid, group in dep_full_rows.groupby("dep_cid"):
+        rows.append(
+            {
+                "dep_cid": cid,
+                "count": len(group),
+                "ratio": len(group) / total if total else 0.0,
+                "median_similarity": group["similarity"].median(),
+            }
+        )
+    rows.sort(key=lambda r: (-r["count"], -r["median_similarity"]))
+    return rows
+
+
 def compute_image_act_sums(deduped_stats_df):
     """
     Sum of output_activation across all dep neurons firing for each input image

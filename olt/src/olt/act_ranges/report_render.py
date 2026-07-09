@@ -21,19 +21,62 @@ def render_activation_bar(relative_strength, output_activation):
     )
 
 
+def render_cluster_breakdown(cluster_stats):
+    """
+    Below the Overview scatter: one thin bar per dependency cluster (dep_cid) this
+    neuron's firings were matched to (see compute_cluster_breakdown), ordered by
+    descending firing count. Bar width encodes that cluster's share of this
+    neuron's total firings — unlike render_activation_bar's relative_strength,
+    these ratios sum to ~100% across the full list of bars, since every firing is
+    attributed to exactly one cluster. Bars are neutral blue (bg-info): cluster
+    share has no positive/negative sign to encode. Each bar's label carries the
+    cluster id, its raw count/share, and its median "similarity" score (how
+    tightly, on average, firings landing in that cluster matched it) so both
+    "which cluster does this neuron mostly fire with" and "how confidently" are
+    visible at a glance without a separate table.
+    """
+    if not cluster_stats:
+        return ""
+    bars = []
+    for row in cluster_stats:
+        width_pct = row["ratio"] * 100
+        label = (
+            f"cid={row['dep_cid']} · {row['count']} ({width_pct:.0f}%) · "
+            f"median_sim={row['median_similarity']:.2f}"
+        )
+        bars.append(
+            '<div class="d-flex align-items-center gap-2 mb-1">'
+            f'<div class="progress flex-grow-1" style="height: 6px;" role="progressbar" '
+            f'aria-valuenow="{width_pct:.0f}" aria-valuemin="0" aria-valuemax="100">'
+            f'<div class="progress-bar bg-info" style="width: {width_pct:.0f}%;"></div>'
+            f"</div>"
+            f'<span class="text-body-secondary small">{label}</span>'
+            f"</div>"
+        )
+    return '<div class="text-body-secondary small mb-1">Firing by cluster</div>' + "".join(bars)
+
+
 def render_overview_tab_body(
-    relative_strength, median_output_activation, scatter_ref_path, firing_count, total_examples
+    relative_strength,
+    median_output_activation,
+    scatter_ref_path,
+    firing_count,
+    total_examples,
+    cluster_stats,
 ):
     """Content of a neuron card's "Overview" tab (the default tab, see
     render_neuron_tabset_card): median-activation bar + combined activation/noise
-    scatter plot + a firing-ratio caption. No card/heading wrapper — the card and
-    its "### Overview" tab heading are added by render_neuron_tabset_card."""
+    scatter plot + a firing-ratio caption + a per-cluster firing breakdown (see
+    render_cluster_breakdown). No card/heading wrapper — the card and its
+    "### Overview" tab heading are added by render_neuron_tabset_card."""
     bar = render_activation_bar(relative_strength, median_output_activation)
     firing_ratio = firing_count / total_examples if total_examples else 0.0
     caption = f"fired in {firing_count}/{total_examples} examples ({firing_ratio:.0%})"
+    breakdown = render_cluster_breakdown(cluster_stats)
     return (
         f"{bar}\n\n"
-        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n{caption}"
+        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n{caption}\n\n"
+        f"{breakdown}"
     )
 
 

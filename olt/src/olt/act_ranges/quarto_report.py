@@ -9,6 +9,7 @@ from olt.act_ranges.report_render import (
 )
 from olt.act_ranges.report_stats import (
     check_same_sign,
+    compute_cluster_breakdown,
     compute_dep_order,
     compute_firing_stats,
     compute_image_act_sums,
@@ -63,7 +64,8 @@ def print_report_for_neuron(
     deduped_stats_df = dedupe_to_one_origin_per_image(stats_df)
     image_keys = deduped_stats_df["input_image_key"].unique()[:max_input_keys]
 
-    groups = stats_df.groupby(["dep_layer", "dep_channel"])["output_activation"]
+    full_groups = stats_df.groupby(["dep_layer", "dep_channel"])
+    groups = full_groups["output_activation"]
     medians = {key: groups.get_group(key).median() for key in dep_order}
     check_same_sign(medians.values())
     median_sum = sum(medians.values())
@@ -90,12 +92,15 @@ def print_report_for_neuron(
         scatter_ref_path = (
             f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
         )
+        dep_full_rows = full_groups.get_group((dep_layer_name, dep_channel))
+        cluster_stats = compute_cluster_breakdown(dep_full_rows)
         overview_body = render_overview_tab_body(
             overview_relative_strength,
             median_output_activation,
             scatter_ref_path,
             firing_counts.get((dep_layer_name, dep_channel), 0),
             total_examples,
+            cluster_stats,
         )
 
         image_tabs = []
