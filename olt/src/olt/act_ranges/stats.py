@@ -49,6 +49,22 @@ def get_noise_range(data, frac=0.9):
     return shorth(data, frac)
 
 
+def noise_stats(noise, tol=1e-6):
+    """
+    (noise_min, noise_med, noise_max, noise_radius) for one dep neuron's raw
+    noise samples — noise_min/noise_max via get_noise_range (shorth), noise_med
+    the plain median, and noise_radius = noise_max - noise_med + tol (the
+    "1 unit" used everywhere distances are expressed in noise-radius units,
+    e.g. analyser.get_activation_distance_from_noise,
+    report_stats.compute_noise_radius_table) — tol avoids a division by zero
+    on a degenerate (single-valued) noise sample.
+    """
+    noise_min, noise_max = get_noise_range(noise)
+    noise_med = np.median(noise)
+    noise_radius = noise_max - noise_med + tol
+    return noise_min, noise_med, noise_max, noise_radius
+
+
 def get_labels_above_noise_range(label_by_points, noise, percentile):
     mn, mx = get_noise_range(noise)
 

@@ -8,17 +8,23 @@ from olt.act_ranges.constants import (
     UNSUPPORTED_CURRENT_LAYERS,
 )
 from olt.act_ranges.dependency_match import DependencyMatch
-from olt.act_ranges.filters import NoiseRatioRangeFilter
 from olt.act_ranges.layer_utils import (
     FlattenedChannelMap,
     get_layer_params,
     receptive_block,
 )
-from olt.act_ranges.plotting import save_combined_scatter_jpeg, save_concentration_sparkline_jpeg
+from olt.act_ranges.plotting import (
+    save_combined_scatter_jpeg,
+    save_concentration_sparkline_jpeg,
+)
 from olt.act_ranges.pw_samples import merge_pw_samples_into
 from olt.act_ranges.quarto_report import print_report_for_neuron
+from olt.act_ranges.report_assets import (
+    dump_cluster_asset,
+    dump_concentration_asset,
+    dump_overview_assets,
+)
 from olt.act_ranges.report_config import FeatureVizConfig, PwSamplesConfig, ReportConfig
-from olt.act_ranges.report_assets import dump_cluster_asset, dump_concentration_asset, dump_overview_assets
 from olt.act_ranges.report_render import (
     render_neuron_card,
     render_notes_summary,
@@ -39,7 +45,7 @@ from olt.act_ranges.similarity import (
     closest_patch_index,
     closest_pw,
     get_neuron_closest_cluster,
-    mean_cosine_similarity,
+    max_cosine_similarity,
     min_euclidean_distance,
 )
 from olt.act_ranges.stats import (
@@ -63,7 +69,7 @@ __all__ = [
     "shorth",
     "get_noise_range",
     "get_labels_above_noise_range",
-    "mean_cosine_similarity",
+    "max_cosine_similarity",
     "min_euclidean_distance",
     "closest_pw",
     "closest_patch_index",
@@ -87,7 +93,6 @@ __all__ = [
     "save_combined_scatter_jpeg",
     "save_concentration_sparkline_jpeg",
     "print_report_for_neuron",
-    "NoiseRatioRangeFilter",
     "NeuronParentAnalyser",
     "DependencyMatch",
     "merge_pw_samples_into",

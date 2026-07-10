@@ -4,7 +4,12 @@ import torch
 from PIL import Image, ImageDraw
 
 from olt.act_ranges.constants import CLUSTER_PATCH_SET_DIR, LAYER_NAME_BY_SHAPE
-from olt.act_ranges.plotting import save_combined_scatter_jpeg, save_concentration_sparkline_jpeg
+from olt.act_ranges.plotting import (
+    save_combined_scatter_jpeg,
+    save_concentration_sparkline_jpeg,
+    save_firing_frequency_histogram_jpeg,
+    save_output_activation_histogram_jpeg,
+)
 from olt.act_ranges.report_stats import select_cluster_points
 from olt.act_ranges.reports import get_cluster_photo
 from olt.act_ranges.similarity import closest_patch_index, load_cluster_patches
@@ -163,6 +168,38 @@ def dump_concentration_asset(
     neuron_dir.mkdir(parents=True, exist_ok=True)
     dump_path = neuron_dir / "concentration.jpeg"
     save_concentration_sparkline_jpeg(pos_curve, neg_curve, pos_marker, neg_marker, dump_path)
+    return dump_path
+
+
+def dump_output_activation_histogram_asset(assets_dump_dir, distances, bins=40):
+    """
+    Writes (always regenerates — cheap, one plot) the report-level
+    output-activation-vs-noise histogram (see
+    report_stats.compute_output_activation_noise_max_distances,
+    plotting.save_output_activation_histogram_jpeg) under
+    {assets_dump_dir}/output_activation_histogram.jpeg — a report-root asset
+    (not per-neuron, so it lives directly under assets_dump_dir rather than a
+    {dep_layer_name}/{dep_channel} subdirectory, unlike every other asset in
+    this module). Returns the dumped Path.
+    """
+    assets_dump_dir.mkdir(parents=True, exist_ok=True)
+    dump_path = assets_dump_dir / "output_activation_histogram.jpeg"
+    save_output_activation_histogram_jpeg(distances, dump_path, bins=bins)
+    return dump_path
+
+
+def dump_firing_frequency_histogram_asset(assets_dump_dir, ratios, bins=20):
+    """
+    Writes (always regenerates — cheap, one plot) the report-level firing-
+    frequency histogram (see report_stats.compute_firing_frequency_ratios,
+    plotting.save_firing_frequency_histogram_jpeg) under
+    {assets_dump_dir}/firing_frequency_histogram.jpeg — a report-root asset,
+    parallel to dump_output_activation_histogram_asset. Returns the dumped
+    Path.
+    """
+    assets_dump_dir.mkdir(parents=True, exist_ok=True)
+    dump_path = assets_dump_dir / "firing_frequency_histogram.jpeg"
+    save_firing_frequency_histogram_jpeg(ratios, dump_path, bins=bins, total_neurons=len(ratios))
     return dump_path
 
 

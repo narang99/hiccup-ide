@@ -11,15 +11,16 @@ def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_lab
     id the whole report was built for (e.g. the LABEL/cluster_label used to
     filter collect_cluster_stats_df's input rows) — None if the caller didn't
     pass one (print_report_for_neuron's origin_cluster_label param), in which
-    case only the heading is shown, no photo section. cluster_photo_ref_path
-    is the already-dumped path (report_assets.dump_cluster_asset, reusing the
-    same per-cluster photo mechanism dependency clusters use) — None means a
-    label was given but no photo was found (e.g. a singleton cluster), so an
+    case only the heading is shown (without a "[cid]" suffix, since there's no
+    cluster to name), no photo section. cluster_photo_ref_path is the
+    already-dumped path (report_assets.dump_cluster_asset, reusing the same
+    per-cluster photo mechanism dependency clusters use) — None means a label
+    was given but no photo was found (e.g. a singleton cluster), so an
     explanatory placeholder is shown instead of an image.
     """
-    heading = f"# Report: Dependencies of {dep_layer_name}:{dep_channel}"
     if origin_cluster_label is None:
-        return f"{heading}\n"
+        return f"# Report: Dependencies of {dep_layer_name}:{dep_channel}\n"
+    heading = f"# Report: Dependencies of {dep_layer_name}:{dep_channel}[{origin_cluster_label}]"
     if cluster_photo_ref_path is not None:
         body = f"![cid={origin_cluster_label}]({cluster_photo_ref_path})\n"
     else:
@@ -29,6 +30,29 @@ def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_lab
             "generated</span>\n"
         )
     return f"{heading}\n\n{body}"
+
+
+def render_report_histograms(activation_histogram_ref_path, firing_frequency_histogram_ref_path):
+    """
+    Report-level pair of images (see
+    report_assets.dump_output_activation_histogram_asset,
+    report_stats.compute_output_activation_noise_max_distances,
+    report_assets.dump_firing_frequency_histogram_asset,
+    report_stats.compute_firing_frequency_ratios), placed right after the
+    title/origin cluster photo and before render_summary — the first
+    substantive content in the report. Both are pooled across every
+    "frequent" dep neuron only (one-off/outlier neurons excluded from both,
+    same population as the cards below). Laid out side by side via Quarto's
+    layout-ncol div rather than one-per-line, since both are small and
+    reference the same excluded/included neuron population — reading them
+    side by side is more useful than stacked.
+    """
+    return (
+        "::: {layout-ncol=2}\n\n"
+        f"![output activation, distance from noise_max (noise-radius units)]({activation_histogram_ref_path})\n\n"
+        f"![firing frequency across dep neurons]({firing_frequency_histogram_ref_path})\n\n"
+        ":::\n"
+    )
 
 
 def render_summary(one_off_count, one_off_threshold, total_examples):
@@ -75,6 +99,71 @@ def render_notes_summary(cluster_notes):
     )
 
 
+def _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid):
+    """One thin progress-bar row for a single dependency cluster (dep_cid),
+    plus its own collapsed `<details>` "show cluster photo" section — see
+    render_cluster_breakdown for what each piece means. Shared by both the
+    always-visible non-outlier bars and the ones nested inside the "show
+    outlier clusters" section."""
+    width_pct = row["ratio"] * 100
+    color_class = "bg-warning" if row["is_outlier"] else "bg-info"
+    label = (
+        f"cid={row['dep_cid']} · {row['count']} ({width_pct:.1f}%) · "
+        f"median_sim={row['median_similarity']:.2f}"
+    )
+    if row["is_outlier"]:
+        label += " · outlier"
+    ref_path = cluster_photo_ref_by_cid.get(row["dep_cid"])
+    pw_ref_path = pw_sample_ref_by_cid.get(row["dep_cid"])
+    feature_viz_ref_path = feature_viz_ref_by_cid.get(row["dep_cid"])
+    note = note_by_cid.get(row["dep_cid"])
+    summary_text = "show cluster photo"
+    if note is not None:
+        summary_text += " · has note"
+    if ref_path is None and pw_ref_path is None and feature_viz_ref_path is None and note is None:
+        details = (
+            '<span class="text-body-secondary small">no cluster photo — this cluster was '
+            "built from samples in only a single image, so its combined photo wasn't "
+            "generated</span>"
+        )
+    else:
+        body = ""
+        if note is not None:
+            body += f'::: {{.callout-note}}\n{note}\n:::\n\n'
+        if ref_path is not None:
+            body += f"![cid={row['dep_cid']}]({ref_path})\n\n"
+        else:
+            body += (
+                '<span class="text-body-secondary small">no cluster photo — this cluster was '
+                "built from samples in only a single image, so its combined photo wasn't "
+                "generated</span>\n\n"
+            )
+        if pw_ref_path is not None:
+            body += (
+                f"![cid={row['dep_cid']} wild samples vs. each one's closest cluster match]({pw_ref_path})\n\n"
+            )
+        if feature_viz_ref_path is not None:
+            body += (
+                f"![cid={row['dep_cid']} feature-viz reconstruction of the wild samples above]"
+                f"({feature_viz_ref_path})\n\n"
+            )
+        details = (
+            f'<details><summary class="text-body-secondary small">{summary_text}</summary>\n\n'
+            f"{body}"
+            "</details>"
+        )
+    return (
+        '<div class="mb-2">'
+        '<div class="d-flex align-items-center gap-2 mb-1">'
+        f'<div class="progress flex-grow-1" style="height: 6px;" role="progressbar" '
+        f'aria-valuenow="{width_pct:.1f}" aria-valuemin="0" aria-valuemax="100">'
+        f'<div class="progress-bar {color_class}" style="width: {width_pct:.1f}%;"></div>'
+        f"</div>"
+        f'<span class="text-body-secondary small">{label}</span>'
+        f"</div>\n\n{details}\n\n</div>"
+    )
+
+
 def render_cluster_breakdown(
     cluster_stats,
     cluster_photo_ref_by_cid=None,
@@ -102,35 +191,42 @@ def render_cluster_breakdown(
     so both "which cluster does this neuron mostly fire with" and "how
     confidently" are visible at a glance without a separate table.
 
-    Each bar is followed by a single collapsed `<details>` section (closed by
-    default, so it doesn't blow up page length across every card/cluster at
-    once) titled "show cluster photo", revealing on expand the cluster's
-    heatmap photo followed by up to 5 "wild" pointwise-multiplication samples
-    for this cluster (real firings that matched it), each paired with its own
-    closest match from the cluster itself — see dump_pw_sample_asset.
-    cluster_photo_ref_by_cid: dict[dep_cid, ref_path]
-    (ref_path relative to the .qmd, as used elsewhere for image markdown, e.g.
-    dump_cluster_asset's output path rebased under assets_ref_dir) — a cluster
-    missing from this dict (photo unavailable, typically a singleton cluster
-    built from only one image, see get_cluster_photo) gets an explanatory
-    placeholder in place of the photo. pw_sample_ref_by_cid: dict[dep_cid,
-    ref_path], same ref_path convention; a cluster missing from this dict (no
-    firing recorded a sample for it, e.g. its only firings came from a
-    stats_df built without pw_samples) simply omits the pointwise-
-    multiplication image, with no placeholder needed. feature_viz_ref_by_cid:
-    dict[dep_cid, ref_path], same ref_path convention — see
-    feature_viz.dump_feature_viz_assets; a cluster missing from this dict
-    (print_report_for_neuron was called without `model`, or this cluster's
-    dep_layer_name isn't in feature_viz.SUPPORTED_DEP_LAYER_NAMES) simply omits
-    the row, same as pw_sample_ref_by_cid. note_by_cid: dict[dep_cid, str] —
-    this neuron's slice of report_config.ReportConfig.cluster_notes (see
-    render_notes_summary for the same notes collected once at the top of the
-    report); a cluster with a note gets it rendered first inside the
-    `<details>`, in a `{.callout-note}` block for visual consistency with the
-    top-of-report summary, and "· has note" appended to the summary line so
-    it's spottable without expanding. The `<details>` is omitted entirely
-    only when none of a photo, pw sample, feature-viz image, or note is
-    available.
+    Non-outlier bars are always visible. Outlier bars are instead nested
+    inside one extra collapsed `<details>` "show outlier clusters (N)"
+    section, closed by default — outliers are rarely what a reader is looking
+    for on a normal pass through the report, so they're tucked one level
+    deeper rather than cluttering the always-visible list, while still being
+    a single click away rather than omitted.
+
+    Each bar (outlier or not) is followed by its own single collapsed
+    `<details>` section (closed by default, so it doesn't blow up page length
+    across every card/cluster at once) titled "show cluster photo", revealing
+    on expand the cluster's heatmap photo followed by up to 5 "wild"
+    pointwise-multiplication samples for this cluster (real firings that
+    matched it), each paired with its own closest match from the cluster
+    itself — see dump_pw_sample_asset. cluster_photo_ref_by_cid: dict[dep_cid,
+    ref_path] (ref_path relative to the .qmd, as used elsewhere for image
+    markdown, e.g. dump_cluster_asset's output path rebased under
+    assets_ref_dir) — a cluster missing from this dict (photo unavailable,
+    typically a singleton cluster built from only one image, see
+    get_cluster_photo) gets an explanatory placeholder in place of the photo.
+    pw_sample_ref_by_cid: dict[dep_cid, ref_path], same ref_path convention; a
+    cluster missing from this dict (no firing recorded a sample for it, e.g.
+    its only firings came from a stats_df built without pw_samples) simply
+    omits the pointwise-multiplication image, with no placeholder needed.
+    feature_viz_ref_by_cid: dict[dep_cid, ref_path], same ref_path convention
+    — see feature_viz.dump_feature_viz_assets; a cluster missing from this
+    dict (print_report_for_neuron was called without `model`, or this
+    cluster's dep_layer_name isn't in feature_viz.SUPPORTED_DEP_LAYER_NAMES)
+    simply omits the row, same as pw_sample_ref_by_cid. note_by_cid:
+    dict[dep_cid, str] — this neuron's slice of
+    report_config.ReportConfig.cluster_notes (see render_notes_summary for
+    the same notes collected once at the top of the report); a cluster with a
+    note gets it rendered first inside the `<details>`, in a
+    `{.callout-note}` block for visual consistency with the top-of-report
+    summary, and "· has note" appended to the summary line so it's spottable
+    without expanding. The per-cluster `<details>` is omitted entirely only
+    when none of a photo, pw sample, feature-viz image, or note is available.
     """
     if not cluster_stats:
         return ""
@@ -138,66 +234,54 @@ def render_cluster_breakdown(
     pw_sample_ref_by_cid = pw_sample_ref_by_cid or {}
     feature_viz_ref_by_cid = feature_viz_ref_by_cid or {}
     note_by_cid = note_by_cid or {}
-    bars = []
-    for row in cluster_stats:
-        width_pct = row["ratio"] * 100
-        color_class = "bg-warning" if row["is_outlier"] else "bg-info"
-        label = (
-            f"cid={row['dep_cid']} · {row['count']} ({width_pct:.1f}%) · "
-            f"median_sim={row['median_similarity']:.2f}"
-        )
-        if row["is_outlier"]:
-            label += " · outlier"
-        ref_path = cluster_photo_ref_by_cid.get(row["dep_cid"])
-        pw_ref_path = pw_sample_ref_by_cid.get(row["dep_cid"])
-        feature_viz_ref_path = feature_viz_ref_by_cid.get(row["dep_cid"])
-        note = note_by_cid.get(row["dep_cid"])
-        summary_text = "show cluster photo"
-        if note is not None:
-            summary_text += " · has note"
-        if ref_path is None and pw_ref_path is None and feature_viz_ref_path is None and note is None:
-            details = (
-                '<span class="text-body-secondary small">no cluster photo — this cluster was '
-                "built from samples in only a single image, so its combined photo wasn't "
-                "generated</span>"
+
+    non_outlier_rows = [row for row in cluster_stats if not row["is_outlier"]]
+    outlier_rows = [row for row in cluster_stats if row["is_outlier"]]
+
+    sections = ['<div class="text-body-secondary small mb-1">Firing by cluster</div>']
+    if non_outlier_rows:
+        sections.append(
+            "\n\n".join(
+                _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid)
+                for row in non_outlier_rows
             )
-        else:
-            body = ""
-            if note is not None:
-                body += f'::: {{.callout-note}}\n{note}\n:::\n\n'
-            if ref_path is not None:
-                body += f"![cid={row['dep_cid']}]({ref_path})\n\n"
-            else:
-                body += (
-                    '<span class="text-body-secondary small">no cluster photo — this cluster was '
-                    "built from samples in only a single image, so its combined photo wasn't "
-                    "generated</span>\n\n"
-                )
-            if pw_ref_path is not None:
-                body += (
-                    f"![cid={row['dep_cid']} wild samples vs. each one's closest cluster match]({pw_ref_path})\n\n"
-                )
-            if feature_viz_ref_path is not None:
-                body += (
-                    f"![cid={row['dep_cid']} feature-viz reconstruction of the wild samples above]"
-                    f"({feature_viz_ref_path})\n\n"
-                )
-            details = (
-                f'<details><summary class="text-body-secondary small">{summary_text}</summary>\n\n'
-                f"{body}"
-                "</details>"
-            )
-        bars.append(
-            '<div class="mb-2">'
-            '<div class="d-flex align-items-center gap-2 mb-1">'
-            f'<div class="progress flex-grow-1" style="height: 6px;" role="progressbar" '
-            f'aria-valuenow="{width_pct:.1f}" aria-valuemin="0" aria-valuemax="100">'
-            f'<div class="progress-bar {color_class}" style="width: {width_pct:.1f}%;"></div>'
-            f"</div>"
-            f'<span class="text-body-secondary small">{label}</span>'
-            f"</div>\n\n{details}\n\n</div>"
         )
-    return '<div class="text-body-secondary small mb-1">Firing by cluster</div>' + "\n\n".join(bars)
+    if outlier_rows:
+        outlier_bars = "\n\n".join(
+            _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid)
+            for row in outlier_rows
+        )
+        sections.append(
+            f'<details><summary class="text-body-secondary small">show outlier clusters ({len(outlier_rows)})</summary>\n\n'
+            f"{outlier_bars}\n\n"
+            "</details>"
+        )
+    return "\n\n".join(sections)
+
+
+def render_noise_radius_table(rows):
+    """
+    Small markdown table, one row per report_stats.compute_noise_radius_table
+    entry ("output activation" plus one per matched non-outlier cluster): how
+    far that row's own median (med-noise_max) and shorth-based lower bound
+    (min-noise_max) sit from this dep neuron's own noise_max — all in units
+    of noise_radius (1 unit = 1 noise_radius — see stats.noise_stats).
+    Returns "" if rows is empty (e.g. a card with no matched non-outlier
+    clusters and, in principle, no output_activation rows — shouldn't happen
+    in practice, but kept symmetric with the other optional sections here).
+    """
+    if not rows:
+        return ""
+    body = "\n".join(
+        f"| {r['label']} | {r['med-noise_max']:.2f} | {r['min-noise_max']:.2f} |"
+        for r in rows
+    )
+    return (
+        '<div class="text-body-secondary small mb-1">Distance from noise (in noise-radius units)</div>\n\n'
+        "| | med-noise_max | min-noise_max |\n"
+        "|---|---:|---:|\n"
+        f"{body}\n"
+    )
 
 
 def render_overview_tab_body(
@@ -207,12 +291,14 @@ def render_overview_tab_body(
     pw_sample_ref_by_cid=None,
     feature_viz_ref_by_cid=None,
     note_by_cid=None,
+    noise_radius_table_rows=None,
 ):
     """Content of a neuron card's body: the combined activation/noise scatter
     plot + a per-cluster firing breakdown (see render_cluster_breakdown), each
     with a single collapsed section showing the cluster photo followed by a
     pointwise-multiplication sample and any cluster_notes entry for that
-    cluster, if available. No card wrapper — the card is added by
+    cluster, if available, followed by the "distance from noise" table (see
+    render_noise_radius_table). No card wrapper — the card is added by
     render_neuron_card. The contribution-strength and firing-frequency bars
     this used to lead with are gone: the header's concentration sparkline +
     ticker labels already cover contribution
@@ -222,7 +308,8 @@ def render_overview_tab_body(
     breakdown = render_cluster_breakdown(
         cluster_stats, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid
     )
-    return f"![]({scatter_ref_path})\n\n{breakdown}"
+    noise_table = render_noise_radius_table(noise_radius_table_rows or [])
+    return f"![]({scatter_ref_path})\n\n{breakdown}\n\n{noise_table}"
 
 
 _POS_TEXT_COLOR = "#1b7a34"  # matches plotting._POS_MARKER

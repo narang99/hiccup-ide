@@ -12,6 +12,7 @@ from olt.act_ranges.report_assets import (
 )
 from olt.act_ranges.report_render import render_neuron_card as render_neuron_card_shell
 from olt.act_ranges.report_render import render_overview_tab_body
+from olt.act_ranges.report_stats import compute_noise_radius_table
 
 
 @dataclass
@@ -73,6 +74,9 @@ def _build_overview_body(dep_layer_name, dep_channel, data, config, cluster_stat
         dep_layer_name, dep_channel, data, config, cluster_stats
     )
     note_by_cid = _dep_cluster_notes(config, dep_layer_name, dep_channel)
+    noise_radius_table_rows = compute_noise_radius_table(
+        dep_full_rows, noise_samples, label_by_points, cluster_stats
+    )
 
     return render_overview_tab_body(
         scatter_ref_path,
@@ -81,6 +85,7 @@ def _build_overview_body(dep_layer_name, dep_channel, data, config, cluster_stat
         pw_sample_ref_by_cid,
         feature_viz_ref_by_cid,
         note_by_cid,
+        noise_radius_table_rows,
     )
 
 

@@ -17,5 +17,4 @@ class DependencyMatch:
     noise: object
     label_by_points: dict
     ratio: float
-    point_dist: object
     op_act: object

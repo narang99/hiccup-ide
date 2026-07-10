@@ -1,5 +1,5 @@
 # Grid shape to reshape a flattened per-branch weight*patch vector back into for
-# visualization (see plot_clusters in analyser.py). Only layers analysed so far
+# visualization (see report_assets.py, feature_viz.py). Only layers analysed so far
 # have an entry; add one here when adding support for a new current_layer/dep_layer.
 LAYER_NAME_BY_SHAPE = {
     "mixed4d_1x1_pre_relu_conv": (16, 32),

@@ -7,10 +7,13 @@ from PIL import Image
 from olt.act import InputOutputModelSnapshot
 from olt.act_ranges.constants import UNSUPPORTED_CURRENT_LAYERS
 from olt.act_ranges.dependency_match import DependencyMatch
-from olt.act_ranges.interactive_plots import show_cluster_match
-from olt.act_ranges.layer_utils import get_layer_params, receptive_block
+from olt.act_ranges.layer_utils import (
+    ReceptiveFieldOutOfBounds,
+    get_layer_params,
+    receptive_block,
+)
 from olt.act_ranges.similarity import get_neuron_closest_cluster
-from olt.act_ranges.stats import get_noise_range, indices_for_percentage, shorth
+from olt.act_ranges.stats import get_noise_range, indices_for_percentage, noise_stats, shorth
 from olt.tfms import transform
 
 
@@ -19,7 +22,15 @@ def _scalar(value):
 
 
 def _stats_row(
-    current_layer_name, current_channel, y, x, dep_layer_name, dep_channel, match, cluster_dist, contribution
+    current_layer_name,
+    current_channel,
+    y,
+    x,
+    dep_layer_name,
+    dep_channel,
+    match,
+    cluster_dist,
+    contribution,
 ):
     cluster_min, cluster_med, cluster_max = cluster_dist
     return {
@@ -28,7 +39,6 @@ def _stats_row(
         "origin_y": y,
         "origin_x": x,
         "similarity": _scalar(match.best_sim),
-        "noise_distance": _scalar(match.point_dist),
         "output_activation": _scalar(match.op_act),
         "contribution": contribution,
         "above_noise_ratio": match.ratio,
@@ -41,7 +51,9 @@ def _stats_row(
     }
 
 
-def _add_pw_sample(pw_samples, dep_layer_name, dep_channel, match, image_key, dep_y, dep_x):
+def _add_pw_sample(
+    pw_samples, dep_layer_name, dep_channel, match, image_key, dep_y, dep_x
+):
     cid_samples = (
         pw_samples.setdefault(dep_layer_name, {})
         .setdefault(str(dep_channel), {})
@@ -112,7 +124,7 @@ class NeuronParentAnalyser:
 
     def top_contributing_indices(self, y, x, current_act, sum_upto_percent):
         """
-        Shared by collect_cluster_above_noise_ratios and plot_clusters:
+        Shared by collect_cluster_above_noise_ratios and collect_cluster_stats_df:
         finds the flattened-input indices that account for `sum_upto_percent`
         of the patch*weight contribution at (current_layer_name, current_channel, y, x),
         ranked by |patch*weight| across both positive and negative contributions
@@ -123,14 +135,33 @@ class NeuronParentAnalyser:
         same shape as patch) so callers can look up each returned index's own
         contribution value via pw[cur_chan, cur_rel_y, cur_rel_x] — see
         iter_dependency_coords.
+
+        Returns None if current_layer_name's own receptive field at (y, x)
+        falls outside its captured input tensor (see
+        layer_utils.ReceptiveFieldOutOfBounds) — callers must treat this
+        origin probe as unusable and skip it entirely, rather than the whole
+        collection run failing on one boundary position.
         """
         w, ksize, stride, padding = get_layer_params(
             self.model, self.current_layer_name, self.current_channel
         )
 
-        y0, y1 = receptive_block(y, ksize[0], stride[0], padding[0])
-        x0, x1 = receptive_block(x, ksize[1], stride[1], padding[1])
-        patch = current_act[self.current_layer_name]["input"][0, :, y0:y1, x0:x1]
+        input_tensor = current_act[self.current_layer_name]["input"]
+        try:
+            y0, y1 = receptive_block(
+                y, ksize[0], stride[0], padding[0], input_size=input_tensor.shape[-2]
+            )
+            x0, x1 = receptive_block(
+                x, ksize[1], stride[1], padding[1], input_size=input_tensor.shape[-1]
+            )
+        except ReceptiveFieldOutOfBounds as e:
+            print(
+                f"WARN: skipping origin probe {self.current_layer_name}:{self.current_channel} "
+                f"at (y={y}, x={x}): {e}"
+            )
+            return None
+
+        patch = input_tensor[0, :, y0:y1, x0:x1]
         pw = patch * w
         indices, fracs = indices_for_percentage(pw, sum_upto_percent)
         return y0, x0, patch, pw, indices
@@ -159,6 +190,10 @@ class NeuronParentAnalyser:
         """
         Finds the cluster whose patches are most similar (weighted by conv
         weight) to the activation patch at (layer_name, channel, y, x).
+        best_cid/best_sim/best_patches are all None if no cluster (excluding
+        the HDBSCAN noise cluster) is similar enough to count as a match —
+        see similarity.closest_pw. Callers must skip this (layer_name,
+        channel, y, x) rather than treat None as a real cluster.
         """
         best_cid, best_sim, dep_patch, best_patches, w = get_neuron_closest_cluster(
             self.model,
@@ -179,13 +214,7 @@ class NeuronParentAnalyser:
         return (dep_points > noise_max).sum() / len(dep_points)
 
     def get_noise_stats(self, noise):
-        noise_min, noise_max = get_noise_range(noise)
-        noise_med = np.median(noise)
-
-        tol = 1e-6
-        noise_radius = noise_max - noise_med + tol
-
-        return noise_min, noise_med, noise_max, noise_radius
+        return noise_stats(noise)
 
     def get_activation_value(self, layer_name, channel, y, x, current_act):
         return current_act[layer_name]["output"][0, channel, y, x]
@@ -211,9 +240,13 @@ class NeuronParentAnalyser:
         return cluster_min_dist, cluster_med_dist, cluster_max_dist
 
     def get_cluster_above_noise_ratio(self, layer_name, channel, y, x, current_act):
+        """Returns None if no cluster is a confident enough match — see
+        closest_cluster_info — instead of falling back to some cluster."""
         best_cid, _, _, _, _ = self.closest_cluster_info(
             layer_name, channel, y, x, current_act
         )
+        if best_cid is None:
+            return None
         noise = self.layer_by_channel_by_noise[layer_name][str(channel)]
         label_by_points = self.layer_by_channel_by_label_by_points[layer_name][
             str(channel)
@@ -224,13 +257,18 @@ class NeuronParentAnalyser:
         self, dep_layer_name, dep_channel, dep_y, dep_x, current_act
     ):
         """
-        Shared by plot_clusters and collect_cluster_stats_df: resolves the
-        closest cluster, noise stats, and above-noise ratio for a dependency
-        neuron at (dep_layer_name, dep_channel, dep_y, dep_x).
+        Shared by collect_cluster_stats_df: resolves the closest cluster,
+        noise stats, and above-noise ratio for a dependency neuron at
+        (dep_layer_name, dep_channel, dep_y, dep_x). Returns None if no
+        cluster is a confident enough match (see closest_cluster_info) —
+        callers must skip this dependency index rather than treat it as a
+        firing against some arbitrary (or noise) cluster.
         """
         best_cid, best_sim, dep_patch, best_patches, dep_w = self.closest_cluster_info(
             dep_layer_name, dep_channel, dep_y, dep_x, current_act
         )
+        if best_cid is None:
+            return None
 
         noise = self.layer_by_channel_by_noise[dep_layer_name][str(dep_channel)]
         label_by_points = self.layer_by_channel_by_label_by_points[dep_layer_name][
@@ -238,9 +276,6 @@ class NeuronParentAnalyser:
         ]
 
         ratio = self.ratio_for_cluster(label_by_points, noise, best_cid)
-        point_dist = self.get_activation_distance_from_noise(
-            dep_layer_name, dep_channel, dep_y, dep_x, current_act
-        )
         op_act = self.get_activation_value(
             dep_layer_name, dep_channel, dep_y, dep_x, current_act
         )
@@ -258,25 +293,29 @@ class NeuronParentAnalyser:
             noise=noise,
             label_by_points=label_by_points,
             ratio=ratio,
-            point_dist=point_dist,
             op_act=op_act,
         )
 
-    def collect_cluster_distances(
+    def collect_activation_distances(
         self,
         y,
         x,
         current_act,
         sum_upto_percent=0.9,
     ):
-        y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent
-        )
+        result = self.top_contributing_indices(y, x, current_act, sum_upto_percent)
+        if result is None:  # this origin probe's own receptive field is out of bounds
+            return []
+        y0, x0, patch, pw, indices = result
 
         dists = []
-        for dep_layer_name, dep_channel, dep_y, dep_x, _contribution in self.iter_dependency_coords(
-            y0, x0, pw, indices
-        ):
+        for (
+            dep_layer_name,
+            dep_channel,
+            dep_y,
+            dep_x,
+            _contribution,
+        ) in self.iter_dependency_coords(y0, x0, pw, indices):
             r = self.get_activation_distance_from_noise(
                 dep_layer_name, dep_channel, dep_y, dep_x, current_act
             )
@@ -290,65 +329,25 @@ class NeuronParentAnalyser:
         current_act,
         sum_upto_percent=0.9,
     ):
-        y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent
-        )
+        result = self.top_contributing_indices(y, x, current_act, sum_upto_percent)
+        if result is None:  # this origin probe's own receptive field is out of bounds
+            return []
+        y0, x0, patch, pw, indices = result
 
         noise_ratios = []
-        for dep_layer_name, dep_channel, dep_y, dep_x, _contribution in self.iter_dependency_coords(
-            y0, x0, pw, indices
-        ):
+        for (
+            dep_layer_name,
+            dep_channel,
+            dep_y,
+            dep_x,
+            _contribution,
+        ) in self.iter_dependency_coords(y0, x0, pw, indices):
             r = self.get_cluster_above_noise_ratio(
                 dep_layer_name, dep_channel, dep_y, dep_x, current_act
             )
-            noise_ratios.append(r)
+            if r is not None:  # None means no cluster was a confident match — skip it
+                noise_ratios.append(r)
         return noise_ratios
-
-    def plot_clusters(
-        self,
-        y,
-        x,
-        current_act,
-        filter_fn,
-        sum_upto_percent=0.9,
-        max_percent_points_allowed_in_noise_for_one_cluster=25,
-        stuff_to_show=None,
-    ):
-        # filter_fn(ratio) -> bool: decides whether this cluster gets plotted
-        if stuff_to_show is None:
-            stuff_to_show = ["heatmap", "pw", "act_range"]
-        y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent
-        )
-
-        for cur_chan, cur_rel_y, cur_rel_x in indices:
-            if getattr(filter_fn, "is_full", False):
-                break  # filter won't accept any more, stop doing lookups
-
-            dep_layer_name, dep_channel = (
-                self.flattened_channel_map.get_layer_and_chan_from_flattened(cur_chan)
-            )
-            dep_y, dep_x = self.dep_coords(y0, x0, cur_rel_y, cur_rel_x)
-
-            match = self.resolve_dependency_match(
-                dep_layer_name, dep_channel, dep_y, dep_x, current_act
-            )
-
-            if not filter_fn(match.ratio, match.point_dist):
-                continue
-
-            show_cluster_match(
-                self.base_report_dir,
-                dep_layer_name,
-                dep_channel,
-                match,
-                patch,
-                cur_chan,
-                cur_rel_y,
-                cur_rel_x,
-                stuff_to_show,
-                max_percent_points_allowed_in_noise_for_one_cluster,
-            )
 
     def collect_cluster_stats_df(
         self,
@@ -361,12 +360,11 @@ class NeuronParentAnalyser:
         append=False,
     ):
         """
-        Same traversal as plot_clusters, but instead of plotting, collects
-        one row per contributing (dep_layer, dep_channel) with: origin
-        neuron info, similarity, noise distance, raw output activation,
-        contribution (this firing's own patch*weight value at the
-        current_layer index it was selected from — see
-        top_contributing_indices/iter_dependency_coords — distinct from
+        Collects one row per contributing (dep_layer, dep_channel) with: origin
+        neuron info, similarity, raw output activation, contribution (this
+        firing's own patch*weight value at the current_layer index it was
+        selected from — see top_contributing_indices/iter_dependency_coords —
+        distinct from
         output_activation, the dep neuron's raw activation value; its sign is
         this firing's "kind", positive or negative, so it doubles as that
         without needing a separate column), above-noise ratio, dep_layer,
@@ -393,19 +391,35 @@ class NeuronParentAnalyser:
           duplicate the whole cluster population once per firing; report-time
           rendering should load it once per matched cluster instead (see
           similarity.load_cluster_patches).
+
+        A contributing index whose dependency neuron has no confident cluster
+        match (resolve_dependency_match returns None — see
+        similarity.closest_pw) is skipped: it contributes no row to df and no
+        entry to pw_samples, rather than being attributed to an arbitrary or
+        noise cluster. Likewise, if this origin probe's own receptive field is
+        out of bounds (top_contributing_indices returns None — see
+        layer_utils.ReceptiveFieldOutOfBounds), df/pw_samples are returned
+        empty for this call rather than raising.
         """
-        y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent
-        )
+        result = self.top_contributing_indices(y, x, current_act, sum_upto_percent)
+        if result is None:
+            return pd.DataFrame(), {}
+        y0, x0, patch, pw, indices = result
 
         rows = []
         pw_samples = {}
-        for dep_layer_name, dep_channel, dep_y, dep_x, contribution in self.iter_dependency_coords(
-            y0, x0, pw, indices
-        ):
+        for (
+            dep_layer_name,
+            dep_channel,
+            dep_y,
+            dep_x,
+            contribution,
+        ) in self.iter_dependency_coords(y0, x0, pw, indices):
             match = self.resolve_dependency_match(
                 dep_layer_name, dep_channel, dep_y, dep_x, current_act
             )
+            if match is None:
+                continue
 
             cluster_dist = self.get_cluster_distance_from_noise(
                 match.label_by_points[str(match.best_cid)], match.noise
@@ -423,7 +437,9 @@ class NeuronParentAnalyser:
                     contribution,
                 )
             )
-            _add_pw_sample(pw_samples, dep_layer_name, dep_channel, match, image_key, dep_y, dep_x)
+            _add_pw_sample(
+                pw_samples, dep_layer_name, dep_channel, match, image_key, dep_y, dep_x
+            )
 
         df = pd.DataFrame(rows)
 

@@ -3,9 +3,9 @@ import numpy as np
 
 from olt.act_ranges.constants import KELLY_COLORS
 
-# KELLY_COLORS[0] is white, reserved as a background/reference color elsewhere
-# (see NeuronParentAnalyser.plot_clusters) — excluded here too so no matched
-# cluster gets a color easily confused with the noise/unmatched colors below.
+# KELLY_COLORS[0] is white, reserved as the noise scatter's color below —
+# excluded here too so no matched cluster gets a color easily confused with
+# the noise/unmatched colors below.
 _CLUSTER_COLORS = KELLY_COLORS[1:]
 _NOISE_COLOR = "white"
 _UNMATCHED_COLOR = "#888888"
@@ -36,6 +36,95 @@ _POS_FILL = "#8fd19e"  # light green
 _NEG_FILL = "#f4a3a3"  # light red
 _POS_MARKER = "#1b7a34"  # dark green
 _NEG_MARKER = "#a11f1f"  # dark red
+_HIST_COLOR = "#4dabf7"  # light blue
+
+
+def save_output_activation_histogram_jpeg(distances, output_path, bins=40):
+    """
+    Report-level (not per-card) histogram: distance of every collected
+    "frequent" dep neuron's firings from its own noise_max, in noise-radius
+    units (see report_stats.compute_output_activation_noise_max_distances) —
+    pooled across every dependency neuron and every origin example in this
+    report, since the per-neuron noise-radius normalization is what makes
+    pooling different neurons' activation scales into one histogram
+    meaningful. A dashed white line at x=0 marks "right at this neuron's own
+    noise ceiling" — mass to the right is firings clearly above their own
+    neuron's noise; mass at/left of it is firings that, relative to their own
+    neuron's noise, look unremarkable. bins is caller-configurable (see
+    report_config.ReportConfig.histogram_bins) since the right resolution
+    depends on how many firings/dep neurons a given report has.
+
+    Two additional solid white lines mark the min and max of distances
+    (the extremes of the pooled distribution), each labeled with its own
+    numeric value — so the plotted range's edges are readable, not just
+    eyeballed off the x-axis. A text annotation in the top corners reports
+    how many pooled values fall below/above the x=0 noise-ceiling line
+    (n<0 / n>0), a coarser, exact-count summary of the same mass-left-vs-
+    mass-right read the dashed line is meant to convey visually.
+    """
+    distances = np.asarray(distances)
+    fig, ax = plt.subplots(figsize=(5.5, 3.2))
+    _style_dark_axis(fig, ax)
+    ax.hist(distances, bins=bins, color=_HIST_COLOR, edgecolor="none")
+    ax.axvline(x=0, color="white", linestyle="--", linewidth=1)
+
+    if len(distances) > 0:
+        dmin, dmax = distances.min(), distances.max()
+        ax.axvline(x=dmin, color="white", linestyle="-", linewidth=1)
+        ax.axvline(x=dmax, color="white", linestyle="-", linewidth=1)
+        ymax = ax.get_ylim()[1]
+        ax.text(dmin, ymax, f"{dmin:.2f}", color="white", ha="left", va="bottom", fontsize=8)
+        ax.text(dmax, ymax, f"{dmax:.2f}", color="white", ha="right", va="bottom", fontsize=8)
+
+        n_below = int((distances < 0).sum())
+        n_above = int((distances > 0).sum())
+        ax.text(
+            0.01, 0.95, f"n<0: {n_below}", color="white", fontsize=8,
+            ha="left", va="top", transform=ax.transAxes,
+        )
+        ax.text(
+            0.99, 0.95, f"n>0: {n_above}", color="white", fontsize=8,
+            ha="right", va="top", transform=ax.transAxes,
+        )
+
+    ax.set_xlabel("distance from noise_max (noise-radius units)", color="white")
+    fig.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, format="jpeg", facecolor=fig.get_facecolor(), pil_kwargs={"quality": 90})
+    plt.close(fig)
+
+
+def save_firing_frequency_histogram_jpeg(ratios, output_path, bins=20, total_neurons=None):
+    """
+    Report-level histogram of firing frequency: one value per "frequent" dep
+    neuron (firing_count / total_examples, see
+    report_stats.compute_firing_frequency_ratios) — how large a share of
+    origin examples each dep neuron actually fired in. Same exclusion as
+    save_output_activation_histogram_jpeg: one_off/outlier neurons (see
+    report_stats.split_dep_order_by_frequency) are never included, since
+    they were already dropped from `frequent` upstream before this is
+    called — kept in sync deliberately, not incidentally.
+
+    total_neurons, if given, is annotated in the bottom-right corner (same
+    convention as save_output_activation_histogram_jpeg) — here it's exactly
+    len(ratios), since this histogram has one entry per neuron rather than
+    one entry per firing.
+    """
+    fig, ax = plt.subplots(figsize=(5.5, 3.2))
+    _style_dark_axis(fig, ax)
+    ax.hist(ratios, bins=bins, color=_HIST_COLOR, edgecolor="none")
+
+    if total_neurons is not None:
+        ax.text(
+            0.99, 0.02, f"n neurons: {total_neurons}", color="white", fontsize=8,
+            ha="right", va="bottom", transform=ax.transAxes,
+        )
+
+    ax.set_xlabel("firing frequency (fraction of examples)", color="white")
+    fig.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, format="jpeg", facecolor=fig.get_facecolor(), pil_kwargs={"quality": 90})
+    plt.close(fig)
 
 
 def save_concentration_sparkline_jpeg(pos_curve, neg_curve, pos_marker, neg_marker, output_path):
@@ -59,13 +148,14 @@ def save_concentration_sparkline_jpeg(pos_curve, neg_curve, pos_marker, neg_mark
     "barely any height" rather than autoscaling to its own tiny range and
     looking full.
 
-    pos_marker/neg_marker: each either None (no line drawn — that sign hasn't
-    appeared yet as of this card's position in dep_order) or a tuple whose
-    first element is rank — used to draw a full-height dark vertical line at
-    that x position; the position is the only thing used here; the
+    pos_marker/neg_marker: each either None (no line drawn — this card's own
+    neuron isn't on that side, see compute_concentration_curves) or a tuple
+    whose first element is rank — used to draw a full-height dark vertical
+    line at that x position; the position is the only thing used here; the
     cumulative-share/delta values in the same tuple are for
     report_render's printed ticker text next to the image, a separate
     calculation unrelated to what's plotted (see compute_concentration_curves).
+    Exactly one of the two is ever non-None for a given card.
     No axis ticks/labels/legend — this is a glanceable sparkline, not a
     standalone chart, meant to sit inline in a card header. Rendered
     oversized relative to its final display size (high dpi) so it stays
@@ -109,15 +199,12 @@ def save_combined_scatter_jpeg(
     (sharey=True, so both read off the same activation-value y-axis):
 
     - Left: noise samples (white) and activation values (red) overlaid, each
-      plotted against its own 0..len(series)-1 x-index (matching the
-      axes[1].scatter(range(len(match.noise)), match.noise) idiom used in
-      NeuronParentAnalyser.plot_clusters), so the two series aren't forced
-      onto a shared x-axis meaning.
+      plotted against its own 0..len(series)-1 x-index, so the two series
+      aren't forced onto a shared x-axis meaning.
     - Right: one scatter series per matched dependency cluster (cluster_points_by_cid
       — sourced from layer_by_channel_by_label_by_points / "ACTS_DICT" via
-      select_cluster_points, the same per-cluster point collection
-      plot_clusters uses for its axes[0], subsampled per cluster) plus one
-      pooled series covering every other (unmatched) cluster this dep neuron
+      select_cluster_points, subsampled per cluster) plus one pooled series
+      covering every other (unmatched) cluster this dep neuron
       has — a dep neuron typically has far more clusters than the ones it
       fired against. Clusters in matched_cids get their own Kelly color and
       their own legend entry (cid=...); every other cluster's points are

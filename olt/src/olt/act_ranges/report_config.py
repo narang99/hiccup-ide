@@ -67,6 +67,7 @@ class ReportConfig:
     pw_samples: Optional[PwSamplesConfig] = None
     feature_viz: Optional[FeatureVizConfig] = None
     cluster_notes: Optional[dict] = None
+    histogram_bins: int = 40  # bin count for the report-level output-activation-vs-noise histogram, see report_assets.dump_output_activation_histogram_asset
 
     def __post_init__(self):
         if self.feature_viz is not None and self.pw_samples is None:

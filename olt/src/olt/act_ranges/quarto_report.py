@@ -2,10 +2,23 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from olt.act_ranges.report_assets import dump_cluster_asset
+from olt.act_ranges.report_assets import (
+    dump_cluster_asset,
+    dump_firing_frequency_histogram_asset,
+    dump_output_activation_histogram_asset,
+)
 from olt.act_ranges.report_card import CardConfig, render_neuron_card
 from olt.act_ranges.report_data import build_report_data
-from olt.act_ranges.report_render import render_notes_summary, render_origin_cluster_header, render_summary
+from olt.act_ranges.report_render import (
+    render_notes_summary,
+    render_origin_cluster_header,
+    render_report_histograms,
+    render_summary,
+)
+from olt.act_ranges.report_stats import (
+    compute_firing_frequency_ratios,
+    compute_output_activation_noise_max_distances,
+)
 
 
 def _render_section(title, keys, data, config, desc):
@@ -32,15 +45,25 @@ def print_report_for_neuron(
     looping this over many clusters/reports (each with its own output_path)
     doesn't spam stdout with every report's full content.
 
-    The report opens with a "# Report: Dependencies of {origin_layer}:{origin_channel}"
-    title and, if origin_cluster_label is given, that cluster's own photo
-    (report_render.render_origin_cluster_header) — origin_layer/origin_channel
-    come from stats_df itself; origin_cluster_label identifies which of that
-    neuron's clusters this report's stats_df was built for (e.g. the
-    LABEL/cluster_label used to filter the input rows passed into
-    collect_cluster_stats_df) and has no other effect — pass None to skip the
-    photo and get just the title. Next is a one-line summary (report_render.render_summary)
-    stating how many dependency neurons were excluded as one-off/low-frequency
+    The report opens with a "# Report: Dependencies of {origin_layer}:{origin_channel}[{origin_cluster_label}]"
+    title (the "[{origin_cluster_label}]" suffix is omitted if
+    origin_cluster_label is None) and, if origin_cluster_label is given, that
+    cluster's own photo (report_render.render_origin_cluster_header) —
+    origin_layer/origin_channel come from stats_df itself; origin_cluster_label
+    identifies which of that neuron's clusters this report's stats_df was
+    built for (e.g. the LABEL/cluster_label used to filter the input rows
+    passed into collect_cluster_stats_df). Next is a side-by-side pair of
+    report-level histograms (report_render.render_report_histograms): the
+    output-activation-vs-noise histogram (report_stats.compute_output_activation_noise_max_distances,
+    config.histogram_bins) — every "frequent" dep neuron's firings pooled
+    into one distribution, expressed in noise-radius units so neurons with
+    different raw activation scales are directly comparable — and the firing-
+    frequency histogram (report_stats.compute_firing_frequency_ratios), one
+    value per "frequent" dep neuron (firing_count / total_examples). Both
+    exclude one-off/low-frequency dep neurons, same population as the cards
+    below. Then a one-line
+    summary (report_render.render_summary) stating how many dependency
+    neurons were excluded as one-off/low-frequency
     firers (see report_stats.split_dep_order_by_frequency) and the firing-count
     threshold used — those neurons are not rendered as cards at all — followed,
     if config.cluster_notes is set, by a collapsible "Cluster notes" callout
@@ -136,12 +159,28 @@ def print_report_for_neuron(
         origin_layer, origin_channel, origin_cluster_label, origin_cluster_photo_ref
     )
 
+    histogram_distances = compute_output_activation_noise_max_distances(
+        stats_df, layer_by_channel_by_noise, data.frequent
+    )
+    activation_histogram_ref_path = f"{assets_ref_dir}/output_activation_histogram.jpeg"
+    dump_output_activation_histogram_asset(assets_dump_dir, histogram_distances, bins=config.histogram_bins)
+
+    firing_frequency_ratios = compute_firing_frequency_ratios(
+        data.firing_counts, data.total_examples, data.frequent
+    )
+    firing_frequency_histogram_ref_path = f"{assets_ref_dir}/firing_frequency_histogram.jpeg"
+    dump_firing_frequency_histogram_asset(assets_dump_dir, firing_frequency_ratios, bins=config.histogram_bins)
+
+    histogram_section = render_report_histograms(
+        activation_histogram_ref_path, firing_frequency_histogram_ref_path
+    )
+
     summary = render_summary(len(data.one_off), data.one_off_threshold, data.total_examples)
     notes_summary = render_notes_summary(config.cluster_notes)
     frequent_section = _render_section(
         "Frequently firing", data.frequent, data, card_config, "Frequently firing cards"
     )
-    sections = [s for s in (origin_header, summary, notes_summary, frequent_section) if s]
+    sections = [s for s in (origin_header, histogram_section, summary, notes_summary, frequent_section) if s]
     content = "\n\n".join(sections)
     if output_path is not None:
         Path(output_path).write_text(content)

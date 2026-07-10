@@ -23,12 +23,15 @@ see _DEP_LAYER_HOOK_SOURCE below, which covers all four mixed4d branches.
 """
 
 import torch.nn.functional as F
+from lucent.optvis import objectives, param, render
 from PIL import Image, ImageDraw
 from tqdm import tqdm
 
-from lucent.optvis import objectives, param, render
-
-from olt.act_ranges.layer_utils import get_layer_params, receptive_block
+from olt.act_ranges.layer_utils import (
+    ReceptiveFieldOutOfBounds,
+    get_layer_params,
+    receptive_block,
+)
 
 
 def _pad_zero(pad):
@@ -73,7 +76,17 @@ SUPPORTED_DEP_LAYER_NAMES = frozenset(_DEP_LAYER_HOOK_SOURCE.keys())
 
 
 @objectives.wrap_objective()
-def _pw_objective(hook_layer_name, prep_fn, dep_weight, pw, position, ksize, stride, padding, batch=None):
+def _pw_objective(
+    hook_layer_name,
+    prep_fn,
+    dep_weight,
+    pw,
+    position,
+    ksize,
+    stride,
+    padding,
+    batch=None,
+):
     """One render_vis call's objective: drives the image parameterization so
     that dep_layer_name's own pointwise-multiplication response at `position`
     matches `pw` (a single wild sample's dep_w * dep_patch)."""
@@ -83,8 +96,12 @@ def _pw_objective(hook_layer_name, prep_fn, dep_weight, pw, position, ksize, str
         o = model(hook_layer_name)
         if prep_fn is not None:
             o = prep_fn(o)
-        y0, y1 = receptive_block(position[0], ksize[0], stride[0], padding[0])
-        x0, x1 = receptive_block(position[1], ksize[1], stride[1], padding[1])
+        y0, y1 = receptive_block(
+            position[0], ksize[0], stride[0], padding[0], input_size=o.shape[-2]
+        )
+        x0, x1 = receptive_block(
+            position[1], ksize[1], stride[1], padding[1], input_size=o.shape[-1]
+        )
         block = o[:1, :, y0:y1, x0:x1].reshape(-1) * dep_weight
         return F.mse_loss(block, pw)
 
@@ -97,13 +114,31 @@ def _dump_path_for(assets_dump_dir, dep_layer_name, dep_channel, dep_cid):
     return neuron_dir / f"featureviz_{dep_cid}.jpeg"
 
 
-def _render_one(model, hook_layer_name, prep_fn, dep_weight, sample, ksize, stride, padding, image_size, thresholds):
+def _render_one(
+    model,
+    hook_layer_name,
+    prep_fn,
+    dep_weight,
+    sample,
+    ksize,
+    stride,
+    padding,
+    image_size,
+    thresholds,
+):
     pw = (sample["dep_w"] * sample["dep_patch"]).reshape(-1)
     position = (sample["dep_y"], sample["dep_x"])
-    objective = _pw_objective(hook_layer_name, prep_fn, dep_weight, pw, position, ksize, stride, padding)
+    objective = _pw_objective(
+        hook_layer_name, prep_fn, dep_weight, pw, position, ksize, stride, padding
+    )
     param_f = lambda: param.image(image_size, batch=1)
     rendered = render.render_vis(
-        model, objective, param_f=param_f, thresholds=thresholds, show_image=False, progress=False
+        model,
+        objective,
+        param_f=param_f,
+        thresholds=thresholds,
+        show_image=False,
+        progress=False,
     )
     return rendered[-1][0]  # [H, W, C] float in [0, 1]; drop the batch dim
 
@@ -122,10 +157,17 @@ def _render_row_jpeg(images, titles, out_path, cell_px=128, pad=4, bg="#141517")
         if image is None:
             cell = Image.new("RGB", (cell_px, cell_px), color=bg)
         else:
-            cell = Image.fromarray((image * 255).astype("uint8")).resize((cell_px, cell_px))
+            cell = Image.fromarray((image * 255).astype("uint8")).resize(
+                (cell_px, cell_px)
+            )
         canvas.paste(cell, (x, 0))
         if titles and titles[i]:
-            draw.text((x + cell_px // 2, cell_px + title_h // 2), titles[i], fill="#ffffff", anchor="mm")
+            draw.text(
+                (x + cell_px // 2, cell_px + title_h // 2),
+                titles[i],
+                fill="#ffffff",
+                anchor="mm",
+            )
     canvas.save(out_path, format="JPEG", quality=95)
 
 
@@ -147,7 +189,11 @@ def dump_feature_viz_asset(
     — so each column reconstructs that one sample's own dep_w * dep_patch
     response, the same wild sample dump_pw_sample_asset's row shows for real
     crops. Columns beyond len(pw_samples) are left blank, so every cluster's
-    row is max_samples wide, matching dump_pw_sample_asset's grid.
+    row is max_samples wide, matching dump_pw_sample_asset's grid. A sample
+    whose receptive field falls outside dep_layer_name's own hooked tensor
+    (layer_utils.ReceptiveFieldOutOfBounds — a boundary position, not
+    expected for the one current_layer this module supports) is left blank
+    the same way, rather than failing the whole cluster's row.
 
     Expensive (max_samples full gradient-based optimization loops), so
     deliberately cached like dump_cluster_asset/dump_pw_sample_asset: if the
@@ -184,14 +230,29 @@ def dump_feature_viz_asset(
     samples = pw_samples[:max_samples]
     images, titles = [], []
     for i in range(max_samples):
+        image, title = None, None
         if i < len(samples):
-            images.append(
-                _render_one(model, hook_layer_name, prep_fn, dep_weight, samples[i], ksize, stride, padding, image_size, thresholds)
-            )
-            titles.append(f"fv #{i + 1}")
-        else:
-            images.append(None)
-            titles.append(None)
+            try:
+                image = _render_one(
+                    model,
+                    hook_layer_name,
+                    prep_fn,
+                    dep_weight,
+                    samples[i],
+                    ksize,
+                    stride,
+                    padding,
+                    image_size,
+                    thresholds,
+                )
+                title = f"fv #{i + 1}"
+            except ReceptiveFieldOutOfBounds as e:
+                print(
+                    f"WARN: skipping feature-viz sample #{i + 1} for {dep_layer_name}:{dep_channel} "
+                    f"cid={dep_cid}: {e}"
+                )
+        images.append(image)
+        titles.append(title)
 
     _render_row_jpeg(images, titles, dump_path)
     return dump_path
@@ -225,7 +286,11 @@ def dump_feature_viz_assets(
     """
     results = {}
     for c in tqdm(clusters, desc="Feature-viz clusters"):
-        dep_layer_name, dep_channel, dep_cid = c["dep_layer_name"], c["dep_channel"], c["dep_cid"]
+        dep_layer_name, dep_channel, dep_cid = (
+            c["dep_layer_name"],
+            c["dep_channel"],
+            c["dep_cid"],
+        )
         dump_path = dump_feature_viz_asset(
             assets_dump_dir,
             model,
