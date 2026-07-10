@@ -88,6 +88,53 @@ def dedupe_to_one_origin_per_image(stats_df):
     return stats_df.merge(first_origin_per_image, on=["input_image_key", "origin_y", "origin_x"])
 
 
+def compute_per_image_shares(deduped_stats_df, image_act_sums):
+    """
+    For each row in deduped_stats_df (one firing per dep neuron per image, see
+    dedupe_to_one_origin_per_image), computes that neuron's output_activation as a
+    share of the image's total (output_activation / image_act_sums[input_image_key],
+    see compute_image_act_sums) — the same per-image share render_image_tab_body's
+    bar shows for one image, collected here across every image so
+    compute_relative_strength_median_per_image_share can take a median over them.
+
+    Returns dict[(dep_layer, dep_channel), list[float]], one share per image the
+    neuron fired in.
+    """
+    shares_by_dep = {}
+    for _, row in deduped_stats_df.iterrows():
+        act_sum = image_act_sums[row["input_image_key"]]
+        share = row["output_activation"] / act_sum if act_sum != 0 else 0.0
+        shares_by_dep.setdefault((row["dep_layer"], row["dep_channel"]), []).append(share)
+    return shares_by_dep
+
+
+def compute_relative_strength_median_sum(key, medians, median_sum):
+    """
+    Overview relative-strength method A ("share of the median"): this dep neuron's
+    median output_activation (across every firing in stats_df, see `medians` in
+    print_report_for_neuron) as a fraction of median_sum (the sum of every dep
+    neuron's median output_activation for this origin neuron). Swappable with
+    compute_relative_strength_median_per_image_share via print_report_for_neuron's
+    relative_strength_method param — this one first sums then divides, the other
+    first divides (per image) then takes a median, and the two can disagree when a
+    neuron's activation or the image's total varies a lot across images.
+    """
+    return medians[key] / median_sum if median_sum != 0 else 0.0
+
+
+def compute_relative_strength_median_per_image_share(key, per_image_shares):
+    """
+    Overview relative-strength method B ("median of the shares"): median, across
+    every image this dep neuron fired in, of its per-image share of that image's
+    total output_activation (see compute_per_image_shares) — i.e. the same quantity
+    render_image_tab_body's per-image bar shows, aggregated with a median instead of
+    picking one image's tab. Swappable with compute_relative_strength_median_sum via
+    print_report_for_neuron's relative_strength_method param.
+    """
+    shares = per_image_shares.get(key, [])
+    return float(np.median(shares)) if shares else 0.0
+
+
 def compute_dep_order(stats_df):
     """
     Unique (dep_layer, dep_channel) pairs across the whole stats_df, ordered by

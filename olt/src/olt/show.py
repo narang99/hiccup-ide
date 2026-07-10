@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -31,6 +32,30 @@ def show_single_channel_red_green_black(
         images, figsize, ncols, axis, viztype, mode, suptitle, ax_titles
     )
     return axs
+
+
+def save_single_channel_red_green_black(
+    images,
+    output_path,
+    figsize=None,
+    ncols=2,
+    axis="on",
+    viztype="global",
+    mode="dark",
+    suptitle="",
+    ax_titles=None,
+):
+    """Headless sibling of show_single_channel_red_green_black: savefig + close
+    instead of returning axes, for dumping report assets rather than notebook display."""
+    if len(images) == 1:
+        ncols = 1
+    fig, _, _ = _plot_single_channel_red_green_black(
+        images, figsize, ncols, axis, viztype, mode, suptitle, ax_titles
+    )
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, facecolor=fig.get_facecolor())
+    plt.close(fig)
 
 
 def _plot_single_channel_red_green_black(

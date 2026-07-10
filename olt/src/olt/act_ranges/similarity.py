@@ -25,15 +25,26 @@ def min_euclidean_distance(batch_tensor, ref_tensor):
     return dists.min()
 
 
+def _load_cid_by_patches(layer_name, channel, cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR):
+    # dict[cid, shape[b, ip-c, k, k]]
+    return torch.load(
+        cluster_patch_set_dir / layer_name / str(channel) / "cid_by_patches.pt",
+        weights_only=False,
+    )
+
+
+def load_cluster_patches(layer_name, channel, cid, cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR):
+    """The stored patch population (shape [B, C, K, K]) for one cluster, e.g. for
+    rendering it against a wild pointwise-multiplication sample at report time."""
+    cid_by_patches = _load_cid_by_patches(layer_name, channel, cluster_patch_set_dir)
+    return cid_by_patches[cid]
+
+
 def closest_pw(
     patch, w, layer_name, channel, cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR
 ):
     # get the neuron's acts first
-    # dict[cid, shape[b, ip-c, k, k]]
-    cid_by_patches = torch.load(
-        cluster_patch_set_dir / layer_name / str(channel) / "cid_by_patches.pt",
-        weights_only=False,
-    )
+    cid_by_patches = _load_cid_by_patches(layer_name, channel, cluster_patch_set_dir)
     cid_by_sim = {}
     for cid, patches in cid_by_patches.items():
         # multiply weight for pw similarity
@@ -49,6 +60,21 @@ def closest_pw(
             max_sim = sim
             best_cid = cid
     return best_cid, max_sim, cid_by_patches[best_cid]
+
+
+def closest_patch_index(w, patches, patch):
+    """Index into patches (shape [B, C, K, K], one cluster's stored patch
+    population) whose w-weighted cosine similarity to patch (a single [C, K, K]
+    sample, itself weighted by w) is highest — the per-sample nearest neighbor
+    within an already-matched cluster, e.g. for pairing each wild
+    pointwise-multiplication sample with its own closest cluster member at
+    report time (see report_assets.dump_pw_sample_asset). Unlike closest_pw,
+    which picks the best-matching cluster (best_cid) across all clusters, this
+    picks the best-matching patch within one already-chosen cluster's population."""
+    x = (w * patches).reshape(patches.shape[0], -1)
+    r = (w * patch).reshape(1, -1)
+    sims = F.cosine_similarity(x, r, dim=1)
+    return int(sims.argmax())
 
 
 def get_neuron_closest_cluster(

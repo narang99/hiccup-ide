@@ -2,22 +2,15 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from olt.act_ranges.report_assets import dump_cluster_asset, dump_overview_assets
-from olt.act_ranges.report_render import (
-    render_image_tab_body,
-    render_image_tab_placeholder_body,
-    render_neuron_tabset_card,
-    render_overview_tab_body,
-)
-from olt.act_ranges.report_stats import (
-    check_same_sign,
-    compute_cluster_breakdown,
-    compute_dep_order,
-    compute_firing_stats,
-    compute_image_act_sums,
-    dedupe_to_one_origin_per_image,
-    split_dep_order_by_frequency,
-)
+from olt.act_ranges.report_card import CardConfig, render_neuron_card
+from olt.act_ranges.report_data import build_report_data
+
+
+def _render_section(title, keys, data, config, desc):
+    if not keys:
+        return None
+    cards = "\n\n".join(render_neuron_card(*key, data, config) for key in tqdm(keys, desc=desc))
+    return f"## {title}\n\n{cards}"
 
 
 def print_report_for_neuron(
@@ -27,22 +20,20 @@ def print_report_for_neuron(
     assets_ref_dir,
     layer_by_channel_by_noise,
     layer_by_channel_by_label_by_points,
-    max_input_keys,
-    max_points_per_cluster=50,
-    outlier_ratio_threshold=0.1,
+    config,
     output_path=None,
 ):
     """
     Prints the full Quarto markdown to stdout — copy it into a .qmd file to
     render/test. If output_path is given, also writes it there.
 
-    The report is one card per dependency neuron (see compute_dep_order for
-    ordering), split into "Frequently firing" and "One-off / low frequency"
-    sections (see split_dep_order_by_frequency). Each card holds its own
-    panel-tabset (render_neuron_tabset_card): an "Overview" tab (median-activation
+    The report is one card per dependency neuron (see report_stats.compute_dep_order
+    for ordering), split into "Frequently firing" and "One-off / low frequency"
+    sections (see report_stats.split_dep_order_by_frequency). Each card holds its own
+    panel-tabset (report_render.render_neuron_tabset_card): an "Overview" tab (median-activation
     bar + combined activation/noise scatter plot, aggregated across every row of
-    stats_df regardless of max_input_keys or per-image dedup) as the default tab,
-    followed by one tab per input image (labelled by index rather than the
+    stats_df regardless of config.max_input_keys or per-image dedup) as the default
+    tab, followed by one tab per input image (labelled by index rather than the
     potentially long/unwieldy input_image_key), showing that neuron's per-image
     relative-strength bar and cluster heatmap, or a "Did not fire" placeholder.
     Scoping the tabset to each card (rather than one tabset for the whole page)
@@ -52,8 +43,8 @@ def print_report_for_neuron(
     stats_df: the concatenation of NeuronParentAnalyser.collect_cluster_stats_df
     outputs across multiple input images, for a single neuron — must have exactly
     one (origin_layer, origin_channel) pair and an "input_image_key" column.
-    Only the first `max_input_keys` distinct input_image_key values (in the order
-    they first appear) get their own tab, even if stats_df has more.
+    Only the first `config.max_input_keys` distinct input_image_key values (in the
+    order they first appear) get their own tab, even if stats_df has more.
 
     layer_by_channel_by_noise: same dict passed into NeuronParentAnalyser, used
     for the Overview tab's raw noise-sample scatter plots.
@@ -61,119 +52,66 @@ def print_report_for_neuron(
     NeuronParentAnalyser as layer_by_channel_by_label_by_points (aka "ACTS_DICT"
     in the exploration notebooks) — every cluster's full activation
     population, used for the Overview tab's per-cluster scatter (see
-    select_cluster_points, save_combined_scatter_png).
-    max_points_per_cluster: cap on how many points from each cluster's
-    population get plotted in the Overview tab's per-cluster scatter (see
-    select_cluster_points) — clusters can otherwise hold far more points than
-    is legible or fast to render.
-    outlier_ratio_threshold: a matched cluster whose firing share falls below
-    this (see compute_cluster_breakdown's is_outlier) is flagged red in the
-    "Firing by cluster" breakdown and excluded from the per-cluster scatter's
-    matched/Kelly-colored set (folded into "unmatched" there instead) — too
-    small a share of firings to call a real match.
+    report_stats.select_cluster_points, plotting.save_combined_scatter_png).
+
+    config: report_config.ReportConfig — every tunable and feature toggle for
+    this report:
+    - max_input_keys: how many distinct input images get their own tab (see above).
+    - max_points_per_cluster: cap on how many points from each cluster's
+      population get plotted in the Overview tab's per-cluster scatter (see
+      report_stats.select_cluster_points) — clusters can otherwise hold far
+      more points than is legible or fast to render.
+    - outlier_ratio_threshold: a matched cluster whose firing share falls below
+      this (see report_stats.compute_cluster_breakdown's is_outlier) is flagged
+      red in the "Firing by cluster" breakdown and excluded from the per-cluster
+      scatter's matched/Kelly-colored set (folded into "unmatched" there instead)
+      — too small a share of firings to call a real match.
+    - relative_strength_method: which calculation feeds each card's Overview
+      activation-strength bar — "median_sum" (report_stats.compute_relative_strength_median_sum,
+      default: this neuron's median output_activation as a fraction of the sum
+      of every dep neuron's median) or "median_per_image_share"
+      (report_stats.compute_relative_strength_median_per_image_share: median,
+      across images, of this neuron's own per-image share). The two are
+      interchangeable; swap this to compare them without touching the rest of
+      the report.
+    - pw_samples: report_config.PwSamplesConfig, or None to skip the
+      pointwise-multiplication-sample section for every cluster entirely. When
+      set, up to pw_samples.max_samples wild samples per matched cluster are
+      rendered, each paired with its own closest match from that cluster's
+      population (see report_assets.dump_pw_sample_asset).
+    - feature_viz: report_config.FeatureVizConfig, or None to skip feature-viz
+      entirely (each wild sample is its own gradient-based optimization loop,
+      so this can be slow). Requires pw_samples to be set — see
+      ReportConfig.__post_init__. When set, every matched (non-outlier)
+      cluster across every card that has pw_samples and a dep_layer_name in
+      feature_viz.SUPPORTED_DEP_LAYER_NAMES gets a feature-viz reconstruction
+      (see feature_viz.dump_feature_viz_assets) of its wild
+      pointwise-multiplication samples — one render_vis call per sample (not
+      jointly optimized), added as an extra row alongside
+      dump_pw_sample_asset's wild/match grid. FeatureVizConfig.neurons can
+      narrow this to a specific set of (dep_layer_name, dep_channel) pairs
+      instead of every matched cluster, to bound the cost on a report with
+      many dependency neurons. Collected across the *whole* report via
+      report_data.build_report_data rather than resolved per-card.
     """
-    origin_layers = stats_df["origin_layer"].unique()
-    origin_channels = stats_df["origin_channel"].unique()
-    if len(origin_layers) != 1 or len(origin_channels) != 1:
-        raise ValueError(
-            "stats_df must contain exactly one (origin_layer, origin_channel) pair, got "
-            f"origin_layers={list(origin_layers)}, origin_channels={list(origin_channels)}"
-        )
-    dep_order = compute_dep_order(stats_df)
-    deduped_stats_df = dedupe_to_one_origin_per_image(stats_df)
-    image_keys = deduped_stats_df["input_image_key"].unique()[:max_input_keys]
+    data = build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config)
+    card_config = CardConfig(
+        base_report_dir=base_report_dir,
+        assets_dump_dir=assets_dump_dir,
+        assets_ref_dir=assets_ref_dir,
+        layer_by_channel_by_noise=layer_by_channel_by_noise,
+        layer_by_channel_by_label_by_points=layer_by_channel_by_label_by_points,
+        report=config,
+    )
 
-    full_groups = stats_df.groupby(["dep_layer", "dep_channel"])
-    groups = full_groups["output_activation"]
-    medians = {key: groups.get_group(key).median() for key in dep_order}
-    check_same_sign(medians.values())
-    median_sum = sum(medians.values())
-
-    firing_counts, total_examples = compute_firing_stats(stats_df)
-    frequent, one_off = split_dep_order_by_frequency(dep_order, firing_counts, total_examples)
-
-    image_act_sums = compute_image_act_sums(deduped_stats_df)
-    row_by_dep_and_image = {
-        (row["dep_layer"], row["dep_channel"], row["input_image_key"]): row
-        for _, row in deduped_stats_df.iterrows()
-    }
-
-    def render_card(dep_layer_name, dep_channel):
-        dep_full_rows = full_groups.get_group((dep_layer_name, dep_channel))
-        median_output_activation = medians[(dep_layer_name, dep_channel)]
-        overview_relative_strength = (
-            median_output_activation / median_sum if median_sum != 0 else 0.0
+    sections = [
+        s
+        for s in (
+            _render_section("Frequently firing", data.frequent, data, card_config, "Frequently firing cards"),
+            _render_section("One-off / low frequency", data.one_off, data, card_config, "One-off / low frequency cards"),
         )
-        noise_samples = layer_by_channel_by_noise.get(dep_layer_name, {}).get(
-            str(dep_channel), []
-        )
-        label_by_points = layer_by_channel_by_label_by_points.get(dep_layer_name, {}).get(
-            str(dep_channel), {}
-        )
-        cluster_stats = compute_cluster_breakdown(dep_full_rows, outlier_ratio_threshold)
-        matched_cids = {row["dep_cid"] for row in cluster_stats if not row["is_outlier"]}
-        dump_overview_assets(
-            assets_dump_dir,
-            dep_layer_name,
-            dep_channel,
-            dep_full_rows,
-            noise_samples,
-            label_by_points,
-            matched_cids,
-            max_points_per_cluster,
-        )
-        scatter_ref_path = (
-            f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
-        )
-        overview_body = render_overview_tab_body(
-            overview_relative_strength,
-            median_output_activation,
-            scatter_ref_path,
-            firing_counts.get((dep_layer_name, dep_channel), 0),
-            total_examples,
-            cluster_stats,
-        )
-
-        image_tabs = []
-        for i, image_key in enumerate(image_keys):
-            row = row_by_dep_and_image.get((dep_layer_name, dep_channel, image_key))
-            dump_path = None
-            if row is not None:
-                dump_path = dump_cluster_asset(
-                    assets_dump_dir, base_report_dir, dep_layer_name, dep_channel, row["dep_cid"]
-                )
-            if row is None or dump_path is None:
-                image_tabs.append((i, render_image_tab_placeholder_body()))
-                continue
-
-            act_sum = image_act_sums[image_key]
-            relative_strength = row["output_activation"] / act_sum if act_sum != 0 else 0.0
-            ref_path = f"{assets_ref_dir}/{dep_layer_name}/{dep_channel}/cluster_{row['dep_cid']}.jpeg"
-            image_tabs.append((
-                i,
-                render_image_tab_body(
-                    row["dep_cid"],
-                    row["noise_distance"],
-                    row["output_activation"],
-                    row["similarity"],
-                    ref_path,
-                    relative_strength,
-                ),
-            ))
-
-        return render_neuron_tabset_card(dep_layer_name, dep_channel, overview_body, image_tabs)
-
-    sections = []
-    if frequent:
-        cards = "\n\n".join(
-            render_card(*key) for key in tqdm(frequent, desc="Frequently firing cards")
-        )
-        sections.append(f"## Frequently firing\n\n{cards}")
-    if one_off:
-        cards = "\n\n".join(
-            render_card(*key) for key in tqdm(one_off, desc="One-off / low frequency cards")
-        )
-        sections.append(f"## One-off / low frequency\n\n{cards}")
+        if s is not None
+    ]
     content = "\n\n".join(sections)
     print(content)
     if output_path is not None:

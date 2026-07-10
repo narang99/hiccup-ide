@@ -1,48 +1,59 @@
-from dataclasses import dataclass
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from PIL import Image
 
 from olt.act import InputOutputModelSnapshot
-from olt.act_ranges.constants import (
-    KELLY_COLORS,
-    LAYER_NAME_BY_SHAPE,
-    UNSUPPORTED_CURRENT_LAYERS,
-)
+from olt.act_ranges.constants import UNSUPPORTED_CURRENT_LAYERS
+from olt.act_ranges.dependency_match import DependencyMatch
+from olt.act_ranges.interactive_plots import show_cluster_match
 from olt.act_ranges.layer_utils import get_layer_params, receptive_block
-from olt.act_ranges.reports import get_cluster_photo
 from olt.act_ranges.similarity import get_neuron_closest_cluster
-from olt.act_ranges.stats import (
-    get_labels_above_noise_range,
-    get_noise_range,
-    indices_for_percentage,
-    shorth,
-)
-from olt.show import show_single_channel_red_green_black as S
+from olt.act_ranges.stats import get_noise_range, indices_for_percentage, shorth
 from olt.tfms import transform
 
 
-@dataclass
-class DependencyMatch:
-    """Everything resolved about a dependency-layer neuron at (dep_layer, dep_channel, dep_y, dep_x)."""
+def _scalar(value):
+    return value.item() if hasattr(value, "item") else value
 
-    dep_layer_name: str
-    dep_channel: int
-    dep_y: int
-    dep_x: int
-    best_cid: int
-    best_sim: object
-    dep_patch: object
-    best_patches: object
-    dep_w: object
-    noise: object
-    label_by_points: dict
-    ratio: float
-    point_dist: object
-    op_act: object
+
+def _stats_row(current_layer_name, current_channel, y, x, kind, dep_layer_name, dep_channel, match, cluster_dist):
+    cluster_min, cluster_med, cluster_max = cluster_dist
+    return {
+        "origin_layer": current_layer_name,
+        "origin_channel": current_channel,
+        "origin_y": y,
+        "origin_x": x,
+        "similarity": _scalar(match.best_sim),
+        "noise_distance": _scalar(match.point_dist),
+        "output_activation": _scalar(match.op_act),
+        "above_noise_ratio": match.ratio,
+        "kind": kind,
+        "dep_layer": dep_layer_name,
+        "dep_channel": dep_channel,
+        "dep_cid": match.best_cid,
+        "best_cluster_min": cluster_min,
+        "best_cluster_med": cluster_med,
+        "best_cluster_max": cluster_max,
+    }
+
+
+def _add_pw_sample(pw_samples, dep_layer_name, dep_channel, match, image_key, dep_y, dep_x):
+    cid_samples = (
+        pw_samples.setdefault(dep_layer_name, {})
+        .setdefault(str(dep_channel), {})
+        .setdefault(str(match.best_cid), [])
+    )
+    cid_samples.append(
+        {
+            "dep_patch": match.dep_patch,
+            "dep_w": match.dep_w,
+            "image_key": image_key,
+            "dep_y": dep_y,
+            "dep_x": dep_x,
+        }
+    )
 
 
 class NeuronParentAnalyser:
@@ -88,9 +99,11 @@ class NeuronParentAnalyser:
         self.base_report_dir = base_report_dir
         self.flattened_channel_map = flattened_channel_map
 
-    def get_activations_for_image(self, image_key):
+    def get_activations_for_image(self, image_key, device="cpu"):
         """Run the forward pass for an image; caller passes the result into the other methods."""
-        timg = transform(Image.open(self.flat_image_dir / f"{image_key}.jpeg"))[None]
+        timg = transform(Image.open(self.flat_image_dir / f"{image_key}.jpeg"))[
+            None
+        ].to(device)
         return InputOutputModelSnapshot.get_activations(
             timg, self.model, self.all_layers
         )
@@ -195,7 +208,9 @@ class NeuronParentAnalyser:
         ]
         return self.ratio_for_cluster(label_by_points, noise, best_cid)
 
-    def resolve_dependency_match(self, dep_layer_name, dep_channel, dep_y, dep_x, current_act):
+    def resolve_dependency_match(
+        self, dep_layer_name, dep_channel, dep_y, dep_x, current_act
+    ):
         """
         Shared by plot_clusters and collect_cluster_stats_df: resolves the
         closest cluster, noise stats, and above-noise ratio for a dependency
@@ -214,7 +229,9 @@ class NeuronParentAnalyser:
         point_dist = self.get_activation_distance_from_noise(
             dep_layer_name, dep_channel, dep_y, dep_x, current_act
         )
-        op_act = self.get_activation_value(dep_layer_name, dep_channel, dep_y, dep_x, current_act)
+        op_act = self.get_activation_value(
+            dep_layer_name, dep_channel, dep_y, dep_x, current_act
+        )
 
         return DependencyMatch(
             dep_layer_name=dep_layer_name,
@@ -294,7 +311,6 @@ class NeuronParentAnalyser:
         y0, x0, patch, indices = self.top_contributing_indices(
             y, x, current_act, sum_upto_percent, kind
         )
-        colors = KELLY_COLORS[1:]
 
         for cur_chan, cur_rel_y, cur_rel_x in indices:
             if getattr(filter_fn, "is_full", False):
@@ -312,68 +328,25 @@ class NeuronParentAnalyser:
             if not filter_fn(match.ratio, match.point_dist):
                 continue
 
-            l0 = get_labels_above_noise_range(
-                match.label_by_points,
-                match.noise,
+            show_cluster_match(
+                self.base_report_dir,
+                dep_layer_name,
+                dep_channel,
+                match,
+                patch,
+                cur_chan,
+                cur_rel_y,
+                cur_rel_x,
+                stuff_to_show,
                 max_percent_points_allowed_in_noise_for_one_cluster,
             )
-            labels = list(l0.keys())
-            color_map = {label: colors[i % len(colors)] for i, label in enumerate(labels)}
-
-            print(
-                f"############### {dep_layer_name}:{dep_channel}, {len(labels)}, "
-                f"cid={match.best_cid}, sim={match.best_sim.item()}, "
-                f"ratio={match.ratio:.3f} dist={match.point_dist:.3f}"
-                f"#########################"
-            )
-            if "act_range" in stuff_to_show:
-                _, axes = plt.subplots(1, 2, sharey=True, figsize=(15, 4))
-                for label in labels:
-                    ys = l0[label]
-                    axes[0].scatter(
-                        range(len(ys)), ys, color=color_map[label], label=label
-                    )
-
-                axes[0].axhline(
-                    patch[cur_chan, cur_rel_y, cur_rel_x].item(),
-                    color="white",
-                    linestyle="--",
-                )
-                axes[1].scatter(range(len(match.noise)), match.noise)
-
-                axes[0].legend()
-                plt.show()
-
-            if len(labels) > 0:
-                if "heatmap" in stuff_to_show:
-                    cluster_photo = get_cluster_photo(
-                        self.base_report_dir,
-                        dep_layer_name,
-                        dep_channel,
-                        match.best_cid,
-                        "combined",
-                        crop_max_height=470,
-                    )
-                    if cluster_photo is not None:
-                        plt.imshow(cluster_photo)
-                        plt.show()
-
-                if "pw" in stuff_to_show:
-                    best_pws = [match.dep_w * p for p in match.best_patches[:3]]
-                    dep_pw = match.dep_w * match.dep_patch
-                    all_pws = [dep_pw] + best_pws
-                    all_pws = [
-                        p.reshape(LAYER_NAME_BY_SHAPE[dep_layer_name]) for p in all_pws
-                    ]
-
-                    S(all_pws, 10, 4)
-                    plt.show()
 
     def collect_cluster_stats_df(
         self,
         y,
         x,
         current_act,
+        image_key=None,
         sum_upto_percent=0.9,
         kind="positive",
         csv_path=None,
@@ -383,14 +356,33 @@ class NeuronParentAnalyser:
         Same traversal as plot_clusters, but instead of plotting, collects
         one row per contributing (dep_layer, dep_channel) with: origin
         neuron info, similarity, noise distance, raw output activation,
-        above-noise ratio, kind, dep_layer, dep_channel, dep_cid. Returns a
-        DataFrame; optionally writes/appends to csv_path.
+        above-noise ratio, kind, dep_layer, dep_channel, dep_cid. Returns
+        (df, pw_samples):
+
+        - df: a DataFrame, scalars only (CSV-safe); optionally written/appended
+          to csv_path.
+        - pw_samples: dict[dep_layer_name, dict[str(dep_channel), dict[str(dep_cid),
+          list[{"dep_patch", "dep_w", "image_key", "dep_y", "dep_x"}]]]] — one
+          entry per firing, appended to the list for whichever cluster it
+          matched. dep_patch/dep_w are the raw tensors behind this firing's
+          pointwise-multiplication sample (see similarity.get_neuron_closest_cluster);
+          kept out of df so they never need to survive a CSV round-trip.
+          image_key identifies which input image this firing came from — pass
+          it in so callers merging pw_samples across many images (accumulating
+          into one dict, mirroring how layer_by_channel_by_label_by_points is
+          built up) can tell samples apart. best_patches (the cluster's own
+          patch population) is deliberately NOT stored here — it's identical
+          for every firing sharing a dep_cid, so storing it per-firing would
+          duplicate the whole cluster population once per firing; report-time
+          rendering should load it once per matched cluster instead (see
+          similarity.load_cluster_patches).
         """
         y0, x0, patch, indices = self.top_contributing_indices(
             y, x, current_act, sum_upto_percent, kind
         )
 
         rows = []
+        pw_samples = {}
         for dep_layer_name, dep_channel, dep_y, dep_x in self.iter_dependency_coords(
             y0, x0, indices
         ):
@@ -398,35 +390,23 @@ class NeuronParentAnalyser:
                 dep_layer_name, dep_channel, dep_y, dep_x, current_act
             )
 
-            cluster_min, cluster_med, cluster_max = self.get_cluster_distance_from_noise(
+            cluster_dist = self.get_cluster_distance_from_noise(
                 match.label_by_points[str(match.best_cid)], match.noise
             )
-
             rows.append(
-                {
-                    "origin_layer": self.current_layer_name,
-                    "origin_channel": self.current_channel,
-                    "origin_y": y,
-                    "origin_x": x,
-                    "similarity": match.best_sim.item()
-                    if hasattr(match.best_sim, "item")
-                    else match.best_sim,
-                    "noise_distance": match.point_dist.item()
-                    if hasattr(match.point_dist, "item")
-                    else match.point_dist,
-                    "output_activation": match.op_act.item()
-                    if hasattr(match.op_act, "item")
-                    else match.op_act,
-                    "above_noise_ratio": match.ratio,
-                    "kind": kind,
-                    "dep_layer": dep_layer_name,
-                    "dep_channel": dep_channel,
-                    "dep_cid": match.best_cid,
-                    "best_cluster_min": cluster_min,
-                    "best_cluster_med": cluster_med,
-                    "best_cluster_max": cluster_max,
-                }
+                _stats_row(
+                    self.current_layer_name,
+                    self.current_channel,
+                    y,
+                    x,
+                    kind,
+                    dep_layer_name,
+                    dep_channel,
+                    match,
+                    cluster_dist,
+                )
             )
+            _add_pw_sample(pw_samples, dep_layer_name, dep_channel, match, image_key, dep_y, dep_x)
 
         df = pd.DataFrame(rows)
 
@@ -436,4 +416,4 @@ class NeuronParentAnalyser:
                 csv_path, mode="a" if append else "w", header=write_header, index=False
             )
 
-        return df
+        return df, pw_samples

@@ -1,4 +1,4 @@
-from olt.act_ranges.analyser import DependencyMatch, NeuronParentAnalyser
+from olt.act_ranges.analyser import NeuronParentAnalyser
 from olt.act_ranges.constants import (
     CLUSTER_PATCH_SET_DIR,
     F_PAD_MANUAL_BY_CURRENT_LAYER,
@@ -7,6 +7,7 @@ from olt.act_ranges.constants import (
     MIXED4D_BRANCHES,
     UNSUPPORTED_CURRENT_LAYERS,
 )
+from olt.act_ranges.dependency_match import DependencyMatch
 from olt.act_ranges.filters import NoiseRatioRangeFilter
 from olt.act_ranges.layer_utils import (
     FlattenedChannelMap,
@@ -14,7 +15,9 @@ from olt.act_ranges.layer_utils import (
     receptive_block,
 )
 from olt.act_ranges.plotting import save_combined_scatter_png
+from olt.act_ranges.pw_samples import merge_pw_samples_into
 from olt.act_ranges.quarto_report import print_report_for_neuron
+from olt.act_ranges.report_config import FeatureVizConfig, PwSamplesConfig, ReportConfig
 from olt.act_ranges.report_assets import dump_cluster_asset, dump_overview_assets
 from olt.act_ranges.report_render import (
     render_activation_bar,
@@ -34,6 +37,7 @@ from olt.act_ranges.report_stats import (
 )
 from olt.act_ranges.reports import crop_top, get_cluster_photo
 from olt.act_ranges.similarity import (
+    closest_patch_index,
     closest_pw,
     get_neuron_closest_cluster,
     mean_cosine_similarity,
@@ -63,6 +67,7 @@ __all__ = [
     "mean_cosine_similarity",
     "min_euclidean_distance",
     "closest_pw",
+    "closest_patch_index",
     "get_neuron_closest_cluster",
     "get_cluster_photo",
     "crop_top",
@@ -85,4 +90,8 @@ __all__ = [
     "NoiseRatioRangeFilter",
     "NeuronParentAnalyser",
     "DependencyMatch",
+    "merge_pw_samples_into",
+    "ReportConfig",
+    "PwSamplesConfig",
+    "FeatureVizConfig",
 ]

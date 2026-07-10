@@ -21,7 +21,34 @@ def render_activation_bar(relative_strength, output_activation):
     )
 
 
-def render_cluster_breakdown(cluster_stats):
+def render_frequency_bar(firing_count, total_examples):
+    """
+    A thin progress bar showing how often this dep neuron fired: firing_count out
+    of total_examples origin instances (see compute_firing_stats). Same visual
+    style as render_activation_bar, but neutral blue (bg-info) throughout since
+    firing frequency isn't signed the way output_activation is. A grayed
+    "{percent}% | fired {count}/{total}" label sits to the right.
+    """
+    ratio = firing_count / total_examples if total_examples else 0.0
+    width_pct = ratio * 100
+    label = f"{ratio * 100:.0f}% | fired {firing_count}/{total_examples}"
+    return (
+        f'<div class="d-flex align-items-center gap-2">'
+        f'<div class="progress flex-grow-1" style="height: 6px;" role="progressbar" '
+        f'aria-valuenow="{width_pct:.0f}" aria-valuemin="0" aria-valuemax="100">'
+        f'<div class="progress-bar bg-info" style="width: {width_pct:.0f}%;"></div>'
+        f"</div>"
+        f'<span class="text-body-secondary small">{label}</span>'
+        f"</div>"
+    )
+
+
+def render_cluster_breakdown(
+    cluster_stats,
+    cluster_photo_ref_by_cid=None,
+    pw_sample_ref_by_cid=None,
+    feature_viz_ref_by_cid=None,
+):
     """
     Below the Overview scatter: one thin bar per dependency cluster (dep_cid) this
     neuron's firings were matched to (see compute_cluster_breakdown), ordered by
@@ -38,9 +65,35 @@ def render_cluster_breakdown(cluster_stats):
     score (how tightly, on average, firings landing in that cluster matched it)
     so both "which cluster does this neuron mostly fire with" and "how
     confidently" are visible at a glance without a separate table.
+
+    Each bar is followed by a single collapsed `<details>` section (closed by
+    default, so it doesn't blow up page length across every card/cluster at
+    once) titled "show cluster photo", revealing on expand the cluster's
+    heatmap photo followed by up to 5 "wild" pointwise-multiplication samples
+    for this cluster (real firings that matched it), each paired with its own
+    closest match from the cluster itself — see dump_pw_sample_asset.
+    cluster_photo_ref_by_cid: dict[dep_cid, ref_path]
+    (ref_path relative to the .qmd, as used elsewhere for image markdown, e.g.
+    dump_cluster_asset's output path rebased under assets_ref_dir) — a cluster
+    missing from this dict (photo unavailable, typically a singleton cluster
+    built from only one image, see get_cluster_photo) gets an explanatory
+    placeholder in place of the photo. pw_sample_ref_by_cid: dict[dep_cid,
+    ref_path], same ref_path convention; a cluster missing from this dict (no
+    firing recorded a sample for it, e.g. its only firings came from a
+    stats_df built without pw_samples) simply omits the pointwise-
+    multiplication image, with no placeholder needed. feature_viz_ref_by_cid:
+    dict[dep_cid, ref_path], same ref_path convention — see
+    feature_viz.dump_feature_viz_assets; a cluster missing from this dict
+    (print_report_for_neuron was called without `model`, or this cluster's
+    dep_layer_name isn't in feature_viz.SUPPORTED_DEP_LAYER_NAMES) simply omits
+    the row, same as pw_sample_ref_by_cid. The `<details>` is omitted entirely
+    only when none of a photo, pw sample, or feature-viz image is available.
     """
     if not cluster_stats:
         return ""
+    cluster_photo_ref_by_cid = cluster_photo_ref_by_cid or {}
+    pw_sample_ref_by_cid = pw_sample_ref_by_cid or {}
+    feature_viz_ref_by_cid = feature_viz_ref_by_cid or {}
     bars = []
     for row in cluster_stats:
         width_pct = row["ratio"] * 100
@@ -51,16 +104,49 @@ def render_cluster_breakdown(cluster_stats):
         )
         if row["is_outlier"]:
             label += " · outlier"
+        ref_path = cluster_photo_ref_by_cid.get(row["dep_cid"])
+        pw_ref_path = pw_sample_ref_by_cid.get(row["dep_cid"])
+        feature_viz_ref_path = feature_viz_ref_by_cid.get(row["dep_cid"])
+        if ref_path is None and pw_ref_path is None and feature_viz_ref_path is None:
+            details = (
+                '<span class="text-body-secondary small">no cluster photo — this cluster was '
+                "built from samples in only a single image, so its combined photo wasn't "
+                "generated</span>"
+            )
+        else:
+            if ref_path is not None:
+                body = f"![cid={row['dep_cid']}]({ref_path})\n\n"
+            else:
+                body = (
+                    '<span class="text-body-secondary small">no cluster photo — this cluster was '
+                    "built from samples in only a single image, so its combined photo wasn't "
+                    "generated</span>\n\n"
+                )
+            if pw_ref_path is not None:
+                body += (
+                    f"![cid={row['dep_cid']} wild samples vs. each one's closest cluster match]({pw_ref_path})\n\n"
+                )
+            if feature_viz_ref_path is not None:
+                body += (
+                    f"![cid={row['dep_cid']} feature-viz reconstruction of the wild samples above]"
+                    f"({feature_viz_ref_path})\n\n"
+                )
+            details = (
+                "<details><summary class=\"text-body-secondary small\">show cluster photo</summary>\n\n"
+                f"{body}"
+                "</details>"
+            )
         bars.append(
+            '<div class="mb-2">'
             '<div class="d-flex align-items-center gap-2 mb-1">'
             f'<div class="progress flex-grow-1" style="height: 6px;" role="progressbar" '
             f'aria-valuenow="{width_pct:.0f}" aria-valuemin="0" aria-valuemax="100">'
             f'<div class="progress-bar {color_class}" style="width: {width_pct:.0f}%;"></div>'
             f"</div>"
             f'<span class="text-body-secondary small">{label}</span>'
-            f"</div>"
+            f"</div>\n\n{details}\n\n</div>"
         )
-    return '<div class="text-body-secondary small mb-1">Firing by cluster</div>' + "".join(bars)
+    return '<div class="text-body-secondary small mb-1">Firing by cluster</div>' + "\n\n".join(bars)
 
 
 def render_overview_tab_body(
@@ -70,19 +156,26 @@ def render_overview_tab_body(
     firing_count,
     total_examples,
     cluster_stats,
+    cluster_photo_ref_by_cid=None,
+    pw_sample_ref_by_cid=None,
+    feature_viz_ref_by_cid=None,
 ):
     """Content of a neuron card's "Overview" tab (the default tab, see
-    render_neuron_tabset_card): median-activation bar + combined activation/noise
-    scatter plot + a firing-ratio caption + a per-cluster firing breakdown (see
-    render_cluster_breakdown). No card/heading wrapper — the card and its
-    "### Overview" tab heading are added by render_neuron_tabset_card."""
-    bar = render_activation_bar(relative_strength, median_output_activation)
-    firing_ratio = firing_count / total_examples if total_examples else 0.0
-    caption = f"fired in {firing_count}/{total_examples} examples ({firing_ratio:.0%})"
-    breakdown = render_cluster_breakdown(cluster_stats)
+    render_neuron_tabset_card): an activation-strength bar + a firing-frequency
+    bar (render_frequency_bar) + combined activation/noise scatter plot + a
+    per-cluster firing breakdown (see render_cluster_breakdown), each with a
+    single collapsed section showing the cluster photo followed by a
+    pointwise-multiplication sample, if available. No card/heading wrapper —
+    the card and its "### Overview" tab heading are added by
+    render_neuron_tabset_card."""
+    activation_bar = render_activation_bar(relative_strength, median_output_activation)
+    frequency_bar = render_frequency_bar(firing_count, total_examples)
+    breakdown = render_cluster_breakdown(
+        cluster_stats, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid
+    )
     return (
-        f"{bar}\n\n"
-        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n{caption}\n\n"
+        f"{activation_bar}\n\n{frequency_bar}\n\n"
+        f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n"
         f"{breakdown}"
     )
 
