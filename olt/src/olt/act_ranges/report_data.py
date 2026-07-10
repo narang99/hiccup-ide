@@ -13,7 +13,7 @@ from olt.act_ranges.report_stats import (
     compute_cluster_breakdown,
     compute_dep_order,
     compute_firing_stats,
-    compute_image_act_sums,
+    compute_image_contribution_sums,
     compute_per_image_shares,
     dedupe_to_one_origin_per_image,
     split_dep_order_by_frequency,
@@ -24,8 +24,8 @@ from olt.act_ranges.report_stats import (
 class ReportData:
     """Everything computed once per report (not per-card) that render_neuron_card needs."""
 
+    kind: str
     dep_order: list
-    image_keys: list
     full_groups: object
     medians: dict
     median_sum: float
@@ -33,8 +33,7 @@ class ReportData:
     total_examples: int
     frequent: list
     one_off: list
-    image_act_sums: dict
-    row_by_dep_and_image: dict
+    image_contribution_sums: dict
     per_image_shares: dict
     cluster_stats_by_key: dict
     feature_viz_ref_by_key: dict
@@ -48,6 +47,20 @@ def _validate_single_origin(stats_df):
             "stats_df must contain exactly one (origin_layer, origin_channel) pair, got "
             f"origin_layers={list(origin_layers)}, origin_channels={list(origin_channels)}"
         )
+
+
+def _validate_single_kind(stats_df):
+    """stats_df's "kind" column (see analyser.collect_cluster_stats_df) records
+    which pw-contribution sign each row's dep neuron was selected for — a whole
+    report is built from rows collected under one kind, so bar coloring
+    (render_contribution_bar) can key off it directly instead of re-deriving
+    sign from each row's own contribution."""
+    kinds = stats_df["kind"].unique()
+    if len(kinds) != 1:
+        raise ValueError(
+            f'stats_df must contain exactly one "kind" value, got kinds={list(kinds)}'
+        )
+    return kinds[0]
 
 
 def _collect_feature_viz_clusters(cluster_stats_by_key, layer_by_channel_by_cid_by_pw_samples, neurons=None):
@@ -105,13 +118,13 @@ def _build_feature_viz_refs(assets_dump_dir, assets_ref_dir, cluster_stats_by_ke
 
 def build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config):
     _validate_single_origin(stats_df)
+    kind = _validate_single_kind(stats_df)
 
     dep_order = compute_dep_order(stats_df)
     deduped_stats_df = dedupe_to_one_origin_per_image(stats_df)
-    image_keys = deduped_stats_df["input_image_key"].unique()[: config.max_input_keys]
 
     full_groups = stats_df.groupby(["dep_layer", "dep_channel"])
-    groups = full_groups["output_activation"]
+    groups = full_groups["contribution"]
     medians = {key: groups.get_group(key).median() for key in dep_order}
     check_same_sign(medians.values())
     median_sum = sum(medians.values())
@@ -119,12 +132,8 @@ def build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config):
     firing_counts, total_examples = compute_firing_stats(stats_df)
     frequent, one_off = split_dep_order_by_frequency(dep_order, firing_counts, total_examples)
 
-    image_act_sums = compute_image_act_sums(deduped_stats_df)
-    row_by_dep_and_image = {
-        (row["dep_layer"], row["dep_channel"], row["input_image_key"]): row
-        for _, row in deduped_stats_df.iterrows()
-    }
-    per_image_shares = compute_per_image_shares(deduped_stats_df, image_act_sums)
+    image_contribution_sums = compute_image_contribution_sums(deduped_stats_df)
+    per_image_shares = compute_per_image_shares(deduped_stats_df, image_contribution_sums)
 
     cluster_stats_by_key = {
         key: compute_cluster_breakdown(full_groups.get_group(key), config.outlier_ratio_threshold)
@@ -136,8 +145,8 @@ def build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config):
     )
 
     return ReportData(
+        kind=kind,
         dep_order=dep_order,
-        image_keys=image_keys,
         full_groups=full_groups,
         medians=medians,
         median_sum=median_sum,
@@ -145,8 +154,7 @@ def build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config):
         total_examples=total_examples,
         frequent=frequent,
         one_off=one_off,
-        image_act_sums=image_act_sums,
-        row_by_dep_and_image=row_by_dep_and_image,
+        image_contribution_sums=image_contribution_sums,
         per_image_shares=per_image_shares,
         cluster_stats_by_key=cluster_stats_by_key,
         feature_viz_ref_by_key=feature_viz_ref_by_key,

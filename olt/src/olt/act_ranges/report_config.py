@@ -49,7 +49,6 @@ class ReportConfig:
     the report's actual data (stats_df, noise/cluster dicts, output paths)
     which stay as direct function args."""
 
-    max_input_keys: int
     max_points_per_cluster: int = 50
     outlier_ratio_threshold: float = 0.1
     relative_strength_method: str = "median_sum"  # or "median_per_image_share"

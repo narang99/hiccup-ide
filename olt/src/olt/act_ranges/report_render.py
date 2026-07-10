@@ -1,15 +1,22 @@
-def render_activation_bar(relative_strength, output_activation):
+def render_contribution_bar(relative_strength, contribution, kind):
     """
     A thin progress bar reflecting relative_strength (float in [0, 1]): this dep
-    neuron's output_activation as a fraction of the sum of output_activation across
-    all dep neurons firing for this image (sum-norm, not max-abs-norm) — i.e. its
-    share of the total. No floor: 0 renders as an empty bar, since 0 really means no
-    contribution here. Color encodes sign: green for output_activation >= 0, red for
-    < 0. A grayed "{percent}% | {output_activation}" label sits to the right.
+    neuron's contribution (its own patch*weight value at the current_layer index
+    it was selected from — see analyser.top_contributing_indices/
+    iter_dependency_coords — distinct from its raw output_activation) as a
+    fraction of the sum of contribution across all dep neurons firing for this
+    image (sum-norm, not max-abs-norm) — i.e. its share of the total. No floor:
+    0 renders as an empty bar, since 0 really means no contribution here. Color
+    encodes kind (see analyser.collect_cluster_stats_df's "kind" column):
+    green for kind == "positive", red for "negative" — a dep neuron's own
+    contribution always shares kind's sign by construction (kind selects
+    exactly the positive- or negative-contribution indices), so this is
+    equivalent to coloring by contribution's own sign, just cheaper. A grayed
+    "{percent}% | {contribution}" label sits to the right.
     """
     width_pct = relative_strength * 100
-    color_class = "bg-success" if output_activation >= 0 else "bg-danger"
-    label = f"{relative_strength * 100:.0f}% | {output_activation:.2f}"
+    color_class = "bg-success" if kind == "positive" else "bg-danger"
+    label = f"{relative_strength * 100:.0f}% | {contribution:.2f}"
     return (
         f'<div class="d-flex align-items-center gap-2">'
         f'<div class="progress flex-grow-1" style="height: 6px;" role="progressbar" '
@@ -25,8 +32,8 @@ def render_frequency_bar(firing_count, total_examples):
     """
     A thin progress bar showing how often this dep neuron fired: firing_count out
     of total_examples origin instances (see compute_firing_stats). Same visual
-    style as render_activation_bar, but neutral blue (bg-info) throughout since
-    firing frequency isn't signed the way output_activation is. A grayed
+    style as render_contribution_bar, but neutral blue (bg-info) throughout
+    since firing frequency isn't signed the way contribution is. A grayed
     "{percent}% | fired {count}/{total}" label sits to the right.
     """
     ratio = firing_count / total_examples if total_examples else 0.0
@@ -53,7 +60,7 @@ def render_cluster_breakdown(
     Below the Overview scatter: one thin bar per dependency cluster (dep_cid) this
     neuron's firings were matched to (see compute_cluster_breakdown), ordered by
     descending firing count. Bar width encodes that cluster's share of this
-    neuron's total firings — unlike render_activation_bar's relative_strength,
+    neuron's total firings — unlike render_contribution_bar's relative_strength,
     these ratios sum to ~100% across the full list of bars, since every firing is
     attributed to exactly one cluster. Bars are neutral blue (bg-info), except
     "outlier" clusters (is_outlier, i.e. below compute_cluster_breakdown's
@@ -151,7 +158,8 @@ def render_cluster_breakdown(
 
 def render_overview_tab_body(
     relative_strength,
-    median_output_activation,
+    median_contribution,
+    kind,
     scatter_ref_path,
     firing_count,
     total_examples,
@@ -160,72 +168,39 @@ def render_overview_tab_body(
     pw_sample_ref_by_cid=None,
     feature_viz_ref_by_cid=None,
 ):
-    """Content of a neuron card's "Overview" tab (the default tab, see
-    render_neuron_tabset_card): an activation-strength bar + a firing-frequency
-    bar (render_frequency_bar) + combined activation/noise scatter plot + a
-    per-cluster firing breakdown (see render_cluster_breakdown), each with a
-    single collapsed section showing the cluster photo followed by a
-    pointwise-multiplication sample, if available. No card/heading wrapper —
-    the card and its "### Overview" tab heading are added by
-    render_neuron_tabset_card."""
-    activation_bar = render_activation_bar(relative_strength, median_output_activation)
+    """Content of a neuron card's body: a contribution-strength bar + a
+    firing-frequency bar (render_frequency_bar) + combined activation/noise
+    scatter plot + a per-cluster firing breakdown (see render_cluster_breakdown),
+    each with a single collapsed section showing the cluster photo followed by
+    a pointwise-multiplication sample, if available. No card wrapper — the
+    card is added by render_neuron_card."""
+    contribution_bar = render_contribution_bar(relative_strength, median_contribution, kind)
     frequency_bar = render_frequency_bar(firing_count, total_examples)
     breakdown = render_cluster_breakdown(
         cluster_stats, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid
     )
     return (
-        f"{activation_bar}\n\n{frequency_bar}\n\n"
+        f"{contribution_bar}\n\n{frequency_bar}\n\n"
         f"![output_activation (red) vs noise (gray)]({scatter_ref_path})\n\n"
         f"{breakdown}"
     )
 
 
-def render_image_tab_body(dep_cid, noise_distance, output_activation, similarity, ref_path, relative_strength):
-    """Content of a neuron card's per-image tab when the neuron fired for that
-    image: per-image relative-strength bar + its cluster heatmap. No card/heading
-    wrapper — see render_neuron_tabset_card."""
-    caption = (
-        f"cid={dep_cid} noise_dist={noise_distance:.2f} "
-        f"act={output_activation:.2f} sim={similarity:.2f}"
-    )
-    bar = render_activation_bar(relative_strength, output_activation)
-    return f"{bar}\n\n![{caption}]({ref_path})\n\n{caption}"
-
-
-def render_image_tab_placeholder_body():
-    """Content of a neuron card's per-image tab when the neuron has no row for
-    that particular image — i.e. it didn't fire for it, even though it does for
-    others in the report."""
-    return '<span class="text-body-secondary">Did not fire</span>'
-
-
-def render_neuron_tabset_card(dep_layer_name, dep_channel, overview_tab_body, image_tab_bodies):
+def render_neuron_card(dep_layer_name, dep_channel, overview_body):
     """
-    One card per (dep_layer, dep_channel) neuron, containing a Quarto
-    panel-tabset scoped to this single card: "Overview" (median stats + scatter
-    plot) is the default tab, followed by one tab per input image (labelled by
-    index, matching the image_keys order used to build image_tab_bodies). Because
-    the tabset lives inside one small card rather than spanning the whole page,
-    any scroll/focus jump Bootstrap's tab.js causes on switch is negligible —
-    you're already looking at this card, so it doesn't disrupt comparing views of
-    the same neuron.
-
-    image_tab_bodies: list of (label, body_markdown) pairs, one per input image
-    tab, in display order — body_markdown from render_image_tab_body or
-    render_image_tab_placeholder_body.
+    One card per (dep_layer, dep_channel) neuron: header naming the neuron,
+    body holding the Overview content (render_overview_tab_body) — median
+    stats, scatter plot, and per-cluster firing breakdown, aggregated across
+    every row of stats_df for this dep neuron. No per-image breakdown/tabset;
+    that scoping is unnecessary now that the card only shows the aggregate view.
     """
-    tabs = [f"### Overview\n\n{overview_tab_body}"]
-    tabs += [f"### {label}\n\n{body}" for label, body in image_tab_bodies]
-    tabset_body = "\n\n".join(tabs)
     return (
         f'::: {{.card .mb-2 .shadow-sm}}\n'
         f'::: {{.card-header .text-body-secondary .small}}\n'
         f"{dep_layer_name}:{dep_channel}\n"
         f":::\n\n"
-        f'::: {{.card-body}}\n'
-        f'::: {{.panel-tabset}}\n\n'
-        f"{tabset_body}\n\n"
-        f":::\n"
+        f'::: {{.card-body}}\n\n'
+        f"{overview_body}\n\n"
         f":::\n"
         f":::\n"
     )

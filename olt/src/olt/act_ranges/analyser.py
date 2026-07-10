@@ -18,7 +18,9 @@ def _scalar(value):
     return value.item() if hasattr(value, "item") else value
 
 
-def _stats_row(current_layer_name, current_channel, y, x, kind, dep_layer_name, dep_channel, match, cluster_dist):
+def _stats_row(
+    current_layer_name, current_channel, y, x, kind, dep_layer_name, dep_channel, match, cluster_dist, contribution
+):
     cluster_min, cluster_med, cluster_max = cluster_dist
     return {
         "origin_layer": current_layer_name,
@@ -28,6 +30,7 @@ def _stats_row(current_layer_name, current_channel, y, x, kind, dep_layer_name, 
         "similarity": _scalar(match.best_sim),
         "noise_distance": _scalar(match.point_dist),
         "output_activation": _scalar(match.op_act),
+        "contribution": contribution,
         "above_noise_ratio": match.ratio,
         "kind": kind,
         "dep_layer": dep_layer_name,
@@ -113,6 +116,9 @@ class NeuronParentAnalyser:
         Shared by collect_cluster_above_noise_ratios and plot_clusters:
         finds the flattened-input indices that account for `sum_upto_percent`
         of the patch*weight contribution at (current_layer_name, current_channel, y, x).
+        Also returns pw (patch*weight, same shape as patch) so callers can look
+        up each returned index's own contribution value via pw[cur_chan,
+        cur_rel_y, cur_rel_x] — see iter_dependency_coords.
         """
         w, ksize, stride, padding = get_layer_params(
             self.model, self.current_layer_name, self.current_channel
@@ -126,22 +132,27 @@ class NeuronParentAnalyser:
             pw, sum_upto_percent
         )
         indices = pos_indices if kind == "positive" else neg_indices
-        return y0, x0, patch, indices
+        return y0, x0, patch, pw, indices
 
     def dep_coords(self, y0, x0, cur_rel_y, cur_rel_x):
         dep_y = y0 + cur_rel_y - self.f_pad_manual_before_between_us_and_dep[0]
         dep_x = x0 + cur_rel_x - self.f_pad_manual_before_between_us_and_dep[1]
         return dep_y, dep_x
 
-    def iter_dependency_coords(self, y0, x0, indices):
+    def iter_dependency_coords(self, y0, x0, pw, indices):
         """Shared by every traversal below: maps each flattened contributing
-        index to its (dep_layer_name, dep_channel, dep_y, dep_x) location."""
+        index to its (dep_layer_name, dep_channel, dep_y, dep_x, contribution)
+        location, where contribution is pw[cur_chan, cur_rel_y, cur_rel_x] —
+        this index's own patch*weight contribution to the current neuron (see
+        top_contributing_indices), as opposed to the dependency neuron's raw
+        output_activation."""
         for cur_chan, cur_rel_y, cur_rel_x in indices:
             dep_layer_name, dep_channel = (
                 self.flattened_channel_map.get_layer_and_chan_from_flattened(cur_chan)
             )
             dep_y, dep_x = self.dep_coords(y0, x0, cur_rel_y, cur_rel_x)
-            yield dep_layer_name, dep_channel, dep_y, dep_x
+            contribution = _scalar(pw[cur_chan, cur_rel_y, cur_rel_x])
+            yield dep_layer_name, dep_channel, dep_y, dep_x, contribution
 
     def closest_cluster_info(self, layer_name, channel, y, x, current_act):
         """
@@ -258,13 +269,13 @@ class NeuronParentAnalyser:
         sum_upto_percent=0.9,
         kind="positive",
     ):
-        y0, x0, patch, indices = self.top_contributing_indices(
+        y0, x0, patch, pw, indices = self.top_contributing_indices(
             y, x, current_act, sum_upto_percent, kind
         )
 
         dists = []
-        for dep_layer_name, dep_channel, dep_y, dep_x in self.iter_dependency_coords(
-            y0, x0, indices
+        for dep_layer_name, dep_channel, dep_y, dep_x, _contribution in self.iter_dependency_coords(
+            y0, x0, pw, indices
         ):
             r = self.get_activation_distance_from_noise(
                 dep_layer_name, dep_channel, dep_y, dep_x, current_act
@@ -280,13 +291,13 @@ class NeuronParentAnalyser:
         sum_upto_percent=0.9,
         kind="positive",
     ):
-        y0, x0, patch, indices = self.top_contributing_indices(
+        y0, x0, patch, pw, indices = self.top_contributing_indices(
             y, x, current_act, sum_upto_percent, kind
         )
 
         noise_ratios = []
-        for dep_layer_name, dep_channel, dep_y, dep_x in self.iter_dependency_coords(
-            y0, x0, indices
+        for dep_layer_name, dep_channel, dep_y, dep_x, _contribution in self.iter_dependency_coords(
+            y0, x0, pw, indices
         ):
             r = self.get_cluster_above_noise_ratio(
                 dep_layer_name, dep_channel, dep_y, dep_x, current_act
@@ -308,7 +319,7 @@ class NeuronParentAnalyser:
         # filter_fn(ratio) -> bool: decides whether this cluster gets plotted
         if stuff_to_show is None:
             stuff_to_show = ["heatmap", "pw", "act_range"]
-        y0, x0, patch, indices = self.top_contributing_indices(
+        y0, x0, patch, pw, indices = self.top_contributing_indices(
             y, x, current_act, sum_upto_percent, kind
         )
 
@@ -356,8 +367,11 @@ class NeuronParentAnalyser:
         Same traversal as plot_clusters, but instead of plotting, collects
         one row per contributing (dep_layer, dep_channel) with: origin
         neuron info, similarity, noise distance, raw output activation,
-        above-noise ratio, kind, dep_layer, dep_channel, dep_cid. Returns
-        (df, pw_samples):
+        contribution (this firing's own patch*weight value at the
+        current_layer index it was selected from — see
+        top_contributing_indices/iter_dependency_coords — distinct from
+        output_activation, the dep neuron's raw activation value), above-noise
+        ratio, kind, dep_layer, dep_channel, dep_cid. Returns (df, pw_samples):
 
         - df: a DataFrame, scalars only (CSV-safe); optionally written/appended
           to csv_path.
@@ -377,14 +391,14 @@ class NeuronParentAnalyser:
           rendering should load it once per matched cluster instead (see
           similarity.load_cluster_patches).
         """
-        y0, x0, patch, indices = self.top_contributing_indices(
+        y0, x0, patch, pw, indices = self.top_contributing_indices(
             y, x, current_act, sum_upto_percent, kind
         )
 
         rows = []
         pw_samples = {}
-        for dep_layer_name, dep_channel, dep_y, dep_x in self.iter_dependency_coords(
-            y0, x0, indices
+        for dep_layer_name, dep_channel, dep_y, dep_x, contribution in self.iter_dependency_coords(
+            y0, x0, pw, indices
         ):
             match = self.resolve_dependency_match(
                 dep_layer_name, dep_channel, dep_y, dep_x, current_act
@@ -404,6 +418,7 @@ class NeuronParentAnalyser:
                     dep_channel,
                     match,
                     cluster_dist,
+                    contribution,
                 )
             )
             _add_pw_sample(pw_samples, dep_layer_name, dep_channel, match, image_key, dep_y, dep_x)

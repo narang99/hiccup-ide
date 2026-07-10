@@ -29,22 +29,15 @@ def print_report_for_neuron(
 
     The report is one card per dependency neuron (see report_stats.compute_dep_order
     for ordering), split into "Frequently firing" and "One-off / low frequency"
-    sections (see report_stats.split_dep_order_by_frequency). Each card holds its own
-    panel-tabset (report_render.render_neuron_tabset_card): an "Overview" tab (median-activation
-    bar + combined activation/noise scatter plot, aggregated across every row of
-    stats_df regardless of config.max_input_keys or per-image dedup) as the default
-    tab, followed by one tab per input image (labelled by index rather than the
-    potentially long/unwieldy input_image_key), showing that neuron's per-image
-    relative-strength bar and cluster heatmap, or a "Did not fire" placeholder.
-    Scoping the tabset to each card (rather than one tabset for the whole page)
-    means switching tabs to compare a neuron across images doesn't jump you
-    elsewhere on the page.
+    sections (see report_stats.split_dep_order_by_frequency). Each card
+    (report_render.render_neuron_card) holds just the Overview content:
+    median-contribution bar + combined activation/noise scatter plot + per-cluster
+    firing breakdown, aggregated across every row of stats_df for that dep
+    neuron. No per-image tabs/panel-tabset.
 
     stats_df: the concatenation of NeuronParentAnalyser.collect_cluster_stats_df
     outputs across multiple input images, for a single neuron — must have exactly
     one (origin_layer, origin_channel) pair and an "input_image_key" column.
-    Only the first `config.max_input_keys` distinct input_image_key values (in the
-    order they first appear) get their own tab, even if stats_df has more.
 
     layer_by_channel_by_noise: same dict passed into NeuronParentAnalyser, used
     for the Overview tab's raw noise-sample scatter plots.
@@ -56,7 +49,6 @@ def print_report_for_neuron(
 
     config: report_config.ReportConfig — every tunable and feature toggle for
     this report:
-    - max_input_keys: how many distinct input images get their own tab (see above).
     - max_points_per_cluster: cap on how many points from each cluster's
       population get plotted in the Overview tab's per-cluster scatter (see
       report_stats.select_cluster_points) — clusters can otherwise hold far
@@ -67,8 +59,8 @@ def print_report_for_neuron(
       scatter's matched/Kelly-colored set (folded into "unmatched" there instead)
       — too small a share of firings to call a real match.
     - relative_strength_method: which calculation feeds each card's Overview
-      activation-strength bar — "median_sum" (report_stats.compute_relative_strength_median_sum,
-      default: this neuron's median output_activation as a fraction of the sum
+      contribution-strength bar — "median_sum" (report_stats.compute_relative_strength_median_sum,
+      default: this neuron's median contribution as a fraction of the sum
       of every dep neuron's median) or "median_per_image_share"
       (report_stats.compute_relative_strength_median_per_image_share: median,
       across images, of this neuron's own per-image share). The two are
