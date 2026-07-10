@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from olt.act_ranges.stats import get_noise_range, noise_stats
+from olt.act_ranges.stats import noise_stats
 
 
 def check_at_most_one_firing_per_origin(stats_df):
@@ -328,54 +328,5 @@ def select_cluster_points(label_by_points, max_points_per_cluster=50):
             points = [points[i] for i in idx]
         sampled[int(cid_str)] = points
     return sampled
-
-
-def compute_noise_radius_table(dep_full_rows, noise, label_by_points, cluster_stats):
-    """
-    One row per (dep_layer, dep_channel) card's "distance from noise" table:
-    how far a representative value and that row's own shorth-based low end
-    sit from this neuron's own noise_max, expressed in units of noise_radius
-    (see stats.noise_stats — 1 unit = 1 noise_radius, so e.g. 2.0 means "two
-    noise-radii above noise_max").
-
-    Row 1 is always "output activation": dep_full_rows["output_activation"]
-    — every firing collected for this dep neuron in this report. One further
-    row per matched, non-outlier cluster in cluster_stats (see
-    compute_cluster_breakdown — outliers are excluded, same convention as
-    save_combined_scatter_jpeg's Kelly-colored set): label_by_points[str(dep_cid)]
-    — that cluster's own full population, not just the subset of its points
-    that happened to match a firing here.
-
-    Each row has:
-    - "med-noise_max": (median(values) - noise_max) / noise_radius
-    - "min-noise_max": (values_min - noise_max) / noise_radius, where
-      values_min is that row's own shorth-based lower bound — same params as
-      noise's own shorth-based range (see stats.get_noise_range, frac=0.9).
-    noise_max/noise_radius are the same for every row here, since they all
-    belong to one dep neuron's own noise sample.
-
-    Returns list[dict]: [{"label": "output activation", "med-noise_max": float,
-    "min-noise_max": float}, {"label": "cid=<dep_cid>", ...}, ...], in the
-    same order as cluster_stats (already sorted by descending firing count).
-    """
-    _, _, noise_max, noise_radius = noise_stats(noise)
-
-    def _row(label, values):
-        values = np.asarray(values)
-        value_med = np.median(values)
-        value_min, _ = get_noise_range(values)
-        return {
-            "label": label,
-            "med-noise_max": (value_med - noise_max) / noise_radius,
-            "min-noise_max": (value_min - noise_max) / noise_radius,
-        }
-
-    rows = [_row("output activation", dep_full_rows["output_activation"])]
-    for cluster_row in cluster_stats:
-        if cluster_row["is_outlier"]:
-            continue
-        dep_cid = cluster_row["dep_cid"]
-        rows.append(_row(f"cid={dep_cid}", label_by_points[str(dep_cid)]))
-    return rows
 
 

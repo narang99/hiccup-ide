@@ -56,8 +56,8 @@ def noise_stats(noise, tol=1e-6):
     the plain median, and noise_radius = noise_max - noise_med + tol (the
     "1 unit" used everywhere distances are expressed in noise-radius units,
     e.g. analyser.get_activation_distance_from_noise,
-    report_stats.compute_noise_radius_table) — tol avoids a division by zero
-    on a degenerate (single-valued) noise sample.
+    report_stats.compute_output_activation_noise_max_distances) — tol avoids
+    a division by zero on a degenerate (single-valued) noise sample.
     """
     noise_min, noise_max = get_noise_range(noise)
     noise_med = np.median(noise)

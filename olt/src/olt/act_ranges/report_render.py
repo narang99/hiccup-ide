@@ -1,26 +1,40 @@
 def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_label, cluster_photo_ref_path):
     """
-    Document title + the origin neuron's own cluster photo, placed before
-    everything else in the report (see print_report_for_neuron) — the rest
-    of the report is all about which dependency neurons explain this
+    Document title (as Quarto YAML front matter, not a markdown "# " heading
+    — Quarto renders the front matter title itself, so an in-body heading
+    would double it up) + the origin neuron's own cluster photo, placed
+    before everything else in the report (see print_report_for_neuron) — the
+    rest of the report is all about which dependency neurons explain this
     cluster's firings, so showing what that cluster actually looks like
     up front gives a viewer the "what am I looking at" context before diving
-    into cards.
+    into cards. `unlisted: true` keeps these per-cluster reports out of any
+    site-wide listing/index — they're meant to be linked to directly, not
+    browsed as a collection.
+
+    Must be the very first thing print_report_for_neuron emits: front matter
+    is only recognized by Quarto/pandoc when it's the first bytes of the
+    document (no leading blank lines or other content before the opening
+    "---").
 
     origin_cluster_label is the (dep_layer_name, dep_channel)'s own cluster
     id the whole report was built for (e.g. the LABEL/cluster_label used to
     filter collect_cluster_stats_df's input rows) — None if the caller didn't
     pass one (print_report_for_neuron's origin_cluster_label param), in which
-    case only the heading is shown (without a "[cid]" suffix, since there's no
-    cluster to name), no photo section. cluster_photo_ref_path is the
+    case the title omits the "[cid]" suffix, since there's no cluster to
+    name, and no photo section is emitted. cluster_photo_ref_path is the
     already-dumped path (report_assets.dump_cluster_asset, reusing the same
     per-cluster photo mechanism dependency clusters use) — None means a label
     was given but no photo was found (e.g. a singleton cluster), so an
     explanatory placeholder is shown instead of an image.
     """
     if origin_cluster_label is None:
-        return f"# Report: Dependencies of {dep_layer_name}:{dep_channel}\n"
-    heading = f"# Report: Dependencies of {dep_layer_name}:{dep_channel}[{origin_cluster_label}]"
+        title = f"Report: Dependencies of {dep_layer_name}:{dep_channel}"
+    else:
+        title = f"Report: Dependencies of {dep_layer_name}:{dep_channel}[{origin_cluster_label}]"
+    front_matter = f'---\ntitle: "{title}"\nunlisted: true\n---\n'
+
+    if origin_cluster_label is None:
+        return front_matter
     if cluster_photo_ref_path is not None:
         body = f"![cid={origin_cluster_label}]({cluster_photo_ref_path})\n"
     else:
@@ -29,7 +43,7 @@ def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_lab
             "built from samples in only a single image, so its combined photo wasn't "
             "generated</span>\n"
         )
-    return f"{heading}\n\n{body}"
+    return f"{front_matter}\n{body}"
 
 
 def render_report_stats_summary(
@@ -123,7 +137,7 @@ def _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, fea
     always-visible non-outlier bars and the ones nested inside the "show
     outlier clusters" section."""
     width_pct = row["ratio"] * 100
-    color_class = "bg-warning" if row["is_outlier"] else "bg-info"
+    color_class = "bg-warning" if row["is_outlier"] else "bg-primary"
     label = (
         f"cid={row['dep_cid']} · {row['count']} ({width_pct:.1f}%) · "
         f"median_sim={row['median_similarity']:.2f}"
@@ -194,7 +208,7 @@ def render_cluster_breakdown(
     descending firing count. Bar width encodes that cluster's share of this
     neuron's total firings — these ratios sum to ~100% across the full list of
     bars, since every firing is attributed to exactly one cluster. Bars are
-    neutral blue (bg-info), except "outlier" clusters (is_outlier, i.e. below
+    neutral blue (bg-primary), except "outlier" clusters (is_outlier, i.e. below
     compute_cluster_breakdown's outlier_ratio_threshold — too small a share
     of firings to call a real match) which get yellow (bg-warning) instead —
     red is reserved elsewhere in the report for negative-contribution
@@ -276,31 +290,6 @@ def render_cluster_breakdown(
     return "\n\n".join(sections)
 
 
-def render_noise_radius_table(rows):
-    """
-    Small markdown table, one row per report_stats.compute_noise_radius_table
-    entry ("output activation" plus one per matched non-outlier cluster): how
-    far that row's own median (med-noise_max) and shorth-based lower bound
-    (min-noise_max) sit from this dep neuron's own noise_max — all in units
-    of noise_radius (1 unit = 1 noise_radius — see stats.noise_stats).
-    Returns "" if rows is empty (e.g. a card with no matched non-outlier
-    clusters and, in principle, no output_activation rows — shouldn't happen
-    in practice, but kept symmetric with the other optional sections here).
-    """
-    if not rows:
-        return ""
-    body = "\n".join(
-        f"| {r['label']} | {r['med-noise_max']:.2f} | {r['min-noise_max']:.2f} |"
-        for r in rows
-    )
-    return (
-        '<div class="text-body-secondary small mb-1">Distance from noise (in noise-radius units)</div>\n\n'
-        "| | med-noise_max | min-noise_max |\n"
-        "|---|---:|---:|\n"
-        f"{body}\n"
-    )
-
-
 def render_overview_tab_body(
     scatter_ref_path,
     cluster_stats,
@@ -308,14 +297,12 @@ def render_overview_tab_body(
     pw_sample_ref_by_cid=None,
     feature_viz_ref_by_cid=None,
     note_by_cid=None,
-    noise_radius_table_rows=None,
 ):
     """Content of a neuron card's body: the combined activation/noise scatter
     plot + a per-cluster firing breakdown (see render_cluster_breakdown), each
     with a single collapsed section showing the cluster photo followed by a
     pointwise-multiplication sample and any cluster_notes entry for that
-    cluster, if available, followed by the "distance from noise" table (see
-    render_noise_radius_table). No card wrapper — the card is added by
+    cluster, if available. No card wrapper — the card is added by
     render_neuron_card. The contribution-strength and firing-frequency bars
     this used to lead with are gone: the header's concentration sparkline +
     ticker labels already cover contribution
@@ -325,12 +312,11 @@ def render_overview_tab_body(
     breakdown = render_cluster_breakdown(
         cluster_stats, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid
     )
-    noise_table = render_noise_radius_table(noise_radius_table_rows or [])
-    return f"![]({scatter_ref_path})\n\n{breakdown}\n\n{noise_table}"
+    return f"![]({scatter_ref_path})\n\n{breakdown}"
 
 
-_POS_TEXT_COLOR = "#1b7a34"  # matches plotting._POS_MARKER
-_NEG_TEXT_COLOR = "#a11f1f"  # matches plotting._NEG_MARKER
+_POS_TEXT_COLOR = "var(--bs-success)"
+_NEG_TEXT_COLOR = "var(--bs-danger)"
 
 
 def _format_ticker_label(marker):
@@ -359,26 +345,37 @@ def render_neuron_card(
     firing_pct=None,
 ):
     """
-    One card per (dep_layer, dep_channel) neuron: header naming the neuron —
-    plus, if firing_pct is given, a plain "Fired: {percent}%" figure right
-    next to the name (replaces the old firing-frequency bar with a single
-    number, since a bar was overkill for one scalar) — and, if
-    concentration_ref_path is given, that neuron's tiny positive/negative
-    concentration sparkline — see
+    One card per (dep_layer, dep_channel) neuron: header naming the neuron
+    (bold, normal body size/color — not faded, so it's legible in both the
+    Cosmo/light and Cyborg/dark themes) — plus, if firing_pct is given, a
+    plain "· Fired: {percent}%" figure right after the name, kept small and
+    faded (.text-body-secondary .small), since it's a secondary detail next
+    to the name — and, if concentration_ref_path is given, that neuron's
+    tiny positive/negative concentration sparkline — see
     report_assets.dump_concentration_asset/report_stats.compute_concentration_curves
-    — inline next to the name, small enough to sit in the gray header strip
+    — inline next to the name, small enough to sit in the header strip
     rather than taking card-body space, flanked by ticker-style text labels —
-    _format_ticker_label(pos_marker) in green to its left, negative in red to
-    its right, mirroring the sparkline's own positive-left/negative-right
-    layout — instead of printing the numbers on the plot itself. Body holds
-    the Overview content (render_overview_tab_body) — scatter plot and
-    per-cluster firing breakdown, aggregated across every row of stats_df for
-    this dep neuron. No per-image breakdown/tabset; that scoping is
-    unnecessary now that the card only shows the aggregate view.
+    _format_ticker_label(pos_marker) in `var(--bs-success)` to its left,
+    negative in `var(--bs-danger)` to its right (theme-aware CSS variables
+    rather than hardcoded hex, so both colors stay legible whichever of the
+    two themes is active), mirroring the sparkline's own
+    positive-left/negative-right layout — instead of printing the numbers on
+    the plot itself. Body holds the Overview content
+    (render_overview_tab_body) — scatter plot and per-cluster firing
+    breakdown, aggregated across every row of stats_df for this dep neuron.
+    No per-image breakdown/tabset; that scoping is unnecessary now that the
+    card only shows the aggregate view.
+
+    The card itself is a plain bordered box (.border .rounded), not a filled
+    Bootstrap .card — Cyborg's default .card background is a flat gray that
+    visually clashes with its own near-black page background, whereas a
+    theme-aware border color flows with either theme. The header strip is
+    similarly a plain .border-bottom div (no .card-header, which pulls in
+    its own background variable) rather than a separate filled cap.
     """
-    title = f"{dep_layer_name}:{dep_channel}"
+    title = f"**{dep_layer_name}:{dep_channel}**"
     if firing_pct is not None:
-        title += f" · Fired: {firing_pct * 100:.1f}%"
+        title += f' [· Fired: {firing_pct * 100:.1f}%]{{.text-body-secondary .small}}'
     if concentration_ref_path is not None:
         pos_label = _format_ticker_label(pos_marker)
         neg_label = _format_ticker_label(neg_marker)
@@ -393,21 +390,23 @@ def render_neuron_card(
         # happened to end instead of the corner.) Within the group itself,
         # the label spans and image are plain inline content, so they just
         # flow left-to-right in source order — no extra flex nesting needed.
+        # .flex-nowrap is explicit (not just relying on .d-flex's default)
+        # since the bolded/full-size title is wide enough that without it,
+        # the sparkline group can wrap onto its own line instead of sitting
+        # flush right.
         header_body = (
             f"{title}\n\n"
             f"{pos_span}![]({concentration_ref_path}){{height=60px}}{neg_span}"
         )
-        header_classes = ".card-header .text-body-secondary .small .d-flex .align-items-center .justify-content-between"
+        header_classes = ".d-flex .flex-nowrap .align-items-center .justify-content-between .border-bottom .pb-2 .mb-2"
     else:
         header_body = title
-        header_classes = ".card-header .text-body-secondary .small"
+        header_classes = ".border-bottom .pb-2 .mb-2"
     return (
-        f'::: {{.card .mb-2 .shadow-sm}}\n'
+        f'::: {{.border .rounded .mb-2 .p-3}}\n\n'
         f'::: {{{header_classes}}}\n'
         f"{header_body}\n"
         f":::\n\n"
-        f'::: {{.card-body}}\n\n'
         f"{overview_body}\n\n"
-        f":::\n"
         f":::\n"
     )

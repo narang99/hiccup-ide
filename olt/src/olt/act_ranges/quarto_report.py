@@ -45,9 +45,10 @@ def print_report_for_neuron(
     looping this over many clusters/reports (each with its own output_path)
     doesn't spam stdout with every report's full content.
 
-    The report opens with a "# Report: Dependencies of {origin_layer}:{origin_channel}[{origin_cluster_label}]"
-    title (the "[{origin_cluster_label}]" suffix is omitted if
-    origin_cluster_label is None) and, if origin_cluster_label is given, that
+    The report opens with Quarto YAML front matter setting the document
+    title to "Report: Dependencies of {origin_layer}:{origin_channel}[{origin_cluster_label}]"
+    (the "[{origin_cluster_label}]" suffix is omitted if origin_cluster_label
+    is None) and `unlisted: true`, and, if origin_cluster_label is given, that
     cluster's own photo (report_render.render_origin_cluster_header) —
     origin_layer/origin_channel come from stats_df itself; origin_cluster_label
     identifies which of that neuron's clusters this report's stats_df was
