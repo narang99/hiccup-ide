@@ -199,7 +199,7 @@ def dump_firing_frequency_histogram_asset(assets_dump_dir, ratios, bins=20):
     """
     assets_dump_dir.mkdir(parents=True, exist_ok=True)
     dump_path = assets_dump_dir / "firing_frequency_histogram.jpeg"
-    save_firing_frequency_histogram_jpeg(ratios, dump_path, bins=bins, total_neurons=len(ratios))
+    save_firing_frequency_histogram_jpeg(ratios, dump_path, bins=bins)
     return dump_path
 
 

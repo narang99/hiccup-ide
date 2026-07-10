@@ -71,8 +71,8 @@ def split_dep_order_by_frequency(
     via compute_dep_order).
 
     Returns (frequent, one_off, threshold) — threshold is the computed
-    minimum firing count, surfaced so callers (see render_summary) can state
-    the actual criteria used rather than just the counts.
+    minimum firing count, surfaced so callers (see render_report_stats_summary)
+    can state the actual criteria used rather than just the counts.
     """
     threshold = max(min_count, math.ceil(min_ratio * total_examples))
     frequent, one_off = [], []

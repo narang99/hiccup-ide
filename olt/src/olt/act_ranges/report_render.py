@@ -32,44 +32,61 @@ def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_lab
     return f"{heading}\n\n{body}"
 
 
+def render_report_stats_summary(
+    frequent_count, one_off_count, one_off_threshold, total_examples, n_below, n_above
+):
+    """
+    Bullet-point summary placed right after the title/origin cluster photo
+    and before render_report_histograms — the numbers a reader needs to
+    interpret the two histograms below, stated once here instead of
+    scattered as in-plot text annotations (which get cramped/overlapping at
+    small figure sizes).
+
+    - how many dependency neurons are "frequently firing" (data.frequent —
+      these are the ones with their own card below and the ones pooled into
+      both histograms) vs. excluded as one-off/low-frequency firers (see
+      report_stats.split_dep_order_by_frequency — firing in fewer than
+      one_off_threshold of total_examples collected input images; these are
+      not shown as cards at all, so this bullet is the only place their
+      existence is surfaced).
+    - how the pooled output-activation-vs-noise distances (see
+      report_stats.compute_output_activation_noise_max_distances) split
+      across the x=0 "at this neuron's own noise ceiling" line: n_above
+      firings clearly exceed their own neuron's noise, n_below don't.
+    """
+    return (
+        "::: {.text-body-secondary .small .mb-3}\n"
+        f"- frequently firing dependency neurons: **{frequent_count}**\n"
+        f"- one-off/outlier dependency neurons (fired in fewer than "
+        f"**{one_off_threshold}** of **{total_examples}** collected input images, "
+        f"not shown below): **{one_off_count}**\n"
+        f"- output activations above their own neuron's noise max (distance > 0): "
+        f"**{n_above}**, below it (distance < 0): **{n_below}**\n"
+        ":::\n"
+    )
+
+
 def render_report_histograms(activation_histogram_ref_path, firing_frequency_histogram_ref_path):
     """
     Report-level pair of images (see
     report_assets.dump_output_activation_histogram_asset,
     report_stats.compute_output_activation_noise_max_distances,
     report_assets.dump_firing_frequency_histogram_asset,
-    report_stats.compute_firing_frequency_ratios), placed right after the
-    title/origin cluster photo and before render_summary — the first
-    substantive content in the report. Both are pooled across every
-    "frequent" dep neuron only (one-off/outlier neurons excluded from both,
-    same population as the cards below). Laid out side by side via Quarto's
-    layout-ncol div rather than one-per-line, since both are small and
-    reference the same excluded/included neuron population — reading them
-    side by side is more useful than stacked.
+    report_stats.compute_firing_frequency_ratios), placed right after
+    render_report_stats_summary — the first substantive content in the
+    report. Both are pooled across every "frequent" dep neuron only
+    (one-off/outlier neurons excluded from both, same population as the
+    cards below); the counts behind them are stated in
+    render_report_stats_summary rather than as in-plot text. Laid out side
+    by side via Quarto's layout-ncol div rather than one-per-line, since
+    both are small and reference the same excluded/included neuron
+    population — reading them side by side is more useful than stacked.
     """
     return (
         "::: {layout-ncol=2}\n\n"
         f"![output activation, distance from noise_max (noise-radius units)]({activation_histogram_ref_path})\n\n"
         f"![firing frequency across dep neurons]({firing_frequency_histogram_ref_path})\n\n"
         ":::\n"
-    )
-
-
-def render_summary(one_off_count, one_off_threshold, total_examples):
-    """
-    A short markdown block placed before every card (see print_report_for_neuron):
-    states how many dependency neurons were excluded as one-off/low-frequency
-    firers (see report_stats.split_dep_order_by_frequency) and the criteria
-    used — firing in fewer than one_off_threshold of the total_examples input
-    images collected. These excluded neurons aren't rendered as cards at all,
-    so this is the only place their existence is surfaced.
-    """
-    return (
-        f'::: {{.text-body-secondary .small .mb-3}}\n'
-        f"**{one_off_count}** dependency neuron(s) fired in fewer than "
-        f"**{one_off_threshold}** of the **{total_examples}** collected input images "
-        f"and are treated as one-off/outliers — not shown below.\n"
-        f":::\n"
     )
 
 

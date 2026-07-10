@@ -30,7 +30,8 @@ from olt.act_ranges.report_render import (
     render_notes_summary,
     render_origin_cluster_header,
     render_overview_tab_body,
-    render_summary,
+    render_report_histograms,
+    render_report_stats_summary,
 )
 from olt.act_ranges.report_stats import (
     check_at_most_one_firing_per_origin,
@@ -87,7 +88,8 @@ __all__ = [
     "split_dep_order_by_frequency",
     "render_overview_tab_body",
     "render_neuron_card",
-    "render_summary",
+    "render_report_histograms",
+    "render_report_stats_summary",
     "render_notes_summary",
     "render_origin_cluster_header",
     "save_combined_scatter_jpeg",

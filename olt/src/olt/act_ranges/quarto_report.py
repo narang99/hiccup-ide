@@ -13,7 +13,7 @@ from olt.act_ranges.report_render import (
     render_notes_summary,
     render_origin_cluster_header,
     render_report_histograms,
-    render_summary,
+    render_report_stats_summary,
 )
 from olt.act_ranges.report_stats import (
     compute_firing_frequency_ratios,
@@ -52,20 +52,22 @@ def print_report_for_neuron(
     origin_layer/origin_channel come from stats_df itself; origin_cluster_label
     identifies which of that neuron's clusters this report's stats_df was
     built for (e.g. the LABEL/cluster_label used to filter the input rows
-    passed into collect_cluster_stats_df). Next is a side-by-side pair of
-    report-level histograms (report_render.render_report_histograms): the
+    passed into collect_cluster_stats_df). Next is a bullet-point stats
+    summary (report_render.render_report_stats_summary) — how many dep
+    neurons are frequently firing vs. excluded as one-off/low-frequency
+    (see report_stats.split_dep_order_by_frequency), and how the pooled
+    output-activation-vs-noise distances split above/below their own
+    neuron's noise ceiling — followed by a side-by-side pair of report-level
+    histograms (report_render.render_report_histograms): the
     output-activation-vs-noise histogram (report_stats.compute_output_activation_noise_max_distances,
     config.histogram_bins) — every "frequent" dep neuron's firings pooled
     into one distribution, expressed in noise-radius units so neurons with
     different raw activation scales are directly comparable — and the firing-
     frequency histogram (report_stats.compute_firing_frequency_ratios), one
     value per "frequent" dep neuron (firing_count / total_examples). Both
-    exclude one-off/low-frequency dep neurons, same population as the cards
-    below. Then a one-line
-    summary (report_render.render_summary) stating how many dependency
-    neurons were excluded as one-off/low-frequency
-    firers (see report_stats.split_dep_order_by_frequency) and the firing-count
-    threshold used — those neurons are not rendered as cards at all — followed,
+    histograms and the summary above them share the same "frequent"
+    population (one-off/low-frequency dep neurons excluded, same as the
+    cards below), followed,
     if config.cluster_notes is set, by a collapsible "Cluster notes" callout
     (report_render.render_notes_summary) listing every note in one place. The
     rest is one card per remaining (frequently-firing) dependency neuron (see
@@ -171,16 +173,22 @@ def print_report_for_neuron(
     firing_frequency_histogram_ref_path = f"{assets_ref_dir}/firing_frequency_histogram.jpeg"
     dump_firing_frequency_histogram_asset(assets_dump_dir, firing_frequency_ratios, bins=config.histogram_bins)
 
+    n_below = sum(1 for d in histogram_distances if d < 0)
+    n_above = sum(1 for d in histogram_distances if d > 0)
+    stats_summary = render_report_stats_summary(
+        len(data.frequent), len(data.one_off), data.one_off_threshold, data.total_examples, n_below, n_above
+    )
     histogram_section = render_report_histograms(
         activation_histogram_ref_path, firing_frequency_histogram_ref_path
     )
 
-    summary = render_summary(len(data.one_off), data.one_off_threshold, data.total_examples)
     notes_summary = render_notes_summary(config.cluster_notes)
     frequent_section = _render_section(
         "Frequently firing", data.frequent, data, card_config, "Frequently firing cards"
     )
-    sections = [s for s in (origin_header, histogram_section, summary, notes_summary, frequent_section) if s]
+    sections = [
+        s for s in (origin_header, stats_summary, histogram_section, notes_summary, frequent_section) if s
+    ]
     content = "\n\n".join(sections)
     if output_path is not None:
         Path(output_path).write_text(content)

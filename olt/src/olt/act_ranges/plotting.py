@@ -54,13 +54,10 @@ def save_output_activation_histogram_jpeg(distances, output_path, bins=40):
     report_config.ReportConfig.histogram_bins) since the right resolution
     depends on how many firings/dep neurons a given report has.
 
-    Two additional solid white lines mark the min and max of distances
-    (the extremes of the pooled distribution), each labeled with its own
-    numeric value — so the plotted range's edges are readable, not just
-    eyeballed off the x-axis. A text annotation in the top corners reports
-    how many pooled values fall below/above the x=0 noise-ceiling line
-    (n<0 / n>0), a coarser, exact-count summary of the same mass-left-vs-
-    mass-right read the dashed line is meant to convey visually.
+    Two additional solid white lines mark the min and max of distances (the
+    extremes of the pooled distribution) — no in-plot text (counts/values
+    are stated once in report_render.render_report_stats_summary instead,
+    since text annotations inside a small figure get cramped/overlapping).
     """
     distances = np.asarray(distances)
     fig, ax = plt.subplots(figsize=(5.5, 3.2))
@@ -69,23 +66,8 @@ def save_output_activation_histogram_jpeg(distances, output_path, bins=40):
     ax.axvline(x=0, color="white", linestyle="--", linewidth=1)
 
     if len(distances) > 0:
-        dmin, dmax = distances.min(), distances.max()
-        ax.axvline(x=dmin, color="white", linestyle="-", linewidth=1)
-        ax.axvline(x=dmax, color="white", linestyle="-", linewidth=1)
-        ymax = ax.get_ylim()[1]
-        ax.text(dmin, ymax, f"{dmin:.2f}", color="white", ha="left", va="bottom", fontsize=8)
-        ax.text(dmax, ymax, f"{dmax:.2f}", color="white", ha="right", va="bottom", fontsize=8)
-
-        n_below = int((distances < 0).sum())
-        n_above = int((distances > 0).sum())
-        ax.text(
-            0.01, 0.95, f"n<0: {n_below}", color="white", fontsize=8,
-            ha="left", va="top", transform=ax.transAxes,
-        )
-        ax.text(
-            0.99, 0.95, f"n>0: {n_above}", color="white", fontsize=8,
-            ha="right", va="top", transform=ax.transAxes,
-        )
+        ax.axvline(x=distances.min(), color="white", linestyle="-", linewidth=1)
+        ax.axvline(x=distances.max(), color="white", linestyle="-", linewidth=1)
 
     ax.set_xlabel("distance from noise_max (noise-radius units)", color="white")
     fig.tight_layout()
@@ -94,7 +76,7 @@ def save_output_activation_histogram_jpeg(distances, output_path, bins=40):
     plt.close(fig)
 
 
-def save_firing_frequency_histogram_jpeg(ratios, output_path, bins=20, total_neurons=None):
+def save_firing_frequency_histogram_jpeg(ratios, output_path, bins=20):
     """
     Report-level histogram of firing frequency: one value per "frequent" dep
     neuron (firing_count / total_examples, see
@@ -103,22 +85,13 @@ def save_firing_frequency_histogram_jpeg(ratios, output_path, bins=20, total_neu
     save_output_activation_histogram_jpeg: one_off/outlier neurons (see
     report_stats.split_dep_order_by_frequency) are never included, since
     they were already dropped from `frequent` upstream before this is
-    called — kept in sync deliberately, not incidentally.
-
-    total_neurons, if given, is annotated in the bottom-right corner (same
-    convention as save_output_activation_histogram_jpeg) — here it's exactly
-    len(ratios), since this histogram has one entry per neuron rather than
-    one entry per firing.
+    called — kept in sync deliberately, not incidentally. The neuron count
+    itself is stated in report_render.render_report_stats_summary rather
+    than as in-plot text.
     """
     fig, ax = plt.subplots(figsize=(5.5, 3.2))
     _style_dark_axis(fig, ax)
     ax.hist(ratios, bins=bins, color=_HIST_COLOR, edgecolor="none")
-
-    if total_neurons is not None:
-        ax.text(
-            0.99, 0.02, f"n neurons: {total_neurons}", color="white", fontsize=8,
-            ha="right", va="bottom", transform=ax.transAxes,
-        )
 
     ax.set_xlabel("firing frequency (fraction of examples)", color="white")
     fig.tight_layout()
