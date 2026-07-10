@@ -4,7 +4,7 @@ import torch
 from PIL import Image, ImageDraw
 
 from olt.act_ranges.constants import CLUSTER_PATCH_SET_DIR, LAYER_NAME_BY_SHAPE
-from olt.act_ranges.plotting import save_combined_scatter_png
+from olt.act_ranges.plotting import save_combined_scatter_jpeg, save_concentration_sparkline_jpeg
 from olt.act_ranges.report_stats import select_cluster_points
 from olt.act_ranges.reports import get_cluster_photo
 from olt.act_ranges.similarity import closest_patch_index, load_cluster_patches
@@ -147,6 +147,25 @@ def dump_pw_sample_asset(
     return dump_path
 
 
+def dump_concentration_asset(
+    assets_dump_dir, dep_layer_name, dep_channel, pos_curve, neg_curve, pos_marker, neg_marker
+):
+    """
+    Writes (always regenerates — cheap, tiny plot, parallel to
+    dump_overview_assets) one neuron's positive/negative concentration
+    sparkline (plotting.save_concentration_sparkline_jpeg) under
+    {assets_dump_dir}/{dep_layer_name}/{dep_channel}/concentration.jpeg, for
+    display in that card's header. pos_curve/neg_curve are the same
+    whole-report curves for every card (report_stats.compute_concentration_curves);
+    only pos_marker/neg_marker vary per card. Returns the dumped Path.
+    """
+    neuron_dir = assets_dump_dir / dep_layer_name / str(dep_channel)
+    neuron_dir.mkdir(parents=True, exist_ok=True)
+    dump_path = neuron_dir / "concentration.jpeg"
+    save_concentration_sparkline_jpeg(pos_curve, neg_curve, pos_marker, neg_marker, dump_path)
+    return dump_path
+
+
 def dump_overview_assets(
     assets_dump_dir,
     dep_layer_name,
@@ -158,10 +177,10 @@ def dump_overview_assets(
     max_points_per_cluster=50,
 ):
     """
-    Always (re)writes one combined scatter PNG for one dep neuron's Overview
+    Always (re)writes one combined scatter JPEG for one dep neuron's Overview
     card, under {assets_dump_dir}/{dep_layer_name}/{dep_channel}/. Reserved
     filename (parallel to the cluster_ prefix reserved by dump_cluster_asset):
-    overview_scatter.png. Unlike dump_cluster_asset, this is always
+    overview_scatter.jpeg. Unlike dump_cluster_asset, this is always
     regenerated (no exists-check) — cheap to recompute from stats_df each run.
 
     dep_full_rows: the full stats_df rows for this (dep_layer, dep_channel) —
@@ -171,7 +190,7 @@ def dump_overview_assets(
     via select_cluster_points to plot every one of this dep neuron's clusters
     (not just matched ones) alongside the activation/noise scatter, each
     subsampled to at most max_points_per_cluster points (see
-    save_combined_scatter_png).
+    save_combined_scatter_jpeg).
     matched_cids: the dep_cid values to Kelly-color/give their own legend
     entry — the caller excludes outlier clusters (see
     compute_cluster_breakdown's is_outlier) so a cluster that only accounts
@@ -180,9 +199,9 @@ def dump_overview_assets(
     Returns the dumped Path.
     """
     neuron_dir = assets_dump_dir / dep_layer_name / str(dep_channel)
-    scatter_path = neuron_dir / "overview_scatter.png"
+    scatter_path = neuron_dir / "overview_scatter.jpeg"
     cluster_points_by_cid = select_cluster_points(label_by_points, max_points_per_cluster)
-    save_combined_scatter_png(
+    save_combined_scatter_jpeg(
         list(dep_full_rows["output_activation"]),
         list(noise_samples),
         cluster_points_by_cid,

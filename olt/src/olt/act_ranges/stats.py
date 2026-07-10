@@ -2,29 +2,33 @@ import numpy as np
 
 
 def indices_for_percentage(arr, pct):
+    """
+    Ranks every index in arr by |value| (positive and negative together, not
+    separately) and keeps the smallest prefix whose cumulative |value| covers
+    `pct` of the total |value| sum. Combining signs into one ranking (rather
+    than independently taking the top `pct` of the positive total and the top
+    `pct` of the negative total) means a sign that contributes little to the
+    overall magnitude naturally contributes few or no indices, instead of
+    being padded out to its own `pct` regardless of how small its total is.
+
+    Returns (indices, frac_done): indices is an array of shape
+    (k, arr.ndim), one row per kept index, in descending |value| order.
+    frac_done[i] is the cumulative |value| fraction of the total after
+    including indices[i].
+    """
     arr = np.array(arr)
     shape = arr.shape
     flat = arr.ravel()
 
-    pos_idx = np.where(flat > 0)[0]
-    neg_idx = np.where(flat < 0)[0]
+    order = np.argsort(-np.abs(flat))
+    total = np.abs(flat).sum()
+    target = total * pct
+    cumsum = np.cumsum(np.abs(flat[order]))
+    cutoff = min(np.searchsorted(cumsum, target) + 1, len(order))
+    frac_done = cumsum[:cutoff] / total
 
-    def top_indices(idx, values, target_pct):
-        order = idx[np.argsort(-np.abs(values[idx]))]
-        total = np.abs(values[order]).sum()
-        target = total * target_pct
-        cumsum = np.cumsum(np.abs(values[order]))
-        cutoff = min(np.searchsorted(cumsum, target) + 1, len(order))
-        frac_done = cumsum[:cutoff] / total
-        return order[:cutoff], frac_done
-
-    pos_flat, pos_frac = top_indices(pos_idx, flat, pct)
-    neg_flat, neg_frac = top_indices(neg_idx, flat, pct)
-
-    pos_result = np.stack(np.unravel_index(pos_flat, shape), axis=-1)
-    neg_result = np.stack(np.unravel_index(neg_flat, shape), axis=-1)
-
-    return pos_result, pos_frac, neg_result, neg_frac
+    result = np.stack(np.unravel_index(order[:cutoff], shape), axis=-1)
+    return result, frac_done
 
 
 def shorth(data, frac=0.5):

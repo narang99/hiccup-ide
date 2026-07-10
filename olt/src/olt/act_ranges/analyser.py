@@ -19,7 +19,7 @@ def _scalar(value):
 
 
 def _stats_row(
-    current_layer_name, current_channel, y, x, kind, dep_layer_name, dep_channel, match, cluster_dist, contribution
+    current_layer_name, current_channel, y, x, dep_layer_name, dep_channel, match, cluster_dist, contribution
 ):
     cluster_min, cluster_med, cluster_max = cluster_dist
     return {
@@ -32,7 +32,6 @@ def _stats_row(
         "output_activation": _scalar(match.op_act),
         "contribution": contribution,
         "above_noise_ratio": match.ratio,
-        "kind": kind,
         "dep_layer": dep_layer_name,
         "dep_channel": dep_channel,
         "dep_cid": match.best_cid,
@@ -111,14 +110,19 @@ class NeuronParentAnalyser:
             timg, self.model, self.all_layers
         )
 
-    def top_contributing_indices(self, y, x, current_act, sum_upto_percent, kind):
+    def top_contributing_indices(self, y, x, current_act, sum_upto_percent):
         """
         Shared by collect_cluster_above_noise_ratios and plot_clusters:
         finds the flattened-input indices that account for `sum_upto_percent`
-        of the patch*weight contribution at (current_layer_name, current_channel, y, x).
-        Also returns pw (patch*weight, same shape as patch) so callers can look
-        up each returned index's own contribution value via pw[cur_chan,
-        cur_rel_y, cur_rel_x] — see iter_dependency_coords.
+        of the patch*weight contribution at (current_layer_name, current_channel, y, x),
+        ranked by |patch*weight| across both positive and negative contributions
+        together (see stats.indices_for_percentage) — so a sign that
+        contributes little to the overall magnitude naturally contributes few
+        or no indices, instead of being forced up to its own `sum_upto_percent`
+        regardless of how small its total is. Also returns pw (patch*weight,
+        same shape as patch) so callers can look up each returned index's own
+        contribution value via pw[cur_chan, cur_rel_y, cur_rel_x] — see
+        iter_dependency_coords.
         """
         w, ksize, stride, padding = get_layer_params(
             self.model, self.current_layer_name, self.current_channel
@@ -128,10 +132,7 @@ class NeuronParentAnalyser:
         x0, x1 = receptive_block(x, ksize[1], stride[1], padding[1])
         patch = current_act[self.current_layer_name]["input"][0, :, y0:y1, x0:x1]
         pw = patch * w
-        pos_indices, pos_fracs, neg_indices, neg_fracs = indices_for_percentage(
-            pw, sum_upto_percent
-        )
-        indices = pos_indices if kind == "positive" else neg_indices
+        indices, fracs = indices_for_percentage(pw, sum_upto_percent)
         return y0, x0, patch, pw, indices
 
     def dep_coords(self, y0, x0, cur_rel_y, cur_rel_x):
@@ -267,10 +268,9 @@ class NeuronParentAnalyser:
         x,
         current_act,
         sum_upto_percent=0.9,
-        kind="positive",
     ):
         y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent, kind
+            y, x, current_act, sum_upto_percent
         )
 
         dists = []
@@ -289,10 +289,9 @@ class NeuronParentAnalyser:
         x,
         current_act,
         sum_upto_percent=0.9,
-        kind="positive",
     ):
         y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent, kind
+            y, x, current_act, sum_upto_percent
         )
 
         noise_ratios = []
@@ -312,7 +311,6 @@ class NeuronParentAnalyser:
         current_act,
         filter_fn,
         sum_upto_percent=0.9,
-        kind="positive",
         max_percent_points_allowed_in_noise_for_one_cluster=25,
         stuff_to_show=None,
     ):
@@ -320,7 +318,7 @@ class NeuronParentAnalyser:
         if stuff_to_show is None:
             stuff_to_show = ["heatmap", "pw", "act_range"]
         y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent, kind
+            y, x, current_act, sum_upto_percent
         )
 
         for cur_chan, cur_rel_y, cur_rel_x in indices:
@@ -359,7 +357,6 @@ class NeuronParentAnalyser:
         current_act,
         image_key=None,
         sum_upto_percent=0.9,
-        kind="positive",
         csv_path=None,
         append=False,
     ):
@@ -370,8 +367,14 @@ class NeuronParentAnalyser:
         contribution (this firing's own patch*weight value at the
         current_layer index it was selected from — see
         top_contributing_indices/iter_dependency_coords — distinct from
-        output_activation, the dep neuron's raw activation value), above-noise
-        ratio, kind, dep_layer, dep_channel, dep_cid. Returns (df, pw_samples):
+        output_activation, the dep neuron's raw activation value; its sign is
+        this firing's "kind", positive or negative, so it doubles as that
+        without needing a separate column), above-noise ratio, dep_layer,
+        dep_channel, dep_cid. Positive and negative contributions are
+        selected together, ranked by |contribution| (see
+        top_contributing_indices), so both signs can end up in the same
+        stats_df/report rather than requiring two separate collection calls.
+        Returns (df, pw_samples):
 
         - df: a DataFrame, scalars only (CSV-safe); optionally written/appended
           to csv_path.
@@ -392,7 +395,7 @@ class NeuronParentAnalyser:
           similarity.load_cluster_patches).
         """
         y0, x0, patch, pw, indices = self.top_contributing_indices(
-            y, x, current_act, sum_upto_percent, kind
+            y, x, current_act, sum_upto_percent
         )
 
         rows = []
@@ -413,7 +416,6 @@ class NeuronParentAnalyser:
                     self.current_channel,
                     y,
                     x,
-                    kind,
                     dep_layer_name,
                     dep_channel,
                     match,

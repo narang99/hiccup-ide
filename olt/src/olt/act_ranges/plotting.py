@@ -32,7 +32,76 @@ def _jittered_x(n, rng):
     return rng.uniform(0, max(n, 1), size=n)
 
 
-def save_combined_scatter_png(
+_POS_FILL = "#8fd19e"  # light green
+_NEG_FILL = "#f4a3a3"  # light red
+_POS_MARKER = "#1b7a34"  # dark green
+_NEG_MARKER = "#a11f1f"  # dark red
+
+
+def save_concentration_sparkline_jpeg(pos_curve, neg_curve, pos_marker, neg_marker, output_path):
+    """
+    Tiny two-panel sparkline showing the raw cumulative "concentration" curve
+    (report_stats.compute_concentration_curves — plain cumulative sums of
+    |median contribution|, no normalization) for positive contributions
+    (left, light green fill) and negative contributions (right, light red
+    fill) across the whole report: x is rank (1st, 2nd, ... neuron by
+    |median contribution| within that sign), y is cumulative |median
+    contribution| magnitude. Meant to counter over-weighting a single
+    bright/wide bar — the filled area shows at a glance how many neurons and
+    how much magnitude it actually took to reach a given height.
+
+    sharey=True (not a fixed range) is what makes the two sides comparable:
+    matplotlib scales both panels to the same y-axis, sized to whichever
+    side's cumulative total is larger, so a real difference in scale between
+    positive and negative shows up as an honest height difference instead of
+    both being squashed into an identical [0, 1] range. bottom is pinned to
+    0 explicitly (see ylim below) so an empty/near-empty side reads as
+    "barely any height" rather than autoscaling to its own tiny range and
+    looking full.
+
+    pos_marker/neg_marker: each either None (no line drawn — that sign hasn't
+    appeared yet as of this card's position in dep_order) or a tuple whose
+    first element is rank — used to draw a full-height dark vertical line at
+    that x position; the position is the only thing used here; the
+    cumulative-share/delta values in the same tuple are for
+    report_render's printed ticker text next to the image, a separate
+    calculation unrelated to what's plotted (see compute_concentration_curves).
+    No axis ticks/labels/legend — this is a glanceable sparkline, not a
+    standalone chart, meant to sit inline in a card header. Rendered
+    oversized relative to its final display size (high dpi) so it stays
+    crisp when scaled down.
+    """
+    fig, (ax_pos, ax_neg) = plt.subplots(1, 2, figsize=(3.2, 1.0), sharey=True)
+    fig.patch.set_facecolor("#212529")
+    top = max(pos_curve[-1] if pos_curve else 0.0, neg_curve[-1] if neg_curve else 0.0)
+    for ax, curve, fill, marker, marker_color in (
+        (ax_pos, pos_curve, _POS_FILL, pos_marker, _POS_MARKER),
+        (ax_neg, neg_curve, _NEG_FILL, neg_marker, _NEG_MARKER),
+    ):
+        ax.set_facecolor("#212529")
+        ax.set_ylim(0, top * 1.05 if top > 0 else 1.0)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        if curve:
+            xs = range(1, len(curve) + 1)
+            ax.fill_between(xs, curve, color=fill, alpha=0.9, linewidth=0)
+            ax.plot(xs, curve, color=fill, linewidth=1.2)
+            ax.set_xlim(1, len(curve))
+        if marker is not None:
+            rank = marker[0]
+            ax.axvline(x=rank, color=marker_color, linewidth=2.2, zorder=5)
+
+    fig.subplots_adjust(left=0.02, right=0.98, top=0.98, bottom=0.02, wspace=0.12)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(
+        output_path, format="jpeg", facecolor=fig.get_facecolor(), dpi=300, pil_kwargs={"quality": 90}
+    )
+    plt.close(fig)
+
+
+def save_combined_scatter_jpeg(
     activations, noise_samples, cluster_points_by_cid, matched_cids, output_path
 ):
     """
@@ -119,5 +188,5 @@ def save_combined_scatter_png(
 
     fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, facecolor=fig.get_facecolor())
+    fig.savefig(output_path, format="jpeg", facecolor=fig.get_facecolor(), pil_kwargs={"quality": 90})
     plt.close(fig)

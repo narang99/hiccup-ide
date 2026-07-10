@@ -47,13 +47,26 @@ class FeatureVizConfig:
 class ReportConfig:
     """Tunables and feature toggles for print_report_for_neuron, as opposed to
     the report's actual data (stats_df, noise/cluster dicts, output paths)
-    which stay as direct function args."""
+    which stay as direct function args.
+
+    cluster_notes: dict[(dep_layer_name, dep_channel, dep_cid), str] —
+    free-text notes for specific dependency clusters, or None to skip both
+    note sections entirely. Rendered twice: collected into one collapsible
+    callout at the top of the report (report_render.render_notes_summary, so
+    every note is visible without hunting through cards), and again inside
+    that cluster's own "show cluster photo" <details> section in its card
+    (report_render.render_cluster_breakdown), as the first thing shown
+    there, in the same callout-note style — so a note is easy to spot both
+    from a single skim at the top and in context when you land on that
+    cluster.
+    """
 
     max_points_per_cluster: int = 50
     outlier_ratio_threshold: float = 0.1
-    relative_strength_method: str = "median_sum"  # or "median_per_image_share"
+    concentration_metric: str = "median"  # or "weighted" — see report_stats.compute_concentration_values
     pw_samples: Optional[PwSamplesConfig] = None
     feature_viz: Optional[FeatureVizConfig] = None
+    cluster_notes: Optional[dict] = None
 
     def __post_init__(self):
         if self.feature_viz is not None and self.pw_samples is None:

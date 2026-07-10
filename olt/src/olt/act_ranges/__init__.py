@@ -14,23 +14,24 @@ from olt.act_ranges.layer_utils import (
     get_layer_params,
     receptive_block,
 )
-from olt.act_ranges.plotting import save_combined_scatter_png
+from olt.act_ranges.plotting import save_combined_scatter_jpeg, save_concentration_sparkline_jpeg
 from olt.act_ranges.pw_samples import merge_pw_samples_into
 from olt.act_ranges.quarto_report import print_report_for_neuron
 from olt.act_ranges.report_config import FeatureVizConfig, PwSamplesConfig, ReportConfig
-from olt.act_ranges.report_assets import dump_cluster_asset, dump_overview_assets
+from olt.act_ranges.report_assets import dump_cluster_asset, dump_concentration_asset, dump_overview_assets
 from olt.act_ranges.report_render import (
-    render_contribution_bar,
     render_neuron_card,
+    render_notes_summary,
+    render_origin_cluster_header,
     render_overview_tab_body,
+    render_summary,
 )
 from olt.act_ranges.report_stats import (
     check_at_most_one_firing_per_origin,
-    check_same_sign,
+    compute_concentration_curves,
+    compute_concentration_values,
     compute_dep_order,
     compute_firing_stats,
-    compute_image_contribution_sums,
-    dedupe_to_one_origin_per_image,
     split_dep_order_by_frequency,
 )
 from olt.act_ranges.reports import crop_top, get_cluster_photo
@@ -71,17 +72,20 @@ __all__ = [
     "crop_top",
     "dump_cluster_asset",
     "dump_overview_assets",
-    "render_contribution_bar",
+    "dump_concentration_asset",
     "compute_dep_order",
     "compute_firing_stats",
-    "compute_image_contribution_sums",
+    "compute_concentration_curves",
+    "compute_concentration_values",
     "check_at_most_one_firing_per_origin",
     "split_dep_order_by_frequency",
-    "check_same_sign",
-    "dedupe_to_one_origin_per_image",
     "render_overview_tab_body",
     "render_neuron_card",
-    "save_combined_scatter_png",
+    "render_summary",
+    "render_notes_summary",
+    "render_origin_cluster_header",
+    "save_combined_scatter_jpeg",
+    "save_concentration_sparkline_jpeg",
     "print_report_for_neuron",
     "NoiseRatioRangeFilter",
     "NeuronParentAnalyser",

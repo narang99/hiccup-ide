@@ -4,13 +4,14 @@ config — the per-card counterpart to report_data.py's once-per-report work."""
 
 from dataclasses import dataclass
 
-from olt.act_ranges.report_assets import dump_cluster_asset, dump_overview_assets, dump_pw_sample_asset
+from olt.act_ranges.report_assets import (
+    dump_cluster_asset,
+    dump_concentration_asset,
+    dump_overview_assets,
+    dump_pw_sample_asset,
+)
 from olt.act_ranges.report_render import render_neuron_card as render_neuron_card_shell
 from olt.act_ranges.report_render import render_overview_tab_body
-from olt.act_ranges.report_stats import (
-    compute_relative_strength_median_per_image_share,
-    compute_relative_strength_median_sum,
-)
 
 
 @dataclass
@@ -27,17 +28,6 @@ class CardConfig:
     report: object  # report_config.ReportConfig
 
 
-def _relative_strength(key, data, config):
-    method = config.report.relative_strength_method
-    if method == "median_sum":
-        return compute_relative_strength_median_sum(key, data.medians, data.median_sum)
-    if method == "median_per_image_share":
-        return compute_relative_strength_median_per_image_share(key, data.per_image_shares)
-    raise ValueError(
-        f"unknown relative_strength_method: {method!r}, expected \"median_sum\" or \"median_per_image_share\""
-    )
-
-
 def _dep_pw_samples(config, dep_layer_name, dep_channel):
     pw_samples_config = config.report.pw_samples
     if pw_samples_config is None:
@@ -45,7 +35,22 @@ def _dep_pw_samples(config, dep_layer_name, dep_channel):
     return pw_samples_config.layer_by_channel_by_cid_by_pw_samples.get(dep_layer_name, {}).get(str(dep_channel), {})
 
 
-def _build_overview_body(dep_layer_name, dep_channel, data, config, cluster_stats, firing_counts):
+def _dep_cluster_notes(config, dep_layer_name, dep_channel):
+    """This neuron's slice of config.report.cluster_notes (dict[(dep_layer_name,
+    dep_channel, dep_cid), str]), reduced to dict[dep_cid, str] — the shape
+    render_cluster_breakdown's note_by_cid expects, same convention as
+    cluster_photo_ref_by_cid/pw_sample_ref_by_cid/feature_viz_ref_by_cid."""
+    cluster_notes = config.report.cluster_notes
+    if not cluster_notes:
+        return {}
+    return {
+        dep_cid: note
+        for (layer_name, channel, dep_cid), note in cluster_notes.items()
+        if layer_name == dep_layer_name and channel == dep_channel
+    }
+
+
+def _build_overview_body(dep_layer_name, dep_channel, data, config, cluster_stats):
     key = (dep_layer_name, dep_channel)
     dep_full_rows = data.full_groups.get_group(key)
     noise_samples = config.layer_by_channel_by_noise.get(dep_layer_name, {}).get(str(dep_channel), [])
@@ -62,23 +67,20 @@ def _build_overview_body(dep_layer_name, dep_channel, data, config, cluster_stat
         matched_cids,
         config.report.max_points_per_cluster,
     )
-    scatter_ref_path = f"{config.assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.png"
+    scatter_ref_path = f"{config.assets_ref_dir}/{dep_layer_name}/{dep_channel}/overview_scatter.jpeg"
 
     cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid = _cluster_asset_refs(
         dep_layer_name, dep_channel, data, config, cluster_stats
     )
+    note_by_cid = _dep_cluster_notes(config, dep_layer_name, dep_channel)
 
     return render_overview_tab_body(
-        _relative_strength(key, data, config),
-        data.medians[key],
-        data.kind,
         scatter_ref_path,
-        firing_counts.get(key, 0),
-        data.total_examples,
         cluster_stats,
         cluster_photo_ref_by_cid,
         pw_sample_ref_by_cid,
         feature_viz_ref_by_cid,
+        note_by_cid,
     )
 
 
@@ -122,6 +124,18 @@ def render_neuron_card(dep_layer_name, dep_channel, data, config):
     report_render.render_neuron_card. No per-image tabs/panel-tabset — the
     card is the aggregate view across every row of stats_df for this dep
     neuron."""
-    cluster_stats = data.cluster_stats_by_key[(dep_layer_name, dep_channel)]
-    overview_body = _build_overview_body(dep_layer_name, dep_channel, data, config, cluster_stats, data.firing_counts)
-    return render_neuron_card_shell(dep_layer_name, dep_channel, overview_body)
+    key = (dep_layer_name, dep_channel)
+    cluster_stats = data.cluster_stats_by_key[key]
+    overview_body = _build_overview_body(dep_layer_name, dep_channel, data, config, cluster_stats)
+
+    pos_marker, neg_marker = data.marker_by_key[key]
+    dump_concentration_asset(
+        config.assets_dump_dir, dep_layer_name, dep_channel, data.pos_curve, data.neg_curve, pos_marker, neg_marker
+    )
+    concentration_ref_path = f"{config.assets_ref_dir}/{dep_layer_name}/{dep_channel}/concentration.jpeg"
+
+    firing_pct = data.firing_counts.get(key, 0) / data.total_examples if data.total_examples else 0.0
+
+    return render_neuron_card_shell(
+        dep_layer_name, dep_channel, overview_body, concentration_ref_path, pos_marker, neg_marker, firing_pct
+    )

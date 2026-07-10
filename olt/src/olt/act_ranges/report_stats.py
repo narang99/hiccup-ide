@@ -63,74 +63,20 @@ def split_dep_order_by_frequency(
     Splits dep_order into (frequent, one_off) based on each dep neuron's
     firing count relative to total_examples: a neuron is "frequent" if it
     fired in at least max(min_count, ceil(min_ratio * total_examples))
-    examples, otherwise it's a one-off/noise neuron. Order within each
+    examples, otherwise it's a one-off/outlier neuron. Order within each
     sub-list is preserved from dep_order (already sorted by descending
     |median contribution|, with signed median contribution as tie-breaker,
     via compute_dep_order).
+
+    Returns (frequent, one_off, threshold) — threshold is the computed
+    minimum firing count, surfaced so callers (see render_summary) can state
+    the actual criteria used rather than just the counts.
     """
     threshold = max(min_count, math.ceil(min_ratio * total_examples))
     frequent, one_off = [], []
     for key in dep_order:
         (frequent if firing_counts.get(key, 0) >= threshold else one_off).append(key)
-    return frequent, one_off
-
-
-def dedupe_to_one_origin_per_image(stats_df):
-    """
-    Keeps only rows matching the first (origin_y, origin_x) seen for each
-    input_image_key (in row order) — a given image should contribute one unique
-    probe position, but upstream data can end up with more than one, which would
-    otherwise show the same dep neuron repeated in a tab.
-    """
-    first_origin_per_image = stats_df.drop_duplicates(subset="input_image_key", keep="first")[
-        ["input_image_key", "origin_y", "origin_x"]
-    ]
-    return stats_df.merge(first_origin_per_image, on=["input_image_key", "origin_y", "origin_x"])
-
-
-def compute_per_image_shares(deduped_stats_df, image_contribution_sums):
-    """
-    For each row in deduped_stats_df (one firing per dep neuron per image, see
-    dedupe_to_one_origin_per_image), computes that neuron's contribution as a
-    share of the image's total (contribution / image_contribution_sums[input_image_key],
-    see compute_image_contribution_sums), collected here across every image so
-    compute_relative_strength_median_per_image_share can take a median over them.
-
-    Returns dict[(dep_layer, dep_channel), list[float]], one share per image the
-    neuron fired in.
-    """
-    shares_by_dep = {}
-    for _, row in deduped_stats_df.iterrows():
-        contribution_sum = image_contribution_sums[row["input_image_key"]]
-        share = row["contribution"] / contribution_sum if contribution_sum != 0 else 0.0
-        shares_by_dep.setdefault((row["dep_layer"], row["dep_channel"]), []).append(share)
-    return shares_by_dep
-
-
-def compute_relative_strength_median_sum(key, medians, median_sum):
-    """
-    Overview relative-strength method A ("share of the median"): this dep neuron's
-    median contribution (across every firing in stats_df, see `medians` in
-    print_report_for_neuron) as a fraction of median_sum (the sum of every dep
-    neuron's median contribution for this origin neuron). Swappable with
-    compute_relative_strength_median_per_image_share via print_report_for_neuron's
-    relative_strength_method param — this one first sums then divides, the other
-    first divides (per image) then takes a median, and the two can disagree when a
-    neuron's contribution or the image's total varies a lot across images.
-    """
-    return medians[key] / median_sum if median_sum != 0 else 0.0
-
-
-def compute_relative_strength_median_per_image_share(key, per_image_shares):
-    """
-    Overview relative-strength method B ("median of the shares"): median, across
-    every image this dep neuron fired in, of its per-image share of that image's
-    total contribution (see compute_per_image_shares). Swappable with
-    compute_relative_strength_median_sum via print_report_for_neuron's
-    relative_strength_method param.
-    """
-    shares = per_image_shares.get(key, [])
-    return float(np.median(shares)) if shares else 0.0
+    return frequent, one_off, threshold
 
 
 def compute_dep_order(stats_df):
@@ -151,20 +97,130 @@ def compute_dep_order(stats_df):
     )
 
 
-def check_same_sign(values):
+CONCENTRATION_METRICS = ("median", "weighted")
+
+
+def compute_concentration_values(medians, firing_counts, total_examples, metric="median"):
     """
-    Raises if `values` contains both a strictly positive and a strictly negative
-    entry — 0 is compatible with either sign. Used because contribution
-    fractions-of-sum only make sense (as a "share of total") when every firing dep
-    neuron for an image pushed the origin neuron the same direction.
+    Per-dep-neuron scalar value compute_concentration_curves builds the
+    concentration sparkline/ticker labels from — kept swappable via `metric`
+    (report_config.ReportConfig.concentration_metric) so different weighting
+    strategies can be compared side by side rather than committing to one:
+
+    - "median": medians[key] as-is — this dep neuron's median contribution
+      across only the examples it actually fired in. Simple, but can
+      "overquantify" a neuron that fires rarely: a large-but-rare per-firing
+      contribution counts exactly the same in the cumulative curve as one
+      from a neuron that fires in every example, even though the rare one
+      contributes far less to the report's examples overall.
+    - "weighted": medians[key] * firing_counts.get(key, 0) / total_examples —
+      scales the median down by how often this neuron actually fires (see
+      compute_firing_stats), so an infrequently-firing neuron's rare large
+      contributions no longer inflate its apparent share of the total.
+
+    Returns dict[(dep_layer, dep_channel), float], same keys as medians,
+    signed (sign is preserved/unaffected — "weighted" only scales magnitude).
     """
-    has_positive = any(v > 0 for v in values)
-    has_negative = any(v < 0 for v in values)
-    if has_positive and has_negative:
-        raise ValueError(
-            f"contribution values must all share the same sign (0 allowed on either side), "
-            f"got mixed signs: {list(values)}"
-        )
+    if metric == "median":
+        return dict(medians)
+    if metric == "weighted":
+        return {
+            key: median * firing_counts.get(key, 0) / total_examples if total_examples else 0.0
+            for key, median in medians.items()
+        }
+    raise ValueError(
+        f"unknown concentration_metric: {metric!r}, expected one of {CONCENTRATION_METRICS}"
+    )
+
+
+def compute_concentration_curves(values, dep_order):
+    """
+    Builds the data behind each card's tiny positive/negative "concentration"
+    sparkline (report_assets.dump_concentration_asset): a Lorenz-style
+    cumulative curve per sign, so a viewer isn't misled into treating the
+    single brightest/widest bar as representative — the sparkline shows how
+    much magnitude it actually took to get there, and how many more neurons
+    make up the rest.
+
+    values: dict[(dep_layer, dep_channel), float], signed, one scalar per
+    dep neuron — see compute_concentration_values for how this is built
+    (swappable "median" vs "weighted" metric); this function itself doesn't
+    care which metric produced it, it just splits by sign and cumulates.
+
+    dep_order neurons are split by sign of their value (0 is excluded from
+    both — neither positive nor negative) and, within each sign, ranked by
+    descending |value| (dep_order is already sorted that way overall, so a
+    stable filter preserves per-sign rank order).
+
+    pos_curve/neg_curve are RAW cumulative sums of |value| — not
+    normalized/divided by anything. The plot (save_concentration_sparkline_jpeg)
+    is what makes the two sides comparable, via matplotlib's sharey=True: the
+    shared y-axis autoscales to whichever side's cumulative sum is larger, so
+    a real magnitude difference between the two sides still shows up as a
+    height difference, without needing a shared denominator baked into the
+    numbers themselves. This is deliberately decoupled from the printed
+    "{cumulative}% (^{delta}%)" ticker label (report_render._format_ticker_label)
+    next to the sparkline — that label is its own percentage calculation (see
+    marker_at below) and has no bearing on what's plotted; the plot is just
+    the values.
+
+    Returns (pos_curve, neg_curve, marker_by_key):
+    - pos_curve, neg_curve: list[float], raw cumulative |value| after each
+      rank (index 0 is rank 1), one per positive/negative neuron
+      respectively — these are what's actually plotted.
+    - marker_by_key: dict[(dep_layer, dep_channel), (pos_marker, neg_marker)],
+      one entry per key in dep_order. pos_marker/neg_marker are each either
+      None (that sign hasn't appeared yet as of this point in dep_order) or
+      (rank, cumulative_share, delta), where cumulative_share/delta are
+      fractions of THAT SIDE'S OWN total |value| — not a combined total
+      across both signs — so cumulative_share reaches 100% at each side's
+      own last-ranked neuron, independently. Used only for the printed
+      ticker label, not for anything plotted. rank is still used by the plot
+      (as an x position for the vertical marker line), but the share/delta
+      values are not. delta is that single rank's own marginal share of its
+      side's total (cumulative_share minus the previous rank's, or
+      cumulative_share itself at rank 1). For a key that's itself positive,
+      pos_marker is exactly its own point (it just updated the running
+      position); neg_marker is whatever negative neuron was most recently
+      seen above it, frozen in place — so scrolling through cards keeps both
+      curves' "where are we" markers current even on cards belonging to the
+      other sign.
+    """
+    pos_keys = [k for k in dep_order if values[k] > 0]
+    neg_keys = [k for k in dep_order if values[k] < 0]
+
+    def raw_curve(keys):
+        cum = 0.0
+        points = []
+        for k in keys:
+            cum += abs(values[k])
+            points.append(cum)
+        return points
+
+    pos_curve = raw_curve(pos_keys)
+    neg_curve = raw_curve(neg_keys)
+    pos_total = pos_curve[-1] if pos_curve else 0.0
+    neg_total = neg_curve[-1] if neg_curve else 0.0
+    pos_rank = {k: i for i, k in enumerate(pos_keys)}
+    neg_rank = {k: i for i, k in enumerate(neg_keys)}
+
+    def marker_at(curve, i, total):
+        cum = curve[i]
+        prev = curve[i - 1] if i > 0 else 0.0
+        share = cum / total if total else 0.0
+        delta = (cum - prev) / total if total else 0.0
+        return (i + 1, share, delta)
+
+    marker_by_key = {}
+    last_pos, last_neg = None, None
+    for k in dep_order:
+        if k in pos_rank:
+            last_pos = marker_at(pos_curve, pos_rank[k], pos_total)
+        elif k in neg_rank:
+            last_neg = marker_at(neg_curve, neg_rank[k], neg_total)
+        marker_by_key[k] = (last_pos, last_neg)
+
+    return pos_curve, neg_curve, marker_by_key
 
 
 def compute_cluster_breakdown(dep_full_rows, outlier_ratio_threshold=0.1):
@@ -179,7 +235,7 @@ def compute_cluster_breakdown(dep_full_rows, outlier_ratio_threshold=0.1):
     cluster that only accounts for a small slice (ratio < outlier_ratio_threshold)
     of this neuron's firings, and therefore not representative enough to call a
     real match (see render_cluster_breakdown, which flags these, and
-    save_combined_scatter_png, which folds them into the "unmatched" bucket
+    save_combined_scatter_jpeg, which folds them into the "unmatched" bucket
     instead of giving them their own Kelly color/legend entry).
 
     Returns a list of dicts sorted by descending count (ties broken by descending
@@ -212,12 +268,12 @@ def select_cluster_points(label_by_points, max_points_per_cluster=50):
     to at most max_points_per_cluster points each. A dep neuron can have far
     more clusters (and far more points per cluster) than the ones it actually
     matched, and the Overview scatter now plots every cluster, not just
-    matched ones (see save_combined_scatter_png), so capping keeps rendering
+    matched ones (see save_combined_scatter_jpeg), so capping keeps rendering
     fast and the plot legible. Sampling uses a fixed seed so re-running report
     generation on unchanged input data reproduces the same plot.
 
     Returns dict[dep_cid, list[float]], keyed by int(cid) to match
-    dep_full_rows["dep_cid"] values, for save_combined_scatter_png.
+    dep_full_rows["dep_cid"] values, for save_combined_scatter_jpeg.
     """
     rng = np.random.default_rng(0)
     sampled = {}
@@ -230,16 +286,3 @@ def select_cluster_points(label_by_points, max_points_per_cluster=50):
     return sampled
 
 
-def compute_image_contribution_sums(deduped_stats_df):
-    """
-    Sum of contribution across all dep neurons firing for each input image
-    (same-sign-checked per image via check_same_sign), keyed by input_image_key —
-    the denominator for each neuron's per-image relative_strength bar. Computed
-    once up front so every neuron's card can look up its image's sum, instead of
-    each neuron recomputing it from a per-image slice.
-    """
-    sums = {}
-    for image_key, group in deduped_stats_df.groupby("input_image_key")["contribution"]:
-        check_same_sign(group)
-        sums[image_key] = group.sum()
-    return sums
