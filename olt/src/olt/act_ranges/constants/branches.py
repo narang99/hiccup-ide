@@ -14,3 +14,22 @@ MIXED4D_BRANCHES = [
     ("mixed4d_5x5_pre_relu_conv", 64),
     ("mixed4d_pool_reduce_pre_relu_conv", 64),
 ]
+
+# mixed5b_5x5_pre_relu_conv's dependency is not a concatenated multi-branch tensor —
+# it's a single upstream layer, mixed5b_5x5_bottleneck_pre_relu_conv (48 channels),
+# reached through exactly one manual F.pad (see constants/paddings.py). A single-entry
+# list here lets FlattenedChannelMap degenerate to an identity channel mapping instead
+# of needing separate handling for the concat vs. non-concat case.
+MIXED5B_5X5_DEP_BRANCHES = [
+    ("mixed5b_5x5_bottleneck_pre_relu_conv", 48),
+]
+
+# current_layer_name -> its dependency's branch list (see FlattenedChannelMap in
+# layer_utils.py), one entry per current_layer_name NeuronParentAnalyser supports
+# (mirrors F_PAD_MANUAL_BY_CURRENT_LAYER in constants/paddings.py) — lets callers look
+# up the right branch list by current_layer_name instead of hardcoding which constant
+# goes with which layer.
+BRANCHES_BY_CURRENT_LAYER = {
+    "mixed4e_1x1_pre_relu_conv": MIXED4D_BRANCHES,
+    "mixed5b_5x5_pre_relu_conv": MIXED5B_5X5_DEP_BRANCHES,
+}

@@ -1,10 +1,12 @@
 from olt.act_ranges.analyser import NeuronParentAnalyser
 from olt.act_ranges.constants import (
+    BRANCHES_BY_CURRENT_LAYER,
     CLUSTER_PATCH_SET_DIR,
     F_PAD_MANUAL_BY_CURRENT_LAYER,
     KELLY_COLORS,
     LAYER_NAME_BY_SHAPE,
     MIXED4D_BRANCHES,
+    MIXED5B_5X5_DEP_BRANCHES,
     UNSUPPORTED_CURRENT_LAYERS,
 )
 from olt.act_ranges.dependency_match import DependencyMatch
@@ -61,6 +63,8 @@ __all__ = [
     "LAYER_NAME_BY_SHAPE",
     "KELLY_COLORS",
     "MIXED4D_BRANCHES",
+    "MIXED5B_5X5_DEP_BRANCHES",
+    "BRANCHES_BY_CURRENT_LAYER",
     "F_PAD_MANUAL_BY_CURRENT_LAYER",
     "UNSUPPORTED_CURRENT_LAYERS",
     "get_layer_params",

@@ -13,7 +13,12 @@ from olt.act_ranges.layer_utils import (
     receptive_block,
 )
 from olt.act_ranges.similarity import get_neuron_closest_cluster
-from olt.act_ranges.stats import get_noise_range, indices_for_percentage, noise_stats, shorth
+from olt.act_ranges.stats import (
+    get_noise_range,
+    indices_for_percentage,
+    noise_stats,
+    shorth,
+)
 from olt.tfms import transform
 
 
@@ -122,7 +127,9 @@ class NeuronParentAnalyser:
             timg, self.model, self.all_layers
         )
 
-    def top_contributing_indices(self, y, x, current_act, sum_upto_percent):
+    def top_contributing_indices(
+        self, y, x, current_act, sum_upto_percent, spatial_positions=None
+    ):
         """
         Shared by collect_cluster_above_noise_ratios and collect_cluster_stats_df:
         finds the flattened-input indices that account for `sum_upto_percent`
@@ -135,6 +142,14 @@ class NeuronParentAnalyser:
         same shape as patch) so callers can look up each returned index's own
         contribution value via pw[cur_chan, cur_rel_y, cur_rel_x] — see
         iter_dependency_coords.
+
+        spatial_positions: optional collection of (rel_y, rel_x) tuples, 0-indexed
+        within the receptive-field patch (e.g. [(0, x) for x in range(5)] for the
+        top row of a 5x5 kernel). Ranking still runs over the WHOLE patch (same
+        sum_upto_percent semantics as when spatial_positions is None) — this only
+        filters the resulting top-contributing indices down to the given spatial
+        positions afterward, rather than restricting what counts as a "top
+        contributor" in the first place.
 
         Returns None if current_layer_name's own receptive field at (y, x)
         falls outside its captured input tensor (see
@@ -164,6 +179,9 @@ class NeuronParentAnalyser:
         patch = input_tensor[0, :, y0:y1, x0:x1]
         pw = patch * w
         indices, fracs = indices_for_percentage(pw, sum_upto_percent)
+        if spatial_positions is not None:
+            allowed = set(spatial_positions)
+            indices = [idx for idx in indices if (idx[1], idx[2]) in allowed]
         return y0, x0, patch, pw, indices
 
     def dep_coords(self, y0, x0, cur_rel_y, cur_rel_x):
@@ -302,8 +320,11 @@ class NeuronParentAnalyser:
         x,
         current_act,
         sum_upto_percent=0.9,
+        spatial_positions=None,
     ):
-        result = self.top_contributing_indices(y, x, current_act, sum_upto_percent)
+        result = self.top_contributing_indices(
+            y, x, current_act, sum_upto_percent, spatial_positions=spatial_positions
+        )
         if result is None:  # this origin probe's own receptive field is out of bounds
             return []
         y0, x0, patch, pw, indices = result
@@ -328,8 +349,11 @@ class NeuronParentAnalyser:
         x,
         current_act,
         sum_upto_percent=0.9,
+        spatial_positions=None,
     ):
-        result = self.top_contributing_indices(y, x, current_act, sum_upto_percent)
+        result = self.top_contributing_indices(
+            y, x, current_act, sum_upto_percent, spatial_positions=spatial_positions
+        )
         if result is None:  # this origin probe's own receptive field is out of bounds
             return []
         y0, x0, patch, pw, indices = result
@@ -358,6 +382,7 @@ class NeuronParentAnalyser:
         sum_upto_percent=0.9,
         csv_path=None,
         append=False,
+        spatial_positions=None,
     ):
         """
         Collects one row per contributing (dep_layer, dep_channel) with: origin
@@ -400,8 +425,18 @@ class NeuronParentAnalyser:
         out of bounds (top_contributing_indices returns None — see
         layer_utils.ReceptiveFieldOutOfBounds), df/pw_samples are returned
         empty for this call rather than raising.
+
+        spatial_positions: optional collection of (rel_y, rel_x) tuples, 0-indexed
+        within the receptive-field patch — restricts collection to only
+        contributing indices at those spatial positions (e.g. the top row of a
+        5x5 kernel via [(0, x) for x in range(5)]), letting a report be
+        generated for a spatial subset of the kernel instead of the whole
+        patch. See top_contributing_indices for exactly how filtering is
+        applied (after ranking, not before).
         """
-        result = self.top_contributing_indices(y, x, current_act, sum_upto_percent)
+        result = self.top_contributing_indices(
+            y, x, current_act, sum_upto_percent, spatial_positions=spatial_positions
+        )
         if result is None:
             return pd.DataFrame(), {}
         y0, x0, patch, pw, indices = result

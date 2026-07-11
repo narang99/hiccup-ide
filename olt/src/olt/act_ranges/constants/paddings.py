@@ -12,6 +12,9 @@
 F_PAD_MANUAL_BY_CURRENT_LAYER = {
     # mixed4e_1x1_pre_relu_conv convolves `mixed4d` directly (1x1 kernel, no F.pad).
     "mixed4e_1x1_pre_relu_conv": (0, 0),
+    # mixed5b_5x5_pre_relu_conv convolves mixed5b_5x5_bottleneck_pre_relu_conv (relu'd)
+    # through exactly one manual F.pad((2, 2, 2, 2)) before the 5x5 conv.
+    "mixed5b_5x5_pre_relu_conv": (2, 2),
 }
 
 # current_layer_names known NOT to be safely handled by NeuronParentAnalyser's current
