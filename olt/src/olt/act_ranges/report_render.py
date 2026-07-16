@@ -1,4 +1,10 @@
-def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_label, cluster_photo_ref_path):
+def render_origin_cluster_header(
+    dep_layer_name,
+    dep_channel,
+    origin_cluster_label,
+    cluster_photo_ref_path,
+    pw_photo_ref_path=None,
+):
     """
     Document title (as Quarto YAML front matter, not a markdown "# " heading
     — Quarto renders the front matter title itself, so an in-body heading
@@ -26,6 +32,15 @@ def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_lab
     per-cluster photo mechanism dependency clusters use) — None means a label
     was given but no photo was found (e.g. a singleton cluster), so an
     explanatory placeholder is shown instead of an image.
+
+    pw_photo_ref_path is the same cluster's pointwise-multiplication photo
+    (report_assets.dump_cluster_asset called with kind="third" — the
+    "cluster_{cid}_third.jpeg" file alongside "cluster_{cid}.jpeg" on disk),
+    or None if it wasn't dumped/found. When both images are available, a
+    toggle button is rendered under the photo so a viewer can switch between
+    the two without both taking up vertical space at once; when only the
+    combined photo is available, behavior is unchanged (plain image, no
+    button).
     """
     if origin_cluster_label is None:
         title = f"Report: Dependencies of {dep_layer_name}:{dep_channel}"
@@ -36,7 +51,28 @@ def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_lab
     if origin_cluster_label is None:
         return front_matter
     if cluster_photo_ref_path is not None:
-        body = f"![cid={origin_cluster_label}]({cluster_photo_ref_path})\n"
+        if pw_photo_ref_path is not None:
+            body = (
+                f"<div>\n"
+                f'<img id="origin-cluster-photo-img" src="{cluster_photo_ref_path}" '
+                f'alt="cid={origin_cluster_label}">\n'
+                f'<div class="mt-1">\n'
+                f'<button type="button" id="origin-cluster-photo-toggle" '
+                f'class="btn btn-sm btn-outline-secondary" '
+                f'data-combined-src="{cluster_photo_ref_path}" data-pw-src="{pw_photo_ref_path}" '
+                f'data-showing-pw="false" '
+                f'onclick="'
+                f"var btn=this; var img=document.getElementById('origin-cluster-photo-img'); "
+                f"var showingPw=btn.dataset.showingPw==='true'; "
+                f"img.src=showingPw?btn.dataset.combinedSrc:btn.dataset.pwSrc; "
+                f"btn.dataset.showingPw=(!showingPw).toString(); "
+                f"btn.textContent=showingPw?'Show pointwise multiplication':'Show cluster photo';"
+                f'">Show pointwise multiplication</button>\n'
+                f"</div>\n"
+                f"</div>\n"
+            )
+        else:
+            body = f"![cid={origin_cluster_label}]({cluster_photo_ref_path})\n"
     else:
         body = (
             '<span class="text-body-secondary small">no cluster photo — this cluster was '
@@ -47,26 +83,40 @@ def render_origin_cluster_header(dep_layer_name, dep_channel, origin_cluster_lab
 
 
 def render_report_stats_summary(
-    frequent_count, one_off_count, one_off_threshold, total_examples, n_below, n_above
+    frequent_count,
+    one_off_count,
+    one_off_threshold,
+    total_examples,
+    n_below,
+    n_above,
+    n_below_adding,
+    n_above_adding,
+    n_below_inhibiting,
+    n_above_inhibiting,
 ):
     """
     Bullet-point summary placed right after the title/origin cluster photo
     and before render_report_histograms — the numbers a reader needs to
-    interpret the two histograms below, stated once here instead of
+    interpret the three histograms below, stated once here instead of
     scattered as in-plot text annotations (which get cramped/overlapping at
     small figure sizes).
 
     - how many dependency neurons are "frequently firing" (data.frequent —
       these are the ones with their own card below and the ones pooled into
-      both histograms) vs. excluded as one-off/low-frequency firers (see
+      all three histograms) vs. excluded as one-off/low-frequency firers (see
       report_stats.split_dep_order_by_frequency — firing in fewer than
       one_off_threshold of total_examples collected input images; these are
       not shown as cards at all, so this bullet is the only place their
       existence is surfaced).
     - how the pooled output-activation-vs-noise distances (see
-      report_stats.compute_output_activation_noise_max_distances) split
-      across the x=0 "at this neuron's own noise ceiling" line: n_above
-      firings clearly exceed their own neuron's noise, n_below don't.
+      report_stats.compute_output_activation_noise_median_distances,
+      report_stats.split_output_activation_distances_by_contribution_sign)
+      split across the x=0 "at this neuron's own noise median" line, broken
+      out per histogram (all/adding/inhibiting — same three populations as
+      render_report_histograms) as a sub-list under one parent bullet, rather
+      than only stating the "all" split: a reader comparing e.g. the adding
+      and inhibiting histograms side by side needs each one's own above/below
+      counts, not just the combined total.
     """
     return (
         "::: {.text-body-secondary .small .mb-3}\n"
@@ -74,34 +124,90 @@ def render_report_stats_summary(
         f"- one-off/outlier dependency neurons (fired in fewer than "
         f"**{one_off_threshold}** of **{total_examples}** collected input images, "
         f"not shown below): **{one_off_count}**\n"
-        f"- output activations above their own neuron's noise max (distance > 0): "
-        f"**{n_above}**, below it (distance < 0): **{n_below}**\n"
         ":::\n"
     )
 
 
-def render_report_histograms(activation_histogram_ref_path, firing_frequency_histogram_ref_path):
+def render_report_histograms(
+    activation_histogram_all_ref_path,
+    activation_histogram_adding_ref_path,
+    activation_histogram_inhibiting_ref_path,
+    fraction_above_threshold_all_ref_path=None,
+    fraction_above_threshold_adding_ref_path=None,
+    fraction_above_threshold_inhibiting_ref_path=None,
+    fraction_above_threshold=None,
+):
     """
-    Report-level pair of images (see
+    Report-level histogram rows, placed right after render_report_stats_summary
+    — the first substantive content in the report. Each of the three
+    populations (all / adding (contribution > 0) / inhibiting (contribution
+    <= 0) — see report_stats.split_output_activation_distances_by_contribution_sign)
+    gets its own row: the output-activation-vs-noise distance histogram (see
     report_assets.dump_output_activation_histogram_asset,
-    report_stats.compute_output_activation_noise_max_distances,
-    report_assets.dump_firing_frequency_histogram_asset,
-    report_stats.compute_firing_frequency_ratios), placed right after
-    render_report_stats_summary — the first substantive content in the
-    report. Both are pooled across every "frequent" dep neuron only
-    (one-off/outlier neurons excluded from both, same population as the
-    cards below); the counts behind them are stated in
-    render_report_stats_summary rather than as in-plot text. Laid out side
-    by side via Quarto's layout-ncol div rather than one-per-line, since
-    both are small and reference the same excluded/included neuron
-    population — reading them side by side is more useful than stacked.
+    report_stats.compute_output_activation_noise_median_distances) plus, when
+    report_config.ReportConfig.fraction_above_threshold is set, that same
+    population's per-origin-example "fraction of firings above threshold"
+    histogram (see report_stats.compute_fraction_above_threshold_by_example,
+    report_stats.split_fraction_above_threshold_by_contribution_sign,
+    report_assets.dump_fraction_above_threshold_histogram_asset — grouped by
+    (input_image_key, origin_y, origin_x), not by image alone, since one
+    image can be probed at multiple positions) right next to it — so a
+    reader can compare, for the same population, "how far above noise do
+    firings sit overall" against "how concentrated in specific examples is
+    that" without hunting between separate sections.
+
+    fraction_above_threshold_*_ref_path are all None (the default) when
+    ReportConfig.fraction_above_threshold is None — the fraction histograms
+    are skipped entirely and each row collapses back to just the one
+    distance histogram, laid out 3-wide in a single row instead of one row
+    per population (since there's nothing to pair each one with). When set,
+    the caller must supply all three ref paths and `fraction_above_threshold`
+    (the threshold itself, restated in each caption since it's the one
+    number needed to interpret those plots).
+
+    All populations pooled across every "frequent" dep neuron only (one-off/
+    low-frequency neurons excluded, same population as the cards below); the
+    distance-histogram counts are stated in render_report_stats_summary
+    rather than as in-plot text. Laid out side by side via Quarto's
+    layout-ncol div rather than one-per-line, since each row's images are
+    small and reference the same population — reading them side by side is
+    more useful than stacked.
     """
-    return (
-        "::: {layout-ncol=2}\n\n"
-        f"![output activation, distance from noise_max (noise-radius units)]({activation_histogram_ref_path})\n\n"
-        f"![firing frequency across dep neurons]({firing_frequency_histogram_ref_path})\n\n"
-        ":::\n"
-    )
+    rows = [
+        (
+            "all",
+            activation_histogram_all_ref_path,
+            fraction_above_threshold_all_ref_path,
+        ),
+        (
+            "adding (contribution > 0)",
+            activation_histogram_adding_ref_path,
+            fraction_above_threshold_adding_ref_path,
+        ),
+        (
+            "inhibiting (contribution <= 0)",
+            activation_histogram_inhibiting_ref_path,
+            fraction_above_threshold_inhibiting_ref_path,
+        ),
+    ]
+
+    if fraction_above_threshold_all_ref_path is None:
+        images = "".join(
+            f"![output activation, distance from noise_med (noise-radius units) — {label}]({dist_ref})\n\n"
+            for label, dist_ref, _ in rows
+        )
+        return f"::: {{layout-ncol=3}}\n\n{images}:::\n"
+
+    sections = []
+    for label, dist_ref, frac_ref in rows:
+        sections.append(
+            "::: {layout-ncol=2}\n\n"
+            f"![output activation, distance from noise_med (noise-radius units) — {label}]({dist_ref})\n\n"
+            f"![per-example fraction of firings with noise-median distance > {fraction_above_threshold:g} "
+            f"(noise-radius units) — {label}]({frac_ref})\n\n"
+            ":::\n"
+        )
+    return "\n\n".join(sections)
 
 
 def render_notes_summary(cluster_notes):
@@ -122,15 +228,16 @@ def render_notes_summary(cluster_notes):
         f"- **{dep_layer_name}:{dep_channel} (cid={dep_cid})** — {note}"
         for (dep_layer_name, dep_channel, dep_cid), note in cluster_notes.items()
     )
-    return (
-        f'::: {{.callout-note collapse="true"}}\n'
-        f"## Cluster notes\n\n"
-        f"{items}\n"
-        f":::\n"
-    )
+    return f'::: {{.callout-note collapse="true"}}\n## Cluster notes\n\n{items}\n:::\n'
 
 
-def _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid):
+def _render_cluster_bar(
+    row,
+    cluster_photo_ref_by_cid,
+    pw_sample_ref_by_cid,
+    feature_viz_ref_by_cid,
+    note_by_cid,
+):
     """One thin progress-bar row for a single dependency cluster (dep_cid),
     plus its own collapsed `<details>` "show cluster photo" section — see
     render_cluster_breakdown for what each piece means. Shared by both the
@@ -151,7 +258,12 @@ def _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, fea
     summary_text = "show cluster photo"
     if note is not None:
         summary_text += " · has note"
-    if ref_path is None and pw_ref_path is None and feature_viz_ref_path is None and note is None:
+    if (
+        ref_path is None
+        and pw_ref_path is None
+        and feature_viz_ref_path is None
+        and note is None
+    ):
         details = (
             '<span class="text-body-secondary small">no cluster photo — this cluster was '
             "built from samples in only a single image, so its combined photo wasn't "
@@ -160,7 +272,7 @@ def _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, fea
     else:
         body = ""
         if note is not None:
-            body += f'::: {{.callout-note}}\n{note}\n:::\n\n'
+            body += f"::: {{.callout-note}}\n{note}\n:::\n\n"
         if ref_path is not None:
             body += f"![cid={row['dep_cid']}]({ref_path})\n\n"
         else:
@@ -170,9 +282,7 @@ def _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, fea
                 "generated</span>\n\n"
             )
         if pw_ref_path is not None:
-            body += (
-                f"![cid={row['dep_cid']} wild samples vs. each one's closest cluster match]({pw_ref_path})\n\n"
-            )
+            body += f"![cid={row['dep_cid']} wild samples vs. each one's closest cluster match]({pw_ref_path})\n\n"
         if feature_viz_ref_path is not None:
             body += (
                 f"![cid={row['dep_cid']} feature-viz reconstruction of the wild samples above]"
@@ -273,13 +383,25 @@ def render_cluster_breakdown(
     if non_outlier_rows:
         sections.append(
             "\n\n".join(
-                _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid)
+                _render_cluster_bar(
+                    row,
+                    cluster_photo_ref_by_cid,
+                    pw_sample_ref_by_cid,
+                    feature_viz_ref_by_cid,
+                    note_by_cid,
+                )
                 for row in non_outlier_rows
             )
         )
     if outlier_rows:
         outlier_bars = "\n\n".join(
-            _render_cluster_bar(row, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid)
+            _render_cluster_bar(
+                row,
+                cluster_photo_ref_by_cid,
+                pw_sample_ref_by_cid,
+                feature_viz_ref_by_cid,
+                note_by_cid,
+            )
             for row in outlier_rows
         )
         sections.append(
@@ -310,7 +432,11 @@ def render_overview_tab_body(
     a plain "Fired: {percent}%" figure in the card header (see
     render_neuron_card's firing_pct param) instead of its own bar."""
     breakdown = render_cluster_breakdown(
-        cluster_stats, cluster_photo_ref_by_cid, pw_sample_ref_by_cid, feature_viz_ref_by_cid, note_by_cid
+        cluster_stats,
+        cluster_photo_ref_by_cid,
+        pw_sample_ref_by_cid,
+        feature_viz_ref_by_cid,
+        note_by_cid,
     )
     return f"![]({scatter_ref_path})\n\n{breakdown}"
 
@@ -375,12 +501,16 @@ def render_neuron_card(
     """
     title = f"**{dep_layer_name}:{dep_channel}**"
     if firing_pct is not None:
-        title += f' [· Fired: {firing_pct * 100:.1f}%]{{.text-body-secondary .small}}'
+        title += f" [· Fired: {firing_pct * 100:.1f}%]{{.text-body-secondary .small}}"
     if concentration_ref_path is not None:
         pos_label = _format_ticker_label(pos_marker)
         neg_label = _format_ticker_label(neg_marker)
-        pos_span = f'[{pos_label}]{{style="color: {_POS_TEXT_COLOR};"}} ' if pos_label else ""
-        neg_span = f' [{neg_label}]{{style="color: {_NEG_TEXT_COLOR};"}}' if neg_label else ""
+        pos_span = (
+            f'[{pos_label}]{{style="color: {_POS_TEXT_COLOR};"}} ' if pos_label else ""
+        )
+        neg_span = (
+            f' [{neg_label}]{{style="color: {_NEG_TEXT_COLOR};"}}' if neg_label else ""
+        )
         # Title and the sparkline group are separate paragraphs (blank line
         # between) so pandoc emits them as two sibling <p> elements inside
         # the header div — only then are they actually two flex items,
@@ -403,8 +533,8 @@ def render_neuron_card(
         header_body = title
         header_classes = ".border-bottom .pb-2 .mb-2"
     return (
-        f'::: {{.border .rounded .mb-2 .p-3}}\n\n'
-        f'::: {{{header_classes}}}\n'
+        f"::: {{.border .rounded .mb-2 .p-3}}\n\n"
+        f"::: {{{header_classes}}}\n"
         f"{header_body}\n"
         f":::\n\n"
         f"{overview_body}\n\n"

@@ -39,29 +39,25 @@ _NEG_MARKER = "#a11f1f"  # dark red
 _HIST_COLOR = "#4dabf7"  # light blue
 
 
-def save_output_activation_histogram_jpeg(distances, output_path, bins=40):
+def _draw_output_activation_histogram(ax, distances, bins=40):
     """
-    Report-level (not per-card) histogram: distance of every collected
-    "frequent" dep neuron's firings from its own noise_max, in noise-radius
-    units (see report_stats.compute_output_activation_noise_max_distances) —
-    pooled across every dependency neuron and every origin example in this
-    report, since the per-neuron noise-radius normalization is what makes
-    pooling different neurons' activation scales into one histogram
-    meaningful. A dashed white line at x=0 marks "right at this neuron's own
-    noise ceiling" — mass to the right is firings clearly above their own
-    neuron's noise; mass at/left of it is firings that, relative to their own
-    neuron's noise, look unremarkable. bins is caller-configurable (see
-    report_config.ReportConfig.histogram_bins) since the right resolution
-    depends on how many firings/dep neurons a given report has.
+    Draws one output-activation-vs-noise histogram onto ax: distance of every
+    given firing from its own dep neuron's noise_med (median), in noise-radius units
+    (see report_stats.compute_output_activation_noise_median_distances). A
+    dashed white line at x=0 marks "right at this neuron's own noise
+    median" — mass to the right is firings clearly above their own neuron's
+    typical noise; mass at/left of it is firings that, relative to their own
+    neuron's noise, look unremarkable. Two additional solid white lines mark
+    the min and max of distances (the extremes of this distribution) — no
+    in-plot text (counts/values are stated once in
+    report_render.render_report_stats_summary instead, since text
+    annotations inside a small figure get cramped/overlapping).
 
-    Two additional solid white lines mark the min and max of distances (the
-    extremes of the pooled distribution) — no in-plot text (counts/values
-    are stated once in report_render.render_report_stats_summary instead,
-    since text annotations inside a small figure get cramped/overlapping).
+    Shared by save_output_activation_histogram_jpeg (headless, one panel per
+    JPEG) and show_output_activation_histograms (interactive, three panels
+    in one figure) so both draw identically.
     """
     distances = np.asarray(distances)
-    fig, ax = plt.subplots(figsize=(5.5, 3.2))
-    _style_dark_axis(fig, ax)
     ax.hist(distances, bins=bins, color=_HIST_COLOR, edgecolor="none")
     ax.axvline(x=0, color="white", linestyle="--", linewidth=1)
 
@@ -69,11 +65,134 @@ def save_output_activation_histogram_jpeg(distances, output_path, bins=40):
         ax.axvline(x=distances.min(), color="white", linestyle="-", linewidth=1)
         ax.axvline(x=distances.max(), color="white", linestyle="-", linewidth=1)
 
-    ax.set_xlabel("distance from noise_max (noise-radius units)", color="white")
+    ax.set_xlabel("distance from noise_med (noise-radius units)", color="white")
+
+
+def save_output_activation_histogram_jpeg(distances, output_path, bins=40):
+    """
+    Report-level (not per-card) histogram: distance of every collected
+    "frequent" dep neuron's firings from its own noise_med (median), in noise-radius
+    units (see report_stats.compute_output_activation_noise_median_distances) —
+    pooled across every dependency neuron and every origin example in this
+    report, since the per-neuron noise-radius normalization is what makes
+    pooling different neurons' activation scales into one histogram
+    meaningful. bins is caller-configurable (see
+    report_config.ReportConfig.histogram_bins) since the right resolution
+    depends on how many firings/dep neurons a given report has. See
+    _draw_output_activation_histogram for the actual plot.
+    """
+    fig, ax = plt.subplots(figsize=(5.5, 3.2))
+    _style_dark_axis(fig, ax)
+    _draw_output_activation_histogram(ax, distances, bins=bins)
     fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, format="jpeg", facecolor=fig.get_facecolor(), pil_kwargs={"quality": 90})
     plt.close(fig)
+
+
+def show_output_activation_histograms(
+    all_distances, adding_distances, inhibiting_distances, bins=40, figsize=(14, 3.5)
+):
+    """
+    Interactive (non-headless) sibling of save_output_activation_histogram_jpeg
+    — the same three output-activation-vs-noise histograms
+    print_report_for_neuron renders in its report row (see
+    report_render.render_report_histograms:
+    all-pooled / adding (contribution > 0) / inhibiting (contribution <= 0),
+    see report_stats.compute_output_activation_noise_median_distances and
+    report_stats.split_output_activation_distances_by_contribution_sign for
+    how to produce these three lists), shown live in one matplotlib figure
+    via plt.show() instead of dumped to JPEGs — for quick notebook
+    exploration of a stats_df's noise distances directly, without touching
+    print_report_for_neuron/build_report_data's asset-dumping or
+    card-rendering machinery at all.
+
+    Returns (fig, axs).
+    """
+    fig, axs = plt.subplots(1, 3, figsize=figsize)
+    for ax, distances, title in zip(
+        axs,
+        (all_distances, adding_distances, inhibiting_distances),
+        ("all", "adding (contribution > 0)", "inhibiting (contribution <= 0)"),
+    ):
+        _style_dark_axis(fig, ax)
+        _draw_output_activation_histogram(ax, distances, bins=bins)
+        ax.set_title(title, color="white")
+    fig.tight_layout()
+    return fig, axs
+
+
+def show_label_points_grid(
+    label_by_points, n_rows, n_cols, colors=None, figsize=None, sharey=True, max_points_per_label=200, rng=None
+):
+    """
+    Interactive grid of per-label scatter panels — one panel of overlaid
+    scatters per chunk of labels, labels split evenly (ceil(n_labels /
+    (n_rows*n_cols)) per panel) across n_rows*n_cols panels, e.g. for eyeballing
+    every cluster's raw point population (layer_by_channel_by_label_by_points)
+    at once instead of one cluster at a time.
+
+    label_by_points: dict[label, list[float]] — the full point population per
+    label; each label is subsampled to at most max_points_per_label points
+    (without replacement — a label already at or under the cap is plotted
+    as-is rather than resampled with possible duplicates).
+
+    Each label within a panel is plotted with jittered (not bare range(n)) x
+    positions (see _jittered_x) — several labels capped to the same
+    max_points_per_label length would otherwise share identical integer x
+    positions and stack into vertical stripes instead of reading as a
+    scatter (the same fix save_combined_scatter_jpeg uses for its overview
+    scatter).
+
+    colors: cycled (via modulo) across labels if there are more labels than
+    colors — defaults to constants.KELLY_COLORS[1:] (index 0 is reserved
+    elsewhere in this module for a "noise" series color, see
+    _CLUSTER_COLORS).
+
+    rng: np.random.Generator for subsampling/jitter reproducibility — a
+    fresh np.random.default_rng() is used if not given.
+
+    Panels beyond however many are actually needed to place every label are
+    turned off (axis hidden) rather than left as empty ticked boxes — this
+    is computed per-panel from panel_labels directly (not sliced off the end
+    by label count), since a chunk size > 1 per panel means "panels with no
+    labels" and "labels used up" aren't the same index.
+
+    Returns (fig, axes) — axes flattened to 1D regardless of n_rows/n_cols.
+    """
+    rng = np.random.default_rng() if rng is None else rng
+    if colors is None:
+        colors = KELLY_COLORS[1:]
+
+    label_by_points = {
+        label: rng.choice(points, size=min(len(points), max_points_per_label), replace=False)
+        for label, points in label_by_points.items()
+    }
+    labels = list(label_by_points.keys())
+    color_map = {label: colors[i % len(colors)] for i, label in enumerate(labels)}
+
+    if figsize is None:
+        figsize = (7 * n_cols, 5 * n_rows)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, sharey=sharey)
+    axes = np.array(axes).reshape(-1)
+
+    n_panels = n_rows * n_cols
+    labels_per_panel = -(-len(labels) // n_panels) if n_panels > 0 else 0
+
+    for i, ax in enumerate(axes):
+        panel_labels = labels[i * labels_per_panel : (i + 1) * labels_per_panel]
+        for label in panel_labels:
+            ys = label_by_points[label]
+            xs = _jittered_x(len(ys), rng)
+            ax.scatter(xs, ys, color=color_map[label], label=label)
+        if panel_labels:
+            ax.legend()
+        else:
+            ax.axis("off")
+
+    fig.tight_layout()
+    return fig, axes
 
 
 def save_firing_frequency_histogram_jpeg(ratios, output_path, bins=20):
@@ -94,6 +213,32 @@ def save_firing_frequency_histogram_jpeg(ratios, output_path, bins=20):
     ax.hist(ratios, bins=bins, color=_HIST_COLOR, edgecolor="none")
 
     ax.set_xlabel("firing frequency (fraction of examples)", color="white")
+    fig.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, format="jpeg", facecolor=fig.get_facecolor(), pil_kwargs={"quality": 90})
+    plt.close(fig)
+
+
+def save_fraction_above_threshold_histogram_jpeg(fractions, output_path, threshold, bins=20):
+    """
+    Report-level histogram: one value per probed origin instance/example — a
+    single (input_image_key, origin_y, origin_x), not one whole image, since
+    an image can be probed at multiple positions (see
+    report_stats.compute_fraction_above_threshold_by_example) — what fraction
+    of that example's "frequent" dep-neuron firings sit above `threshold`
+    noise-radius units from their own dep neuron's noise_med. threshold is shown in
+    the x-axis label (rather than as a vertical line — unlike
+    _draw_output_activation_histogram's x=0 marker, there's no fixed
+    reference point here since threshold itself is the caller's configurable
+    constant, see report_config.ReportConfig.fraction_above_threshold) so a
+    reader knows exactly which cutoff produced this distribution without
+    checking the report's config separately.
+    """
+    fig, ax = plt.subplots(figsize=(5.5, 3.2))
+    _style_dark_axis(fig, ax)
+    ax.hist(fractions, bins=bins, color=_HIST_COLOR, edgecolor="none")
+
+    ax.set_xlabel(f"fraction of firings with distance > {threshold:g} (noise-radius units)", color="white")
     fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, format="jpeg", facecolor=fig.get_facecolor(), pil_kwargs={"quality": 90})

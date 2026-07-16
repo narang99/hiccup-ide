@@ -14,6 +14,7 @@ from olt.act_ranges.report_stats import (
     compute_concentration_values,
     compute_dep_order,
     compute_firing_stats,
+    sort_card_order,
     split_dep_order_by_frequency,
 )
 
@@ -28,6 +29,7 @@ class ReportData:
     firing_counts: dict
     total_examples: int
     frequent: list
+    card_order: list
     one_off: list
     one_off_threshold: int
     cluster_stats_by_key: dict
@@ -113,6 +115,7 @@ def build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config):
     frequent, one_off, one_off_threshold = split_dep_order_by_frequency(
         dep_order, firing_counts, total_examples
     )
+    card_order = sort_card_order(frequent, firing_counts, config.sort_order)
 
     # Concentration curves deliberately exclude one_off/outlier neurons — the
     # curves are meant to reflect the actual concentration among neurons
@@ -142,6 +145,7 @@ def build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config):
         firing_counts=firing_counts,
         total_examples=total_examples,
         frequent=frequent,
+        card_order=card_order,
         one_off=one_off,
         one_off_threshold=one_off_threshold,
         cluster_stats_by_key=cluster_stats_by_key,

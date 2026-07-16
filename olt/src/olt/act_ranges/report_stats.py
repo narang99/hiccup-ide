@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 
+from olt.act_ranges.plotting import show_output_activation_histograms
 from olt.act_ranges.stats import noise_stats
 
 
@@ -81,6 +82,40 @@ def split_dep_order_by_frequency(
     return frequent, one_off, threshold
 
 
+SORT_ORDERS = ("median", "firing_frequency")
+
+
+def sort_card_order(frequent, firing_counts, sort_order="median"):
+    """
+    Orders the "frequent" dep neurons (see split_dep_order_by_frequency) for
+    card display — report_config.ReportConfig.sort_order picks between:
+
+    - "median" (default): `frequent`'s incoming order as-is, i.e. descending
+      |median contribution| (see compute_dep_order) — unchanged from before
+      this function existed.
+    - "firing_frequency": descending firing_counts (see compute_firing_stats),
+      so the dep neurons that fire in the most examples lead the report
+      instead of the ones with the single largest contribution. Python's sort
+      is stable, so neurons tied on firing count keep their relative "median"
+      order as a tie-breaker, rather than an arbitrary one.
+
+    Deliberately separate from dep_order/compute_dep_order itself: dep_order's
+    descending-|median| ordering is also relied on by
+    compute_concentration_curves (its Lorenz-style cumulative curves assume
+    each sign's keys already arrive ranked by descending magnitude) — reusing
+    that same list for card display, rather than re-sorting it in place, keeps
+    the concentration sparkline's own ranking/shape independent of whatever
+    order cards happen to be displayed in.
+
+    Returns a list, same elements as `frequent`, reordered.
+    """
+    if sort_order == "median":
+        return list(frequent)
+    if sort_order == "firing_frequency":
+        return sorted(frequent, key=lambda key: -firing_counts.get(key, 0))
+    raise ValueError(f"unknown sort_order: {sort_order!r}, expected one of {SORT_ORDERS}")
+
+
 def compute_dep_order(stats_df):
     """
     Unique (dep_layer, dep_channel) pairs across the whole stats_df, ordered by
@@ -99,47 +134,242 @@ def compute_dep_order(stats_df):
     )
 
 
-def compute_output_activation_noise_max_distances(stats_df, layer_by_channel_by_noise, frequent):
+def _frequent_distances_with_contribution(stats_df, layer_by_channel_by_noise, frequent):
     """
-    Report-level (not per-card) pool of (output_activation - noise_max) /
-    noise_radius across every firing row belonging to a "frequent" dep neuron
-    (see split_dep_order_by_frequency) — the same population that gets its
-    own card, so the histogram this feeds (report_assets.dump_output_activation_histogram_asset)
-    matches what a reader sees below it. One-off/low-frequency dep neurons
-    (excluded from cards entirely) are excluded here too.
+    Shared groupby/noise-normalization pass behind
+    compute_output_activation_noise_median_distances,
+    split_output_activation_distances_by_contribution_sign, and
+    compute_fraction_above_threshold_by_example — every firing row belonging
+    to a "frequent" dep neuron (see split_dep_order_by_frequency), tupled as
+    (distance, contribution, input_image_key, origin_y, origin_x):
 
-    Each firing is normalized against its OWN (dep_layer, dep_channel)'s
-    noise stats (see stats.noise_stats) — noise_max/noise_radius vary
-    per dep neuron, since different neurons can have wildly different raw
-    activation scales, so pooling raw activations across neurons would be
-    meaningless. Expressing every firing as "how many noise-radii above (or
-    below) this neuron's own noise ceiling" makes them directly comparable in
-    one histogram. noise_stats is computed once per (dep_layer, dep_channel)
-    group, not once per row, since it involves an O(n^2) shorth call.
+    - distance: (output_activation - noise_med) / noise_radius, this firing's
+      own dep neuron's noise stats (see stats.noise_stats) — noise_med/
+      noise_radius vary per dep neuron, since different neurons can have
+      wildly different raw activation scales, so pooling raw activations
+      across neurons would be meaningless. Expressing every firing as "how
+      many noise-radii above (or below) this neuron's own noise median"
+      makes them directly comparable in one histogram. Distance from the
+      plain median (not noise_max, the shorth-based upper edge of the noise
+      band) since "N units above/below noise_max" reads unintuitively once N
+      goes negative (e.g. a firing sitting a bit below noise_max but still
+      well above typical noise) — median is a single, always-meaningful
+      reference point in both directions.
+    - contribution: this firing's own patch*weight value at the origin
+      neuron's contributing index (see
+      NeuronParentAnalyser.collect_cluster_stats_df's "contribution" column)
+      — positive means this firing added to the origin neuron's signal,
+      negative/zero means it inhibited it. Distinct from the sign of
+      `distance` itself (how far this dep neuron's own activation sits from
+      its own noise) — a firing can be clearly above its own noise median
+      while still inhibiting the origin neuron, or vice versa.
+    - input_image_key, origin_y, origin_x: together identify which origin
+      instance (single probed (image, y, x) position — origin_layer/
+      origin_channel are constant across a single stats_df, see
+      _validate_single_origin) this firing came from — unused by the two
+      distance-pooling callers, but needed by
+      compute_fraction_above_threshold_by_example to group firings back by
+      origin instance rather than by image alone (an image can be probed at
+      more than one (y, x) position, and those are distinct examples, not
+      one).
 
-    Returns a flat list[float], one per included row, in no particular order.
+    noise_stats is computed once per (dep_layer, dep_channel) group, not once
+    per row, since it involves an O(n^2) shorth call.
+
+    Returns a flat list[tuple[float, float, object, object, object]], one per
+    included row, in no particular order.
     """
     frequent = set(frequent)
-    distances = []
+    rows = []
     for (dep_layer_name, dep_channel), group in stats_df.groupby(["dep_layer", "dep_channel"]):
         if (dep_layer_name, dep_channel) not in frequent:
             continue
         noise = layer_by_channel_by_noise[dep_layer_name][str(dep_channel)]
-        _, _, noise_max, noise_radius = noise_stats(noise)
-        distances.extend((group["output_activation"] - noise_max) / noise_radius)
-    return distances
+        _, noise_med, _, noise_radius = noise_stats(noise)
+        distance = (group["output_activation"] - noise_med) / noise_radius
+        rows.extend(
+            zip(distance, group["contribution"], group["input_image_key"], group["origin_y"], group["origin_x"])
+        )
+    return rows
+
+
+def compute_output_activation_noise_median_distances(stats_df, layer_by_channel_by_noise, frequent):
+    """
+    Report-level (not per-card) pool of (output_activation - noise_med) /
+    noise_radius across every firing row belonging to a "frequent" dep neuron
+    — the same population that gets its own card, so the histogram this
+    feeds (report_assets.dump_output_activation_histogram_asset) matches
+    what a reader sees below it. See _frequent_distances_with_contribution
+    for the per-row computation.
+
+    Returns a flat list[float], one per included row, in no particular order.
+    """
+    return [
+        distance
+        for distance, *_ in _frequent_distances_with_contribution(stats_df, layer_by_channel_by_noise, frequent)
+    ]
+
+
+def split_output_activation_distances_by_contribution_sign(stats_df, layer_by_channel_by_noise, frequent):
+    """
+    Splits compute_output_activation_noise_median_distances's pooled population
+    by the sign of each firing's own "contribution" (patch*weight value, see
+    _frequent_distances_with_contribution) instead of pooling every firing
+    together — contribution > 0 means this firing was adding to the origin
+    neuron's signal, contribution <= 0 means it was inhibiting it. This lets
+    a reader compare "how far above/below noise do adding firings sit" against
+    "how far above/below noise do inhibiting firings sit" separately, rather
+    than one combined histogram where both kinds of firing are indistinguishable
+    (see report_render.render_report_histograms).
+
+    Returns (adding_distances, inhibiting_distances), each a flat list[float]
+    in noise-radius units, split from the same pool
+    compute_output_activation_noise_median_distances would return combined.
+    """
+    rows = _frequent_distances_with_contribution(stats_df, layer_by_channel_by_noise, frequent)
+    adding = [distance for distance, contribution, *_ in rows if contribution > 0]
+    inhibiting = [distance for distance, contribution, *_ in rows if contribution <= 0]
+    return adding, inhibiting
+
+
+def _fraction_above_threshold_by_example(rows, threshold):
+    """
+    Shared per-origin-instance aggregation behind
+    compute_fraction_above_threshold_by_example and
+    split_fraction_above_threshold_by_contribution_sign: given a flat list of
+    (distance, contribution, input_image_key, origin_y, origin_x) rows (see
+    _frequent_distances_with_contribution — contribution is unused here, the
+    caller has already filtered/split rows by its sign if it wants that),
+    groups by (input_image_key, origin_y, origin_x) — one probed origin
+    instance/example, not one whole image, since a single image can be probed
+    at more than one (y, x) position and those shouldn't be pooled together
+    — and returns one fraction per example: the share of that example's rows
+    whose distance exceeds `threshold`.
+
+    Returns a flat list[float], one per distinct (input_image_key, origin_y,
+    origin_x) present in rows, in no particular order. An example with no
+    rows in the input simply has no entry (nothing to divide by), rather than
+    a spurious 0.0.
+    """
+    distances_by_example = {}
+    for distance, _, image_key, origin_y, origin_x in rows:
+        distances_by_example.setdefault((image_key, origin_y, origin_x), []).append(distance)
+    return [
+        sum(1 for d in distances if d > threshold) / len(distances)
+        for distances in distances_by_example.values()
+    ]
+
+
+def compute_fraction_above_threshold_by_example(stats_df, layer_by_channel_by_noise, frequent, threshold):
+    """
+    Report-level pool of one value per probed origin instance/example (a
+    single (input_image_key, origin_y, origin_x) — not one whole image, since
+    an image can be probed at multiple positions and those are distinct
+    examples): the fraction of that example's "frequent"-dep-neuron firings
+    (same population as compute_output_activation_noise_median_distances) whose
+    noise-median distance exceeds `threshold` (in noise-radius units — same
+    units as that function's output; threshold can be negative, e.g. -0.8,
+    since it's a signed offset from noise_med, not from a one-sided ceiling
+    — a reader may as easily want to ask about a cutoff sitting a bit below
+    the median as one above it).
+    Feeds report_assets.dump_fraction_above_threshold_histogram_asset's
+    histogram — one bar per example showing what share of its firings ran hot
+    (or, depending on threshold's sign, merely "not clearly quiet") relative
+    to their own dep neuron's noise, so a reader can spot whether that's
+    evenly spread across examples or concentrated in a few.
+
+    Returns a flat list[float] of length equal to the number of distinct
+    (input_image_key, origin_y, origin_x) examples with at least one
+    frequent-dep-neuron firing, in no particular order.
+    """
+    rows = _frequent_distances_with_contribution(stats_df, layer_by_channel_by_noise, frequent)
+    return _fraction_above_threshold_by_example(rows, threshold)
+
+
+def split_fraction_above_threshold_by_contribution_sign(stats_df, layer_by_channel_by_noise, frequent, threshold):
+    """
+    Splits compute_fraction_above_threshold_by_example's per-example
+    population by the sign of each firing's own "contribution" (patch*weight
+    value, see _frequent_distances_with_contribution), mirroring
+    split_output_activation_distances_by_contribution_sign for the fraction-
+    above-threshold histogram: contribution > 0 firings ("adding") and
+    contribution <= 0 firings ("inhibiting") are grouped and fractioned
+    independently, so an example's "adding" fraction is out of that example's
+    own adding-firing count, not out of its total firing count.
+
+    An example that has rows of only one sign contributes a fraction for that
+    sign's list only — same "no entry rather than a spurious 0.0" rule as
+    _fraction_above_threshold_by_example, applied per sign.
+
+    Returns (adding_fractions, inhibiting_fractions), each a flat list[float].
+    """
+    rows = _frequent_distances_with_contribution(stats_df, layer_by_channel_by_noise, frequent)
+    adding_rows = [row for row in rows if row[1] > 0]
+    inhibiting_rows = [row for row in rows if row[1] <= 0]
+    return (
+        _fraction_above_threshold_by_example(adding_rows, threshold),
+        _fraction_above_threshold_by_example(inhibiting_rows, threshold),
+    )
+
+
+def show_output_activation_noise_histograms(stats_df, layer_by_channel_by_noise, bins=40, figsize=(14, 3.5)):
+    """
+    One-call interactive plot of the three output-activation-vs-noise
+    histograms print_report_for_neuron renders in its report row (see
+    report_render.render_report_histograms) — the all/adding/inhibiting
+    distance splits (compute_output_activation_noise_median_distances,
+    split_output_activation_distances_by_contribution_sign) computed
+    directly from stats_df + layer_by_channel_by_noise, then handed to
+    plotting.show_output_activation_histograms. For quick notebook
+    exploration of one stats_df's noise distances only — does not touch
+    print_report_for_neuron/build_report_data, so no assets are dumped and
+    no cards are built.
+
+    Deliberately does NOT filter to "frequent" dep neurons the way the full
+    report does (compute_firing_stats, split_dep_order_by_frequency) — every
+    (dep_layer, dep_channel) pair in stats_df is included. compute_firing_stats
+    assumes (via check_at_most_one_firing_per_origin) that a dep neuron fires
+    at most once per origin instance, which only holds for a 1x1-kernel
+    current_layer (e.g. mixed4e_1x1_pre_relu_conv) — for a current_layer with
+    a larger kernel (e.g. mixed5b's 5x5 branch), the same dep channel can
+    legitimately be a top contributor at more than one spatial position
+    within a single origin instance, so that check would reject perfectly
+    valid data. Since this function only cares about the noise-distance
+    distributions (not firing-frequency filtering), it skips that machinery
+    entirely rather than requiring an invariant it doesn't need.
+
+    stats_df: see NeuronParentAnalyser.collect_cluster_stats_df — same shape
+    print_report_for_neuron expects.
+    layer_by_channel_by_noise: same dict passed into NeuronParentAnalyser.
+
+    Returns (fig, axs).
+    """
+    dep_neurons = compute_dep_order(stats_df)
+
+    all_distances = compute_output_activation_noise_median_distances(stats_df, layer_by_channel_by_noise, dep_neurons)
+    adding_distances, inhibiting_distances = split_output_activation_distances_by_contribution_sign(
+        stats_df, layer_by_channel_by_noise, dep_neurons
+    )
+    return show_output_activation_histograms(
+        all_distances, adding_distances, inhibiting_distances, bins=bins, figsize=figsize
+    )
 
 
 def compute_firing_frequency_ratios(firing_counts, total_examples, frequent):
     """
     Report-level pool of firing_count / total_examples, one value per
     "frequent" dep neuron (see split_dep_order_by_frequency) — the same
-    population whose firings feed compute_output_activation_noise_max_distances
+    population whose firings feed compute_output_activation_noise_median_distances
     and get their own card, so this histogram's exclusion matches that one's:
     one-off/low-frequency dep neurons are excluded here too.
 
     Returns a flat list[float] of length len(frequent), in no particular
     order.
+
+    Not currently wired into print_report_for_neuron's output (the firing-
+    frequency histogram was pulled from the report row to make room for the
+    positive/negative output-activation split) — kept here since it may come
+    back in some form later.
     """
     return [firing_counts[key] / total_examples for key in frequent]
 

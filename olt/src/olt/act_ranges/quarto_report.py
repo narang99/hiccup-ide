@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from olt.act_ranges.report_assets import (
     dump_cluster_asset,
-    dump_firing_frequency_histogram_asset,
+    dump_fraction_above_threshold_histogram_asset,
     dump_output_activation_histogram_asset,
 )
 from olt.act_ranges.report_card import CardConfig, render_neuron_card
@@ -16,8 +16,10 @@ from olt.act_ranges.report_render import (
     render_report_stats_summary,
 )
 from olt.act_ranges.report_stats import (
-    compute_firing_frequency_ratios,
-    compute_output_activation_noise_max_distances,
+    compute_fraction_above_threshold_by_example,
+    compute_output_activation_noise_median_distances,
+    split_fraction_above_threshold_by_contribution_sign,
+    split_output_activation_distances_by_contribution_sign,
 )
 
 
@@ -36,6 +38,7 @@ def print_report_for_neuron(
     layer_by_channel_by_noise,
     layer_by_channel_by_label_by_points,
     config,
+    cluster_patch_set_dir,
     output_path=None,
     origin_cluster_label=None,
 ):
@@ -58,17 +61,25 @@ def print_report_for_neuron(
     neurons are frequently firing vs. excluded as one-off/low-frequency
     (see report_stats.split_dep_order_by_frequency), and how the pooled
     output-activation-vs-noise distances split above/below their own
-    neuron's noise ceiling — followed by a side-by-side pair of report-level
-    histograms (report_render.render_report_histograms): the
-    output-activation-vs-noise histogram (report_stats.compute_output_activation_noise_max_distances,
-    config.histogram_bins) — every "frequent" dep neuron's firings pooled
-    into one distribution, expressed in noise-radius units so neurons with
-    different raw activation scales are directly comparable — and the firing-
-    frequency histogram (report_stats.compute_firing_frequency_ratios), one
-    value per "frequent" dep neuron (firing_count / total_examples). Both
-    histograms and the summary above them share the same "frequent"
-    population (one-off/low-frequency dep neurons excluded, same as the
-    cards below), followed,
+    neuron's noise median — followed by report-level output-activation-vs-noise
+    histograms (report_render.render_report_histograms,
+    report_stats.compute_output_activation_noise_median_distances,
+    report_stats.split_output_activation_distances_by_contribution_sign,
+    config.histogram_bins): every "frequent" dep neuron's firings pooled into
+    one distribution, expressed in noise-radius units so neurons with
+    different raw activation scales are directly comparable, shown as the
+    full pooled distribution ("all") plus its split by each firing's own
+    "contribution" sign (patch*weight value, see
+    NeuronParentAnalyser.collect_cluster_stats_df) into firings that were
+    "adding" to the origin neuron's signal (contribution > 0) and firings
+    that were "inhibiting" it (contribution <= 0) — letting a reader analyse
+    each kind of firing's relationship to its own dep neuron's noise
+    separately. Each of the three (all/adding/inhibiting) is its own row,
+    optionally paired with that same population's per-origin-example
+    fraction-above-threshold histogram if config.fraction_above_threshold is
+    set (see that param below). All histograms and the summary above them
+    share the same "frequent" population (one-off/low-frequency dep neurons
+    excluded, same as the cards below), followed,
     if config.cluster_notes is set, by a collapsible "Cluster notes" callout
     (report_render.render_notes_summary) listing every note in one place. The
     rest is one card per remaining (frequently-firing) dependency neuron (see
@@ -93,6 +104,13 @@ def print_report_for_neuron(
     in the exploration notebooks) — every cluster's full activation
     population, used for the Overview tab's per-cluster scatter (see
     report_stats.select_cluster_points, plotting.save_combined_scatter_jpeg).
+
+    cluster_patch_set_dir: where each matched cluster's stored patch
+    population is loaded from for the pw-samples grid (see
+    report_assets.dump_pw_sample_asset, similarity.load_cluster_patches) —
+    must match whatever cluster_patch_set_dir NeuronParentAnalyser was built
+    with for this stats_df, since clusters are only meaningful relative to
+    the patch set they were computed from.
 
     config: report_config.ReportConfig — every tunable and feature toggle for
     this report:
@@ -138,6 +156,21 @@ def print_report_for_neuron(
       (render_notes_summary) and inside that cluster's own "show cluster
       photo" section in its card (render_cluster_breakdown), in a matching
       callout-note block.
+    - fraction_above_threshold: noise-median distance threshold (noise-radius
+      units, can be negative), or None (default) to skip. When set, each of
+      the three histogram rows (all/adding/inhibiting) gains a second,
+      per-origin-example histogram next to its distance histogram: one bar
+      per probed origin instance/example (a single (input_image_key,
+      origin_y, origin_x) — not one whole image, since an image can be
+      probed at multiple positions), showing what fraction of that
+      example's firings (within that row's population) sit above this
+      threshold (see report_stats.compute_fraction_above_threshold_by_example,
+      report_stats.split_fraction_above_threshold_by_contribution_sign) —
+      lets a reader see whether "running hot relative to noise" is spread
+      evenly across examples or concentrated in a few, which the pooled
+      distance histograms alone can't show. When None, each row is just the
+      single distance histogram, laid out 3-wide in one row instead of
+      stacked.
     """
     data = build_report_data(stats_df, assets_dump_dir, assets_ref_dir, config)
     card_config = CardConfig(
@@ -147,48 +180,112 @@ def print_report_for_neuron(
         layer_by_channel_by_noise=layer_by_channel_by_noise,
         layer_by_channel_by_label_by_points=layer_by_channel_by_label_by_points,
         report=config,
+        cluster_patch_set_dir=cluster_patch_set_dir,
     )
 
     origin_layer = stats_df["origin_layer"].iloc[0]
     origin_channel = stats_df["origin_channel"].iloc[0]
     origin_cluster_photo_ref = None
+    origin_cluster_pw_ref = None
     if origin_cluster_label is not None:
         dump_path = dump_cluster_asset(
             assets_dump_dir, base_report_dir, origin_layer, origin_channel, origin_cluster_label
         )
         if dump_path is not None:
             origin_cluster_photo_ref = f"{assets_ref_dir}/{origin_layer}/{origin_channel}/cluster_{origin_cluster_label}.jpeg"
+        pw_dump_path = dump_cluster_asset(
+            assets_dump_dir, base_report_dir, origin_layer, origin_channel, origin_cluster_label, kind="third"
+        )
+        if pw_dump_path is not None:
+            origin_cluster_pw_ref = f"{assets_ref_dir}/{origin_layer}/{origin_channel}/cluster_{origin_cluster_label}_third.jpeg"
     origin_header = render_origin_cluster_header(
-        origin_layer, origin_channel, origin_cluster_label, origin_cluster_photo_ref
+        origin_layer, origin_channel, origin_cluster_label, origin_cluster_photo_ref, origin_cluster_pw_ref
     )
 
-    histogram_distances = compute_output_activation_noise_max_distances(
+    histogram_distances = compute_output_activation_noise_median_distances(
         stats_df, layer_by_channel_by_noise, data.frequent
     )
-    activation_histogram_ref_path = f"{assets_ref_dir}/output_activation_histogram.jpeg"
-    dump_output_activation_histogram_asset(assets_dump_dir, histogram_distances, bins=config.histogram_bins)
-
-    firing_frequency_ratios = compute_firing_frequency_ratios(
-        data.firing_counts, data.total_examples, data.frequent
+    adding_distances, inhibiting_distances = split_output_activation_distances_by_contribution_sign(
+        stats_df, layer_by_channel_by_noise, data.frequent
     )
-    firing_frequency_histogram_ref_path = f"{assets_ref_dir}/firing_frequency_histogram.jpeg"
-    dump_firing_frequency_histogram_asset(assets_dump_dir, firing_frequency_ratios, bins=config.histogram_bins)
+
+    activation_histogram_all_ref_path = f"{assets_ref_dir}/output_activation_histogram_all.jpeg"
+    dump_output_activation_histogram_asset(
+        assets_dump_dir, histogram_distances, "output_activation_histogram_all", bins=config.histogram_bins
+    )
+    activation_histogram_adding_ref_path = f"{assets_ref_dir}/output_activation_histogram_adding.jpeg"
+    dump_output_activation_histogram_asset(
+        assets_dump_dir, adding_distances, "output_activation_histogram_adding", bins=config.histogram_bins
+    )
+    activation_histogram_inhibiting_ref_path = f"{assets_ref_dir}/output_activation_histogram_inhibiting.jpeg"
+    dump_output_activation_histogram_asset(
+        assets_dump_dir, inhibiting_distances, "output_activation_histogram_inhibiting", bins=config.histogram_bins
+    )
 
     n_below = sum(1 for d in histogram_distances if d < 0)
     n_above = sum(1 for d in histogram_distances if d > 0)
+    n_below_adding = sum(1 for d in adding_distances if d < 0)
+    n_above_adding = sum(1 for d in adding_distances if d > 0)
+    n_below_inhibiting = sum(1 for d in inhibiting_distances if d < 0)
+    n_above_inhibiting = sum(1 for d in inhibiting_distances if d > 0)
     stats_summary = render_report_stats_summary(
-        len(data.frequent), len(data.one_off), data.one_off_threshold, data.total_examples, n_below, n_above
+        len(data.frequent),
+        len(data.one_off),
+        data.one_off_threshold,
+        data.total_examples,
+        n_below,
+        n_above,
+        n_below_adding,
+        n_above_adding,
+        n_below_inhibiting,
+        n_above_inhibiting,
     )
+    fraction_all_ref_path = fraction_adding_ref_path = fraction_inhibiting_ref_path = None
+    if config.fraction_above_threshold is not None:
+        threshold = config.fraction_above_threshold
+        fractions_all = compute_fraction_above_threshold_by_example(
+            stats_df, layer_by_channel_by_noise, data.frequent, threshold
+        )
+        fractions_adding, fractions_inhibiting = split_fraction_above_threshold_by_contribution_sign(
+            stats_df, layer_by_channel_by_noise, data.frequent, threshold
+        )
+        fraction_all_ref_path = f"{assets_ref_dir}/fraction_above_threshold_histogram_all.jpeg"
+        dump_fraction_above_threshold_histogram_asset(
+            assets_dump_dir, fractions_all, threshold, "fraction_above_threshold_histogram_all", bins=config.histogram_bins
+        )
+        fraction_adding_ref_path = f"{assets_ref_dir}/fraction_above_threshold_histogram_adding.jpeg"
+        dump_fraction_above_threshold_histogram_asset(
+            assets_dump_dir, fractions_adding, threshold, "fraction_above_threshold_histogram_adding", bins=config.histogram_bins
+        )
+        fraction_inhibiting_ref_path = f"{assets_ref_dir}/fraction_above_threshold_histogram_inhibiting.jpeg"
+        dump_fraction_above_threshold_histogram_asset(
+            assets_dump_dir, fractions_inhibiting, threshold, "fraction_above_threshold_histogram_inhibiting", bins=config.histogram_bins
+        )
+
     histogram_section = render_report_histograms(
-        activation_histogram_ref_path, firing_frequency_histogram_ref_path
+        activation_histogram_all_ref_path,
+        activation_histogram_adding_ref_path,
+        activation_histogram_inhibiting_ref_path,
+        fraction_all_ref_path,
+        fraction_adding_ref_path,
+        fraction_inhibiting_ref_path,
+        config.fraction_above_threshold,
     )
 
     notes_summary = render_notes_summary(config.cluster_notes)
     frequent_section = _render_section(
-        "Frequently firing", data.frequent, data, card_config, "Frequently firing cards"
+        "Frequently firing", data.card_order, data, card_config, "Frequently firing cards"
     )
     sections = [
-        s for s in (origin_header, stats_summary, histogram_section, notes_summary, frequent_section) if s
+        s
+        for s in (
+            origin_header,
+            stats_summary,
+            histogram_section,
+            notes_summary,
+            frequent_section,
+        )
+        if s
     ]
     content = "\n\n".join(sections)
     if output_path is not None:

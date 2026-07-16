@@ -1,7 +1,6 @@
 import torch
 from torch.nn import functional as F
 
-from olt.act_ranges.constants import CLUSTER_PATCH_SET_DIR
 from olt.act_ranges.layer_utils import ReceptiveFieldOutOfBounds, receptive_block
 
 
@@ -25,9 +24,7 @@ def min_euclidean_distance(batch_tensor, ref_tensor):
     return dists.min()
 
 
-def _load_cid_by_patches(
-    layer_name, channel, cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR
-):
+def _load_cid_by_patches(layer_name, channel, cluster_patch_set_dir):
     # dict[cid, shape[b, ip-c, k, k]]
     return torch.load(
         cluster_patch_set_dir / layer_name / str(channel) / "cid_by_patches.pt",
@@ -35,9 +32,7 @@ def _load_cid_by_patches(
     )
 
 
-def load_cluster_patches(
-    layer_name, channel, cid, cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR
-):
+def load_cluster_patches(layer_name, channel, cid, cluster_patch_set_dir):
     """The stored patch population (shape [B, C, K, K]) for one cluster, e.g. for
     rendering it against a wild pointwise-multiplication sample at report time."""
     cid_by_patches = _load_cid_by_patches(layer_name, channel, cluster_patch_set_dir)
@@ -56,7 +51,7 @@ def closest_pw(
     w,
     layer_name,
     channel,
-    cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR,
+    cluster_patch_set_dir,
     min_similarity=0.0,
 ):
     """
@@ -113,7 +108,7 @@ def get_neuron_closest_cluster(
     y,
     x,
     captured_acts,
-    cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR,
+    cluster_patch_set_dir,
 ):
     """Returns (None, None, None, None, None) if (layer_name, channel)'s own
     receptive field at (y, x) falls outside its captured input tensor (see

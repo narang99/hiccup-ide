@@ -1,7 +1,3 @@
-from pathlib import Path
-
-CLUSTER_PATCH_SET_DIR = Path("cluster-patches-set")
-
 KELLY_COLORS = [
     "#F2F3F4",  # white (skip as bg reference)
     "#F3C300",

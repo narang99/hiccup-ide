@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import numpy as np
@@ -40,16 +41,16 @@ def _stats_row(
     cluster_min, cluster_med, cluster_max = cluster_dist
     return {
         "origin_layer": current_layer_name,
-        "origin_channel": current_channel,
-        "origin_y": y,
-        "origin_x": x,
+        "origin_channel": int(current_channel),
+        "origin_y": int(y),
+        "origin_x": int(x),
         "similarity": _scalar(match.best_sim),
         "output_activation": _scalar(match.op_act),
         "contribution": contribution,
         "above_noise_ratio": match.ratio,
         "dep_layer": dep_layer_name,
-        "dep_channel": dep_channel,
-        "dep_cid": match.best_cid,
+        "dep_channel": int(dep_channel),
+        "dep_cid": int(match.best_cid),
         "best_cluster_min": cluster_min,
         "best_cluster_med": cluster_med,
         "best_cluster_max": cluster_max,

@@ -1,7 +1,6 @@
 from olt.act_ranges.analyser import NeuronParentAnalyser
 from olt.act_ranges.constants import (
     BRANCHES_BY_CURRENT_LAYER,
-    CLUSTER_PATCH_SET_DIR,
     F_PAD_MANUAL_BY_CURRENT_LAYER,
     KELLY_COLORS,
     LAYER_NAME_BY_SHAPE,
@@ -18,6 +17,8 @@ from olt.act_ranges.layer_utils import (
 from olt.act_ranges.plotting import (
     save_combined_scatter_jpeg,
     save_concentration_sparkline_jpeg,
+    show_label_points_grid,
+    show_output_activation_histograms,
 )
 from olt.act_ranges.pw_samples import merge_pw_samples_into
 from olt.act_ranges.quarto_report import print_report_for_neuron
@@ -41,6 +42,8 @@ from olt.act_ranges.report_stats import (
     compute_concentration_values,
     compute_dep_order,
     compute_firing_stats,
+    show_output_activation_noise_histograms,
+    sort_card_order,
     split_dep_order_by_frequency,
 )
 from olt.act_ranges.reports import crop_top, get_cluster_photo
@@ -59,7 +62,6 @@ from olt.act_ranges.stats import (
 )
 
 __all__ = [
-    "CLUSTER_PATCH_SET_DIR",
     "LAYER_NAME_BY_SHAPE",
     "KELLY_COLORS",
     "MIXED4D_BRANCHES",
@@ -86,6 +88,7 @@ __all__ = [
     "dump_concentration_asset",
     "compute_dep_order",
     "compute_firing_stats",
+    "sort_card_order",
     "compute_concentration_curves",
     "compute_concentration_values",
     "check_at_most_one_firing_per_origin",
@@ -98,6 +101,9 @@ __all__ = [
     "render_origin_cluster_header",
     "save_combined_scatter_jpeg",
     "save_concentration_sparkline_jpeg",
+    "show_label_points_grid",
+    "show_output_activation_histograms",
+    "show_output_activation_noise_histograms",
     "print_report_for_neuron",
     "NeuronParentAnalyser",
     "DependencyMatch",

@@ -10,16 +10,17 @@ multiplication response at that firing's position matches the real one — a
 reconstruction, not a crop. One render_vis call per wild sample (CPU, no
 batching) — see dump_feature_viz_asset.
 
-Scope: only supports dep_layer_name values that are branches of the mixed4d
-block (see constants/branches.py's MIXED4D_BRANCHES), i.e. the dependencies of
-current_layer_name="mixed4e_1x1_pre_relu_conv" — the only current_layer
-NeuronParentAnalyser itself supports today (see olt/CLAUDE.md). Unlike
-NeuronParentAnalyser.dep_coords (which inverts coordinates backwards through
-an unknown number of ops and gives up at a maxpool — see
-constants/paddings.py), this module only ever replays ops *forward*, since we
-already know the exact pad/pool sequence from lucent's InceptionV1.forward.
-That means it isn't blocked by the maxpool branch that blocks dep_coords —
-see _DEP_LAYER_HOOK_SOURCE below, which covers all four mixed4d branches.
+Scope: supports dep_layer_name values that are branches of the mixed4d block
+(see constants/branches.py's MIXED4D_BRANCHES, i.e. the dependencies of
+current_layer_name="mixed4e_1x1_pre_relu_conv"), plus
+mixed5b_5x5_pre_relu_conv (the dependency of a downstream block's 5x5 branch,
+reached the same way mixed4d_5x5_pre_relu_conv is: one manual F.pad on a
+relu'd bottleneck). Unlike NeuronParentAnalyser.dep_coords (which inverts
+coordinates backwards through an unknown number of ops and gives up at a
+maxpool — see constants/paddings.py), this module only ever replays ops
+*forward*, since we already know the exact pad/pool sequence from lucent's
+InceptionV1.forward. That means it isn't blocked by the maxpool branch that
+blocks dep_coords — see _DEP_LAYER_HOOK_SOURCE below.
 """
 
 import torch.nn.functional as F
@@ -58,6 +59,10 @@ def _pad_then_maxpool(pad, ksize, stride):
 #   mixed4d_pool_pad = F.pad(mixed4c, (1,1,1,1), value=-inf)
 #   mixed4d_pool = self.mixed4d_pool(mixed4d_pool_pad, kernel_size=3, stride=1, padding=0)
 #   mixed4d_pool_reduce_pre_relu_conv = self.mixed4d_pool_reduce_pre_relu_conv(mixed4d_pool)
+#
+#   mixed5b_5x5_bottleneck_pre_relu_conv = self.mixed5b_5x5_bottleneck_pre_relu_conv(mixed5a)
+#   mixed5b_5x5_bottleneck = self.mixed5b_5x5_bottleneck(mixed5b_5x5_bottleneck_pre_relu_conv)  # relu
+#   F.pad(mixed5b_5x5_bottleneck, (2, 2, 2, 2)) -> mixed5b_5x5_pre_relu_conv
 _DEP_LAYER_HOOK_SOURCE = {
     "mixed4d_1x1_pre_relu_conv": ("mixed4c", None),
     "mixed4d_3x3_pre_relu_conv": ("mixed4d_3x3_bottleneck", _pad_zero((1, 1, 1, 1))),
@@ -66,6 +71,7 @@ _DEP_LAYER_HOOK_SOURCE = {
         "mixed4c",
         _pad_then_maxpool((1, 1, 1, 1), ksize=3, stride=1),
     ),
+    "mixed5b_5x5_pre_relu_conv": ("mixed5b_5x5_bottleneck", _pad_zero((2, 2, 2, 2))),
 }
 
 # dep_layer_name values dump_feature_viz_assets/dump_feature_viz_asset can handle —
@@ -207,11 +213,8 @@ def dump_feature_viz_asset(
     batching, and deliberately modest defaults (image_size, thresholds) since
     this now runs one render per sample instead of one per cluster.
 
-    Raises ValueError if dep_layer_name isn't one of mixed4d's branches this
-    module knows how to replay the pad/pool for (see _DEP_LAYER_HOOK_SOURCE) —
-    i.e. only supports dependencies of current_layer_name=
-    "mixed4e_1x1_pre_relu_conv" today, mirroring NeuronParentAnalyser's own
-    single-current-layer scope (see olt/CLAUDE.md).
+    Raises ValueError if dep_layer_name isn't one this module knows how to
+    replay the pad/pool for (see SUPPORTED_DEP_LAYER_NAMES/_DEP_LAYER_HOOK_SOURCE).
     """
     if dep_layer_name not in _DEP_LAYER_HOOK_SOURCE:
         raise ValueError(

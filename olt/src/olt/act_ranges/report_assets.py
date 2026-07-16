@@ -3,11 +3,12 @@ import math
 import torch
 from PIL import Image, ImageDraw
 
-from olt.act_ranges.constants import CLUSTER_PATCH_SET_DIR, LAYER_NAME_BY_SHAPE
+from olt.act_ranges.constants import LAYER_NAME_BY_SHAPE
 from olt.act_ranges.plotting import (
     save_combined_scatter_jpeg,
     save_concentration_sparkline_jpeg,
     save_firing_frequency_histogram_jpeg,
+    save_fraction_above_threshold_histogram_jpeg,
     save_output_activation_histogram_jpeg,
 )
 from olt.act_ranges.report_stats import select_cluster_points
@@ -17,20 +18,30 @@ from olt.html_report import _fit_and_pad, apply_cmap
 from olt.show import get_local_image_limits, rd_bk_gn
 
 
-def dump_cluster_asset(assets_dump_dir, base_report_dir, dep_layer_name, dep_channel, dep_cid):
+def dump_cluster_asset(assets_dump_dir, base_report_dir, dep_layer_name, dep_channel, dep_cid, kind="combined"):
     """
     Writes (or reuses, if already present) the heatmap photo for one dependency
     cluster under {assets_dump_dir}/{dep_layer_name}/{dep_channel}/cluster_{dep_cid}.jpeg
     — this directory is the neuron's asset dir; the `cluster_` filename prefix is
     reserved for this purpose so other per-neuron assets can live alongside it
     without colliding. Returns the dumped Path, or None if the source photo doesn't exist.
+
+    kind is forwarded to reports.get_cluster_photo, which reads
+    "cluster_{dep_cid}_{kind}.jpeg" from base_report_dir (e.g. "combined", the
+    default, for the summed-heatmap photo, or "third" for the pointwise-
+    multiplication photo) — the default "combined" keeps the dumped filename
+    exactly "cluster_{dep_cid}.jpeg" (no suffix) to not disturb every existing
+    caller/reference; any other kind gets its own suffixed filename
+    ("cluster_{dep_cid}_{kind}.jpeg") alongside it, since a single neuron dir
+    can now hold more than one kind for the same dep_cid.
     """
     neuron_dir = assets_dump_dir / dep_layer_name / str(dep_channel)
     neuron_dir.mkdir(parents=True, exist_ok=True)
-    dump_path = neuron_dir / f"cluster_{dep_cid}.jpeg"
+    suffix = "" if kind == "combined" else f"_{kind}"
+    dump_path = neuron_dir / f"cluster_{dep_cid}{suffix}.jpeg"
     if not dump_path.exists():
         photo = get_cluster_photo(
-            base_report_dir, dep_layer_name, dep_channel, dep_cid, "combined", crop_max_height=470
+            base_report_dir, dep_layer_name, dep_channel, dep_cid, kind, crop_max_height=470
         )
         if photo is None:
             return None
@@ -93,7 +104,7 @@ def dump_pw_sample_asset(
     dep_channel,
     dep_cid,
     pw_samples,
-    cluster_patch_set_dir=CLUSTER_PATCH_SET_DIR,
+    cluster_patch_set_dir,
     max_samples=5,
 ):
     """
@@ -171,19 +182,22 @@ def dump_concentration_asset(
     return dump_path
 
 
-def dump_output_activation_histogram_asset(assets_dump_dir, distances, bins=40):
+def dump_output_activation_histogram_asset(assets_dump_dir, distances, stem, bins=40):
     """
-    Writes (always regenerates — cheap, one plot) the report-level
+    Writes (always regenerates — cheap, one plot) one report-level
     output-activation-vs-noise histogram (see
-    report_stats.compute_output_activation_noise_max_distances,
+    report_stats.compute_output_activation_noise_median_distances,
+    report_stats.split_positive_negative_distances,
     plotting.save_output_activation_histogram_jpeg) under
-    {assets_dump_dir}/output_activation_histogram.jpeg — a report-root asset
-    (not per-neuron, so it lives directly under assets_dump_dir rather than a
+    {assets_dump_dir}/{stem}.jpeg — a report-root asset (not per-neuron, so it
+    lives directly under assets_dump_dir rather than a
     {dep_layer_name}/{dep_channel} subdirectory, unlike every other asset in
-    this module). Returns the dumped Path.
+    this module). Called once per histogram in the "all" / "positive" /
+    "negative" row (see report_render.render_report_histograms) with a
+    different stem and distances each time. Returns the dumped Path.
     """
     assets_dump_dir.mkdir(parents=True, exist_ok=True)
-    dump_path = assets_dump_dir / "output_activation_histogram.jpeg"
+    dump_path = assets_dump_dir / f"{stem}.jpeg"
     save_output_activation_histogram_jpeg(distances, dump_path, bins=bins)
     return dump_path
 
@@ -194,12 +208,32 @@ def dump_firing_frequency_histogram_asset(assets_dump_dir, ratios, bins=20):
     frequency histogram (see report_stats.compute_firing_frequency_ratios,
     plotting.save_firing_frequency_histogram_jpeg) under
     {assets_dump_dir}/firing_frequency_histogram.jpeg — a report-root asset,
-    parallel to dump_output_activation_histogram_asset. Returns the dumped
-    Path.
+    parallel to dump_output_activation_histogram_asset.
+
+    Not currently called from print_report_for_neuron's output — see
+    report_stats.compute_firing_frequency_ratios. Returns the dumped Path.
     """
     assets_dump_dir.mkdir(parents=True, exist_ok=True)
     dump_path = assets_dump_dir / "firing_frequency_histogram.jpeg"
     save_firing_frequency_histogram_jpeg(ratios, dump_path, bins=bins)
+    return dump_path
+
+
+def dump_fraction_above_threshold_histogram_asset(assets_dump_dir, fractions, threshold, stem, bins=20):
+    """
+    Writes (always regenerates — cheap, one plot) one report-level "fraction
+    of firings above threshold, per origin example" histogram (see
+    report_stats.compute_fraction_above_threshold_by_example,
+    report_stats.split_fraction_above_threshold_by_contribution_sign,
+    plotting.save_fraction_above_threshold_histogram_jpeg) under
+    {assets_dump_dir}/{stem}.jpeg — a report-root asset, parallel to
+    dump_output_activation_histogram_asset. Called once per row (all/adding/
+    inhibiting — see report_render.render_report_histograms) with a
+    different stem and fractions each time. Returns the dumped Path.
+    """
+    assets_dump_dir.mkdir(parents=True, exist_ok=True)
+    dump_path = assets_dump_dir / f"{stem}.jpeg"
+    save_fraction_above_threshold_histogram_jpeg(fractions, dump_path, threshold, bins=bins)
     return dump_path
 
 

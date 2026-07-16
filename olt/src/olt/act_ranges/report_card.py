@@ -26,6 +26,7 @@ class CardConfig:
     layer_by_channel_by_noise: dict
     layer_by_channel_by_label_by_points: dict
     report: object  # report_config.ReportConfig
+    cluster_patch_set_dir: object
 
 
 def _dep_pw_samples(config, dep_layer_name, dep_channel):
@@ -107,6 +108,7 @@ def _cluster_asset_refs(dep_layer_name, dep_channel, data, config, cluster_stats
                 dep_channel,
                 dep_cid,
                 samples,
+                cluster_patch_set_dir=config.cluster_patch_set_dir,
                 max_samples=pw_samples_config.max_samples,
             )
             if pw_dump_path is not None:
