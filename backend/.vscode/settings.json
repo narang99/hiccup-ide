@@ -1,7 +1,0 @@
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
-  "python.analysis.extraPaths": [
-    "${workspaceFolder}/hiccup_ide",
-  ],
-  "python.REPL.enableREPLSmartSend": false
-}
