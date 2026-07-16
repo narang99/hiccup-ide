@@ -1,1 +1,0 @@
-# Persist submodule for data export/import functionality
