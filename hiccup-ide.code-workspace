@@ -1,15 +1,6 @@
 {
   "folders": [
     {
-      "path": "backend",
-    },
-    {
-      "path": "frontend",
-    },
-    {
-      "path": "pt-to-api",
-    },
-    {
       "path": "explog",
     },
   ],
@@ -22,6 +13,11 @@
         "editor.formatOnSave": true
     },
     "ruff.lint.enable": false,
-    "python.analysis.ignore": ["**/*.ipynb*"]
+    "python.analysis.ignore": ["**/*.ipynb"],
+    "python.analysis.languageServerMode": "light",
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "python.analysis.exclude": [
+      "**/*.ipynb"
+    ],
   },
 }
