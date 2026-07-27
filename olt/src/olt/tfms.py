@@ -65,7 +65,7 @@ class CifarInverseTransform:
         return (tensor * self.std + self.mean).clamp(0, 1)
 
 
-cifar_inverse_transform = CifarInverseTransform()
+# cifar_inverse_transform = CifarInverseTransform()
 
 
 # --- STL-10 (96x96, for olt.models.cifar_inception at stem_stride=2) ----------
@@ -102,7 +102,7 @@ class StlInverseTransform:
         return (tensor * self.std + self.mean).clamp(0, 1)
 
 
-stl_inverse_transform = StlInverseTransform()
+# stl_inverse_transform = StlInverseTransform()
 
 
 # class InverseTransform:
