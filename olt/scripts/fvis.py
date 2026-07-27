@@ -165,7 +165,7 @@ layer_by_params = {
         "ksize": (3, 3),
         "prev_layer_name": "mixed4d_3x3_bottleneck",
     },
-    "mixed4d_5x5_pre_relu_conv ": {
+    "mixed4d_5x5_pre_relu_conv": {
         "padding": (2, 2),
         "stride": (1, 1),
         "ksize": (5, 5),
