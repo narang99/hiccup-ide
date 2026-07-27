@@ -432,8 +432,8 @@ It might be useful to keep a separate notebook to show GMM thresholds are good.
 
 next steps?
 - Test on colab. Check seed wise perf
-  - Add support for git in colab (im getting auth problems)
-  - uv install pt-to-api in the colab notebook now
-  - run across 1 seed and multiple seeds to see if we are actually getting a boost
-  - then retreive the model to see if its working correctly end to end
+  - Add support for git in colab (im getting auth problems) ✅
+  - uv install pt-to-api in the colab notebook now ✅
+  - run across 1 seed and multiple seeds to see if we are actually getting a boost 
+  - then retreive the model to see if its working correctly end to end ✅
   - run for one kernel tonight at least.  

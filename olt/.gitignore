@@ -1,0 +1,16 @@
+report_files
+*.db
+*.pkl
+*.woff
+*.css
+*.js
+*.qmd
+*.json
+*.html
+*.csv
+*.tgz
+*.tar
+*.pt
+*.jpeg
+*.png
+/scratch
