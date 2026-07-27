@@ -110,12 +110,27 @@ class CifarInception(nn.Module):
     """See module docstring. Set `redirected_relu=True` for feature
     visualization (lucent), `False` (default) for training and analysis.
 
-    Spatial trace (32x32 input): stem conv keeps 32x32, stem maxpool -> 16x16;
-    block_a/block_b run at 16x16; downpool -> 8x8; block_c/block_d run at 8x8;
-    global avg pool -> 1x1.
+    `stem_stride` sets the stem conv's stride and is the ONLY input-size knob:
+    the classifier is a global avg-pool so any input size works, this just keeps
+    the block grids sane for larger inputs. It does not affect the analysed 1x1
+    blocks or any act_ranges constant (those are within-resolution and read
+    `layer.padding`, not the absolute grid).
+
+    Spatial trace, stem_stride=1 (CIFAR 32x32): stem conv keeps 32x32, stem
+    maxpool -> 16x16; block_a/block_b at 16x16; downpool -> 8x8;
+    block_c/block_d at 8x8; global avg pool -> 1x1.
+
+    Spatial trace, stem_stride=2 (STL-10 96x96): stem conv -> 48x48, stem
+    maxpool -> 24x24; block_a/block_b at 24x24; downpool -> 12x12;
+    block_c/block_d at 12x12; global avg pool -> 1x1.
     """
 
-    def __init__(self, num_classes: int = NUM_CLASSES, redirected_relu: bool = False):
+    def __init__(
+        self,
+        num_classes: int = NUM_CLASSES,
+        redirected_relu: bool = False,
+        stem_stride: int = 1,
+    ):
         super().__init__()
         # Why the ReLU is a swappable module rather than an inline F.relu:
         #
@@ -145,8 +160,11 @@ class CifarInception(nn.Module):
             else helper_layers.ReluLayer
         )
 
-        # stem: 3x3 conv (padding=1) keeps 32x32, then 3x3/stride-2 maxpool -> 16x16
-        self.stem_pre_relu_conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
+        # stem: 3x3 conv (padding=1, stride=stem_stride), then 3x3/stride-2 maxpool.
+        # stem_stride=1 keeps 32x32 (CIFAR); stem_stride=2 -> 48x48 (STL-10 96x96).
+        self.stem_pre_relu_conv = nn.Conv2d(
+            3, 64, kernel_size=3, stride=stem_stride, padding=1
+        )
         self.stem = relu_cls()
         self.stem_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -163,12 +181,12 @@ class CifarInception(nn.Module):
         self.fc = nn.Linear(self.block_d.out_channels, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.stem_pool(self.stem(self.stem_pre_relu_conv(x)))  # 32x32 -> 16x16
+        x = self.stem_pool(self.stem(self.stem_pre_relu_conv(x)))  # /4 (stem_stride*pool)
 
         x = self.block_a(x)
         x = self.block_b(x)
 
-        x = self.downpool(x)  # 16x16 -> 8x8
+        x = self.downpool(x)  # halve resolution before block_c/d
         x = self.block_c(x)
         x = self.block_d(x)
 
@@ -181,14 +199,17 @@ def cifar_inception(
     redirected_relu: bool = False,
     map_location: str = "cpu",
     eval_mode: bool = True,
+    stem_stride: int = 1,
 ) -> CifarInception:
     """Factory mirroring `lucent.modelzoo.inceptionv1`'s call style. Loads a
     training snapshot's weights when `ckpt_path` is given.
 
     Pass `redirected_relu=True` when using the model for lucent feature
-    visualization; leave it False for training and act_ranges analysis.
+    visualization; leave it False for training and act_ranges analysis. Use
+    `stem_stride=2` for STL-10 (96x96), `stem_stride=1` (default) for CIFAR
+    (32x32) — must match whatever the snapshot was trained with.
     """
-    model = CifarInception(redirected_relu=redirected_relu)
+    model = CifarInception(redirected_relu=redirected_relu, stem_stride=stem_stride)
     if ckpt_path is not None:
         state = torch.load(ckpt_path, map_location=map_location)
         # accept either a bare state_dict or a {"model": state_dict, ...} snapshot

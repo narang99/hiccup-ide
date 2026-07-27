@@ -56,9 +56,9 @@ cifar_train_transform = transforms.Compose(
 
 
 class CifarInverseTransform:
-    def __init__(self):
-        mean = torch.tensor(CIFAR_MEAN).view(-1, 1, 1)
-        std = torch.tensor(CIFAR_STD).view(-1, 1, 1)
+    def __init__(self, device):
+        mean = torch.tensor(CIFAR_MEAN).to(device).view(-1, 1, 1)
+        std = torch.tensor(CIFAR_STD).to(device).view(-1, 1, 1)
         self.mean, self.std = mean, std
 
     def __call__(self, tensor):
@@ -66,6 +66,43 @@ class CifarInverseTransform:
 
 
 cifar_inverse_transform = CifarInverseTransform()
+
+
+# --- STL-10 (96x96, for olt.models.cifar_inception at stem_stride=2) ----------
+# Same story as CIFAR (trained from scratch, we own preprocessing), but 96x96
+# images -> sharper feature-viz / patch crops than CIFAR's 32x32. No resize at
+# eval/analysis time; `stl_transform` must stay byte-exact with training's eval
+# branch and `stl_inverse_transform` its exact inverse.
+STL10_MEAN = (0.4467, 0.4398, 0.4066)
+STL10_STD = (0.2603, 0.2566, 0.2713)
+
+stl_transform = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=STL10_MEAN, std=STL10_STD),
+    ]
+)
+
+stl_train_transform = transforms.Compose(
+    [
+        transforms.RandomCrop(96, padding=12),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=STL10_MEAN, std=STL10_STD),
+    ]
+)
+
+
+class StlInverseTransform:
+    def __init__(self, device):
+        self.mean = torch.tensor(STL10_MEAN).to(device).view(-1, 1, 1)
+        self.std = torch.tensor(STL10_STD).to(device).view(-1, 1, 1)
+
+    def __call__(self, tensor):
+        return (tensor * self.std + self.mean).clamp(0, 1)
+
+
+stl_inverse_transform = StlInverseTransform()
 
 
 # class InverseTransform:
