@@ -2,6 +2,7 @@ from olt.act_ranges.constants.branches import (
     BRANCHES_BY_CURRENT_LAYER,
     MIXED4D_BRANCHES,
     MIXED5B_5X5_DEP_BRANCHES,
+    layers_to_hook,
 )
 from olt.act_ranges.constants.general import KELLY_COLORS
 from olt.act_ranges.constants.paddings import (
@@ -18,4 +19,5 @@ __all__ = [
     "BRANCHES_BY_CURRENT_LAYER",
     "F_PAD_MANUAL_BY_CURRENT_LAYER",
     "UNSUPPORTED_CURRENT_LAYERS",
+    "layers_to_hook",
 ]

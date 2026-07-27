@@ -16,7 +16,6 @@ from PIL import Image, ImageDraw
 from tqdm import tqdm
 
 from olt.show import get_local_image_limits, rd_bk_gn
-from olt.tfms import inverse_transform, transform
 
 
 def _get_attribution_pth_files(d, cluster_label):
@@ -680,14 +679,25 @@ def archive_report(output_dir: Path, tar_path: None | Path = None):
     return tar_path
 
 
-def make_overlay_heatmap(model, layer_name, neuron_selector, pil_img, device="cpu"):
-    timg = transform(pil_img)[None].to(device)
+def make_overlay_heatmap(
+    model,
+    layer_name,
+    neuron_selector,
+    pil_img,
+    input_transform_fn,
+    inverse_transform_fn,
+    size,
+    device="cpu",
+):
+    # input_transform_fn / inverse_transform_fn: model-specific, required (no
+    # default) so the overlay isn't silently built with the ImageNet transform.
+    # size: (W, H) to render the base image + heatmap at before blending; pass
+    # the model-input resolution to avoid resampling.
+    timg = input_transform_fn(pil_img)[None].to(device)
     model = model.to(device)
-    inv_img = inverse_transform(timg)
+    inv_img = inverse_transform_fn(timg)
     ndl = NeuronDeepLift(model, model.get_submodule(layer_name))
     attr_res = ndl.attribute(timg, neuron_selector)
-
-    size = (224, 224)
 
     overlay = attr_res[0].detach().cpu().sum(dim=0).numpy()
     overlay = overlay / np.abs(overlay).max()

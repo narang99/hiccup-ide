@@ -33,3 +33,21 @@ BRANCHES_BY_CURRENT_LAYER = {
     "mixed4e_1x1_pre_relu_conv": MIXED4D_BRANCHES,
     "mixed5b_5x5_pre_relu_conv": MIXED5B_5X5_DEP_BRANCHES,
 }
+
+
+def layers_to_hook(current_layer_name):
+    """The `all_layers` list to pass into NeuronParentAnalyser for
+    `current_layer_name`: the current layer itself plus every dependency-branch
+    layer it can map an index into (from that layer's branch list). These are
+    exactly the layers whose input/output tensors the analyser reads out of one
+    forward pass — see NeuronParentAnalyser.get_activations_for_image and the
+    `current_act[...]` lookups throughout analyser.py.
+
+    Keyed off BRANCHES_BY_CURRENT_LAYER, whose keys are globally unique per
+    model (InceptionV1 uses `mixed*`, the CIFAR model uses `cifar_*`), so this
+    resolves to the right model automatically without a model id. Prefer this
+    over `list(LAYER_NAME_BY_SHAPE.keys())`, which lumps every analysed layer of
+    every model together and would try to hook the wrong model's submodules.
+    """
+    branches = BRANCHES_BY_CURRENT_LAYER[current_layer_name]
+    return [current_layer_name] + [name for name, _ in branches]

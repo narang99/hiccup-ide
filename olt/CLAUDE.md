@@ -32,3 +32,43 @@ passed as `current_layer_name`.
 4. If the dependency block has a different branch layout than `mixed4d` (see
    `constants/branches.py`), add a new ordered branch list rather than hardcoding channel
    boundaries inline.
+
+## Why the pad/pool bookkeeping exists, and why it's inert for `CifarInception`
+
+The metadata tables all feed **one flow**: `NeuronParentAnalyser` + its report
+generation (`report_data`/`report_render`/`report_assets`/`feature_viz`). That
+flow answers "when neuron `(current_layer, current_channel)` fires at `(y,x)`,
+which upstream neurons explain it, and which clusters (from the `s0`→`s4`
+pipeline) do they belong to?". It works off a single tensor — the concatenated
+input to a 1x1 conv — and the tables recover what that tensor alone doesn't say:
+
+- `BRANCHES_BY_CURRENT_LAYER` → `FlattenedChannelMap` (`iter_dependency_coords`):
+  demuxes a flattened channel index in the concat back to `(branch_layer, channel)`.
+- `F_PAD_MANUAL_BY_CURRENT_LAYER` (`dep_coords`): translates a spatial coord from
+  the current conv's captured-input frame to the dep's own output frame.
+- `LAYER_NAME_BY_SHAPE` (`report_assets`): grid shape to reshape a flattened
+  weight*patch vector for the report image.
+- `_DEP_LAYER_HOOK_SOURCE` (`feature_viz`): which module to hook (+ pad/pool to
+  replay) to feature-viz-reconstruct a dep neuron for the report thumbnail.
+
+**Key point for `CifarInception` (`src/olt/models/cifar_inception.py`):** the
+whole `F_PAD_MANUAL` / `dep_coords` offset and the `_DEP_LAYER_HOOK_SOURCE`
+`prep_fn` (pad/pool replay) machinery only existed because lucent's InceptionV1
+does its pads/pools as **functional ops** (`F.pad`/`F.max_pool2d`) that aren't
+hookable modules — so the analyser had to manually replay them to line up
+coordinate frames. `CifarInception` folds every pad into the conv's own
+`padding=` and uses `nn.MaxPool2d`, so:
+
+- `F_PAD_MANUAL_BY_CURRENT_LAYER` entries are all `(0,0)` — the captured conv
+  input already equals the dep-output frame, and `receptive_block` shifts by
+  `layer.padding` on its own. `dep_coords` is an identity no-op.
+- `_DEP_LAYER_HOOK_SOURCE` entries all have `prep_fn=None` — a conv reads a module
+  output directly, nothing to replay (`padding` comes from `get_layer_params`).
+
+So when wiring the analysis pass for `CifarInception`, do NOT re-derive pad
+tables: pass `f_pad=(0,0)` and `prep_fn=None`. The only bookkeeping that's real
+for this arch (inherent to the channel-concat, not to hooks) is `BLOCK_BRANCHES`
+(demux) and `LAYER_NAME_BY_SHAPE` (report viz). The `pool_reduce`-style
+limitation still holds — a maxpool between the block input and a `pool_reduce`
+conv has its own receptive field `dep_coords` can't translate — but that was
+never about padding, and `pool_reduce` isn't in `ANALYSABLE_1X1_LAYERS`.
