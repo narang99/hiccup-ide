@@ -20,7 +20,6 @@ from olt.act_ranges.stats import (
     noise_stats,
     shorth,
 )
-from olt.tfms import transform
 
 
 def _scalar(value):
@@ -99,7 +98,13 @@ class NeuronParentAnalyser:
         flat_image_dir,
         f_pad_manual_before_between_us_and_dep,
         flattened_channel_map,
+        transform_fn,
     ):
+        # transform_fn: how to preprocess an input image into a model-ready
+        # tensor. Required (no default) because it is model-specific — e.g.
+        # tfms.transform for lucent InceptionV1, tfms.cifar_transform for the
+        # CIFAR model. Passing the wrong one silently runs the forward pass on
+        # an out-of-distribution input (see olt/CLAUDE.md).
         if current_layer_name in UNSUPPORTED_CURRENT_LAYERS:
             raise ValueError(
                 f"NeuronParentAnalyser does not support current_layer_name={current_layer_name!r}: "
@@ -118,12 +123,13 @@ class NeuronParentAnalyser:
         )
         self.base_report_dir = base_report_dir
         self.flattened_channel_map = flattened_channel_map
+        self.transform_fn = transform_fn
 
     def get_activations_for_image(self, image_key, device="cpu"):
         """Run the forward pass for an image; caller passes the result into the other methods."""
-        timg = transform(Image.open(self.flat_image_dir / f"{image_key}.jpeg"))[
-            None
-        ].to(device)
+        timg = self.transform_fn(
+            Image.open(self.flat_image_dir / f"{image_key}.jpeg")
+        )[None].to(device)
         return InputOutputModelSnapshot.get_activations(
             timg, self.model, self.all_layers
         )
