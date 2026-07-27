@@ -4,7 +4,6 @@ from pathlib import Path
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
-from lucent.modelzoo import inceptionv1
 
 colors_dark_v2 = ["#FF3131", "#333333", "#39FF14"]
 rd_bk_gn = mcolors.LinearSegmentedColormap.from_list("RdBkGn", colors_dark_v2)

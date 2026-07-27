@@ -15,7 +15,6 @@ from olt.act import get_layer_activations
 from olt.path import RemotePath
 from olt.shards import raw_iter_shards, read_image_shard
 from olt.stages.s2_collect_patches import patches_of_single_batch_with_indices
-from olt.tfms import inverse_transform, transform
 
 
 def extract_images_to_flat_folder(images_shard_dir, flat_dest_dir):
@@ -237,9 +236,14 @@ def prepare_reports_dir_after_sampling(
     model,
     flat_images_base,
     device,
+    input_transform_fn,
+    inverse_transform_fn,
     samples_per_cluster_label=100,
     skip_clusters_with_only_one_unique_image=True,
 ):
+    # input_transform_fn / inverse_transform_fn: model-specific, required (no
+    # default) so report inputs/thumbnails aren't silently built with the
+    # ImageNet transform. See tfms.transform / tfms.cifar_transform.
     if skip_clusters_with_only_one_unique_image:
         labels = labels_with_unique_inp_keys_below_threshold(df, 2)
         filtered_df = df[~df["cluster_label"].isin(labels)]
@@ -284,7 +288,7 @@ def prepare_reports_dir_after_sampling(
             layer_name,
             flat_images_base,
             out_dir,
-            transform,
-            inverse_transform,
+            input_transform_fn,
+            inverse_transform_fn,
             device,
         )

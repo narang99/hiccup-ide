@@ -8,7 +8,6 @@ from tqdm import tqdm
 from ..attr import get_layer_attributions
 from ..path import RemotePath
 from ..shards import raw_iter_shards, read_image_shard, tensor_to_bytes
-from ..tfms import transform
 
 
 def collect_attributions(
@@ -17,17 +16,21 @@ def collect_attributions(
     image_shards_base_path: RemotePath,
     attribution_shards_base_path: RemotePath,
     model,
+    input_transform_fn,
     read_shard_batch_size: int = 64,
     device="cpu",
     method="deeplift",
     n_steps=128,
     internal_batch_size=128,
 ):
+    # input_transform_fn: model-specific image preprocessing, required (no
+    # default) so a non-InceptionV1 model can't silently get the ImageNet
+    # transform. See tfms.transform / tfms.cifar_transform.
     for label in tqdm(all_labels):
         run_attribution_and_write(
             image_shards_base_path,
             int(label),
-            transform,
+            input_transform_fn,
             model,
             layer_name,
             attribution_shards_base_path,
