@@ -10,7 +10,7 @@ images make the downstream feature-viz / patch reports legible. This mirrors
 Each snapshot is written to <ckpt-dir>/step_<global_step>.pt as
     {"model": state_dict, "step": int, "epoch": int, "test_acc": float}
 Load it with
-    cifar_inception(ckpt_path=..., stem_stride=2)   # stem_stride must match!
+    stl_inception(ckpt_path=..., stem_stride=2)   # stem_stride must match!
 
 Usage:
     uv run scripts/train_stl.py --ckpt-dir data/stl/checkpoints --epochs 40 \
@@ -30,10 +30,10 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import STL10
 from tqdm import tqdm
 
-from olt.models.cifar_inception import cifar_inception
+from olt.models.stl_inception import stl_inception
 from olt.tfms import stl_train_transform, stl_transform
 
-STEM_STRIDE = 2  # 96x96 input; must match what cifar_inception(ckpt_path=...) loads with
+STEM_STRIDE = 2  # 96x96 input; must match what stl_inception(ckpt_path=...) loads with
 
 
 def _make_loaders(data_root: Path, batch_size: int, num_workers: int):
@@ -60,7 +60,7 @@ def _make_loaders(data_root: Path, batch_size: int, num_workers: int):
 def evaluate(model, loader, device) -> float:
     model.eval()
     correct = total = 0
-    for x, y in loader:
+    for x, y in tqdm(loader, desc="eval"):
         x, y = x.to(device), y.to(device)
         pred = model(x).argmax(1)
         correct += (pred == y).sum().item()
@@ -119,12 +119,12 @@ def main() -> None:
         args.data_root, args.batch_size, args.num_workers
     )
 
-    model = cifar_inception(
+    model = stl_inception(
         redirected_relu=False, eval_mode=False, stem_stride=STEM_STRIDE
     ).to(device)
     model.train()
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"CifarInception (stl, stem_stride={STEM_STRIDE}): {n_params:,} params, device={device}")
+    print(f"StlInception (stem_stride={STEM_STRIDE}): {n_params:,} params, device={device}")
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(
