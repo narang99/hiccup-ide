@@ -31,14 +31,14 @@ from torchvision.datasets import STL10
 from tqdm import tqdm
 
 from olt.models.stl_inception import stl_inception
-from olt.tfms import stl_train_transform, stl_transform
+from olt.tfms import stl_fancy_train_transform, stl_train_transform, stl_transform
 
 STEM_STRIDE = 2  # 96x96 input; must match what stl_inception(ckpt_path=...) loads with
 
 
-def _make_loaders(data_root: Path, batch_size: int, num_workers: int):
+def _make_loaders(data_root: Path, batch_size: int, num_workers: int, train_transform):
     train_ds = STL10(
-        root=str(data_root), split="train", download=True, transform=stl_train_transform
+        root=str(data_root), split="train", download=True, transform=train_transform
     )
     test_ds = STL10(
         root=str(data_root), split="test", download=True, transform=stl_transform
@@ -94,6 +94,12 @@ def main() -> None:
     p.add_argument("--weight-decay", type=float, default=5e-4)
     p.add_argument("--num-workers", type=int, default=4)
     p.add_argument(
+        "--fancy-aug",
+        action="store_true",
+        help="use stl_fancy_train_transform (random-mode pad crop + color jitter "
+        "+ random grayscale) to fight black-border/color shortcuts",
+    )
+    p.add_argument(
         "--snapshot-every-steps",
         type=int,
         default=None,
@@ -115,8 +121,10 @@ def main() -> None:
     explicit_steps = set(args.snapshot_steps or [])
     device = torch.device(args.device)
 
+    train_transform = stl_fancy_train_transform if args.fancy_aug else stl_train_transform
+    print(f"train transform: {'fancy' if args.fancy_aug else 'plain'}")
     train_loader, test_loader = _make_loaders(
-        args.data_root, args.batch_size, args.num_workers
+        args.data_root, args.batch_size, args.num_workers, train_transform
     )
 
     model = stl_inception(

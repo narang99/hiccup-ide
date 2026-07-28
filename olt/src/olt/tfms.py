@@ -1,3 +1,5 @@
+import random
+
 import torch
 from torchvision import transforms
 
@@ -103,6 +105,47 @@ class StlInverseTransform:
 
 
 # stl_inverse_transform = StlInverseTransform()
+
+
+# --- STL-10 "fancy" anti-shortcut augmentation -------------------------------
+# The plain `stl_train_transform` uses a fixed constant(=black) padded RandomCrop,
+# which bakes black borders into a big fraction of training crops -> the net
+# learns black-border detectors. And STL backgrounds correlate with classes
+# (ship->water, plane->sky), so it also leans on color (e.g. blue). The transforms
+# here counter both, WITHOUT touching the originals (keep those for reproducing
+# existing checkpoints). Opt in via the training scripts' --fancy-aug flag.
+class RandomPaddingModeCrop:
+    """A RandomCrop whose `padding_mode` is picked at random each call, so the
+    net sometimes sees black (constant/zero) borders and sometimes reflected
+    ones instead of always black. This keeps borders in the training
+    distribution (so the net stays robust to them) but stops any single border
+    style from being a reliable class-independent cue. `modes` are sampled
+    uniformly; `fill` applies only to the "constant" mode."""
+
+    def __init__(self, size, padding, modes=("constant", "reflect"), fill=0):
+        self.size = size
+        self.padding = padding
+        self.modes = list(modes)
+        self.fill = fill
+
+    def __call__(self, img):
+        mode = random.choice(self.modes)
+        return transforms.RandomCrop(
+            self.size, padding=self.padding, padding_mode=mode, fill=self.fill
+        )(img)
+
+
+stl_fancy_train_transform = transforms.Compose(
+    [
+        RandomPaddingModeCrop(96, padding=12, modes=("constant", "reflect")),
+        transforms.RandomHorizontalFlip(),
+        # weaken color shortcuts: jitter color, and sometimes drop color entirely
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+        transforms.RandomGrayscale(p=0.2),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=STL10_MEAN, std=STL10_STD),
+    ]
+)
 
 
 # class InverseTransform:
