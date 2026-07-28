@@ -474,9 +474,38 @@ def _section_html(block_id, cluster_label, n_samples, fname_combined, fname_thir
         </section>"""
 
 
-def _build_tab_bar(results):
-    """Build the sticky tab bar HTML from ordered results."""
+def _act_ranges_section_html(fname, n_clusters):
+    """The activation-ranges tab body: a single wide scatter-grid image (see
+    plotting.save_label_points_grid_jpeg) showing every cluster's output-activation
+    range for this neuron, so a viewer can eyeball which clusters fire high vs.
+    low before drilling into individual clusters. Uses the tab id "actrange"
+    (string, not an integer block_id) so it never collides with the numeric
+    per-cluster tabs."""
+    return f"""
+        <section class="label-section" id="section-actrange">
+          <h2 class="label-header">Activation Ranges</h2>
+          <div class="grid-block">
+            <div class="grid-meta">
+              <span class="tag">activation ranges</span>
+              <span class="total">{n_clusters} clusters</span>
+            </div>
+            <img class="view" data-src="{fname}" />
+          </div>
+        </section>"""
+
+
+def _build_tab_bar(results, act_ranges_n_clusters=None):
+    """Build the sticky tab bar HTML from ordered results. When
+    `act_ranges_n_clusters` is not None, an "Activation Ranges" tab is prepended
+    as the first tab (activateTab is called with the quoted string id
+    'actrange', unlike the numeric per-cluster ids) — since the JS auto-activates
+    whichever tab is first, this also makes activation ranges the default view."""
     buttons = []
+    if act_ranges_n_clusters is not None:
+        buttons.append(
+            "<button class=\"tab-btn\" data-tab=\"actrange\" onclick=\"activateTab('actrange')\">"
+            f'Activation Ranges<span class="tab-count">{act_ranges_n_clusters} clusters</span></button>'
+        )
     for result in results:
         if result is None:
             continue
@@ -597,12 +626,38 @@ def generate_html_report(
     cmap=rd_bk_gn,
     n_workers=4,
     act_picker=None,  # todo: remove image_shape
+    act_ranges_points=None,
+    act_ranges_clusters_per_panel=8,
 ):
+    """act_ranges_points: optional dict[label, list[float]] of this neuron's
+    per-cluster output activations (e.g. one neuron's slice of the collected
+    layer_by_channel_by_cid_by_act pickle, optionally with a "noise" baseline
+    series). When given, a dark-themed scatter-grid of every cluster's activation
+    range (see plotting.save_label_points_grid_jpeg) is rendered and prepended as
+    the first tab ("Activation Ranges"), which then becomes the default view. The
+    grid is sized by act_ranges_clusters_per_panel (~clusters per panel). None
+    (the default) leaves the report exactly as before — cluster tabs only."""
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
     with (out / "report.csv").open("w") as f:
         df.to_csv(f)
+
+    act_ranges_n_clusters = None
+    act_ranges_section = ""
+    if act_ranges_points:
+        from olt.act_ranges.plotting import save_label_points_grid_jpeg
+
+        act_ranges_fname = "activation_ranges.jpeg"
+        save_label_points_grid_jpeg(
+            act_ranges_points,
+            out / act_ranges_fname,
+            clusters_per_panel=act_ranges_clusters_per_panel,
+        )
+        act_ranges_n_clusters = len(act_ranges_points)
+        act_ranges_section = _act_ranges_section_html(
+            act_ranges_fname, act_ranges_n_clusters
+        )
 
     cluster_map = sample_for_label(50, clustering_and_attr_src_dir)
     print(f"num cluster labels: {len(cluster_map)}")
@@ -658,10 +713,11 @@ def generate_html_report(
             )
         )
 
-    tab_bar = _build_tab_bar(results)
+    tab_bar = _build_tab_bar(results, act_ranges_n_clusters=act_ranges_n_clusters)
     body = (
         '<div class="container">'
         '<h1 class="report-title">Attribution Report</h1>'
+        + act_ranges_section
         + "\n".join(sections)
         + "</div>"
     )

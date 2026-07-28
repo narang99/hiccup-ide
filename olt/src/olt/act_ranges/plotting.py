@@ -1,3 +1,6 @@
+import math
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -193,6 +196,65 @@ def show_label_points_grid(
 
     fig.tight_layout()
     return fig, axes
+
+
+def grid_dims_for_labels(n_labels, clusters_per_panel=8):
+    """Heuristic (n_rows, n_cols) for laying out per-label scatter panels: pack
+    ~`clusters_per_panel` labels into each panel, then arrange the resulting
+    panels into the nearest-square grid (cols = ceil(sqrt(n_panels))). Used by
+    save_label_points_grid_jpeg so the caller doesn't have to hand-pick a grid
+    for however many clusters a neuron happens to have. n_labels==0 collapses to
+    a single (1, 1) panel (show_label_points_grid just turns it off)."""
+    n_panels = max(1, math.ceil(n_labels / clusters_per_panel))
+    n_cols = math.ceil(math.sqrt(n_panels))
+    n_rows = math.ceil(n_panels / n_cols)
+    return n_rows, n_cols
+
+
+def save_label_points_grid_jpeg(
+    label_by_points,
+    output_path,
+    clusters_per_panel=8,
+    colors=None,
+    figsize=None,
+    max_points_per_label=200,
+    rng=None,
+):
+    """Headless (savefig, no plt.show) sibling of show_label_points_grid: dumps
+    the per-cluster activation-range scatter grid to a dark-themed JPEG, sizing
+    the grid from `clusters_per_panel` via grid_dims_for_labels so the caller
+    only supplies the label->points map. Styled to match the rest of the report
+    (dark axes + dark legends) so it reads cleanly as the first tab of
+    html_report.generate_html_report. label_by_points: dict[label, list[float]]
+    (e.g. {cluster_label: [output activations]} for one dep neuron, optionally
+    with a "noise" baseline series)."""
+    n_rows, n_cols = grid_dims_for_labels(len(label_by_points), clusters_per_panel)
+    fig, axes = show_label_points_grid(
+        label_by_points,
+        n_rows,
+        n_cols,
+        colors=colors,
+        figsize=figsize,
+        max_points_per_label=max_points_per_label,
+        rng=rng,
+    )
+    for ax in axes:
+        if not ax.axison:  # empty panels are turned off by show_label_points_grid
+            continue
+        _style_dark_axis(fig, ax)
+        legend = ax.get_legend()
+        if legend is not None:
+            legend.get_frame().set_facecolor("#212529")
+            legend.get_frame().set_edgecolor("white")
+            for text in legend.get_texts():
+                text.set_color("white")
+    fig.tight_layout()
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(
+        output_path, format="jpeg", facecolor=fig.get_facecolor(), pil_kwargs={"quality": 90}
+    )
+    plt.close(fig)
 
 
 def save_firing_frequency_histogram_jpeg(ratios, output_path, bins=20):
