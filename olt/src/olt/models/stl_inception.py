@@ -1,13 +1,22 @@
-"""A small, InceptionV1-shaped CNN for STL-10 (96x96), WITH BatchNorm.
+"""A small, InceptionV1-shaped CNN for STL-10 (96x96), with OPTIONAL BatchNorm.
 
 Same architecture family as `cifar_inception.CifarInception`, but two things
 differ, both driven by training STL-10 from scratch:
 
-1. **BatchNorm.** Each `*_pre_relu_conv` is followed by `nn.BatchNorm2d` and then
-   the ReLU: the path is `conv -> bn -> relu`. A from-scratch, un-normalized
-   Inception-shaped net underfits badly (CIFAR's BN-free variant plateaued ~46%
-   on STL); BN fixes the optimization. Convs use `bias=False` because BN's affine
-   subsumes the bias.
+1. **BatchNorm (optional, `use_bn`, default True).** With BN each
+   `*_pre_relu_conv` is followed by `nn.BatchNorm2d` and then the ReLU: the path
+   is `conv -> bn -> relu`, and convs use `bias=False` (BN's affine subsumes the
+   bias). A from-scratch un-normalized Inception-shaped net underfits badly
+   (CIFAR's BN-free variant plateaued ~46% on STL); BN fixes the optimization the
+   easy way, so it stays the default and existing checkpoints load unchanged.
+
+   Set `use_bn=False` for a norm-free net (trained via `scripts/train_stl_bnfree.py`
+   with Kaiming init + warmup + grad-clip): the `*_bn` slots become `nn.Identity`
+   (no params, no running stats, no train/eval discrepancy) and convs regain
+   `bias=True`. The conv output is then the genuine pre-ReLU activation, so the
+   BN interp caveat below does NOT apply — nothing to hook past or fold. A
+   `use_bn=False` checkpoint has conv biases but no `*_bn`/running-stat keys, so
+   it is NOT interchangeable with a BN checkpoint: load each with its own flag.
 
 2. **stem_stride=2 by default.** STL inputs are 96x96, so the stem conv strides by
    2 (96 -> 48), then the stem maxpool halves again (-> 24). block_a/block_b run
@@ -48,6 +57,10 @@ class StlInceptionBlock(nn.Module):
     path is `conv -> bn -> relu`. Constructor args follow torchvision's GoogLeNet
     `Inception` convention:
     (in_channels, ch1x1, ch3x3_reduce, ch3x3, ch5x5_reduce, ch5x5, pool_proj).
+
+    `use_bn=False` swaps every `*_bn` for `nn.Identity` and gives the convs a
+    bias (path becomes `conv -> relu`); the module names are unchanged so the
+    act_ranges layer paths stay identical either way.
     """
 
     def __init__(
@@ -60,45 +73,53 @@ class StlInceptionBlock(nn.Module):
         ch5x5: int,
         pool_proj: int,
         relu_cls: type[nn.Module],
+        use_bn: bool = True,
     ):
         super().__init__()
         self.out_channels = ch1x1 + ch3x3 + ch5x5 + pool_proj
 
+        # With BN the conv bias is redundant (BN's beta subsumes it); without BN
+        # the conv needs its own bias. `_norm` is BatchNorm2d or a no-op Identity.
+        bias = not use_bn
+
+        def _norm(c: int) -> nn.Module:
+            return nn.BatchNorm2d(c) if use_bn else nn.Identity()
+
         # 1x1 branch
-        self.branch_1x1_pre_relu_conv = nn.Conv2d(in_channels, ch1x1, 1, bias=False)
-        self.branch_1x1_bn = nn.BatchNorm2d(ch1x1)
+        self.branch_1x1_pre_relu_conv = nn.Conv2d(in_channels, ch1x1, 1, bias=bias)
+        self.branch_1x1_bn = _norm(ch1x1)
         self.branch_1x1 = relu_cls()
 
         # 3x3 branch: 1x1 bottleneck -> 3x3 conv (padding=1 keeps spatial size)
         self.branch_3x3_bottleneck_pre_relu_conv = nn.Conv2d(
-            in_channels, ch3x3_reduce, 1, bias=False
+            in_channels, ch3x3_reduce, 1, bias=bias
         )
-        self.branch_3x3_bottleneck_bn = nn.BatchNorm2d(ch3x3_reduce)
+        self.branch_3x3_bottleneck_bn = _norm(ch3x3_reduce)
         self.branch_3x3_bottleneck = relu_cls()
         self.branch_3x3_pre_relu_conv = nn.Conv2d(
-            ch3x3_reduce, ch3x3, 3, padding=1, bias=False
+            ch3x3_reduce, ch3x3, 3, padding=1, bias=bias
         )
-        self.branch_3x3_bn = nn.BatchNorm2d(ch3x3)
+        self.branch_3x3_bn = _norm(ch3x3)
         self.branch_3x3 = relu_cls()
 
         # 5x5 branch: 1x1 bottleneck -> 5x5 conv (padding=2 keeps spatial size)
         self.branch_5x5_bottleneck_pre_relu_conv = nn.Conv2d(
-            in_channels, ch5x5_reduce, 1, bias=False
+            in_channels, ch5x5_reduce, 1, bias=bias
         )
-        self.branch_5x5_bottleneck_bn = nn.BatchNorm2d(ch5x5_reduce)
+        self.branch_5x5_bottleneck_bn = _norm(ch5x5_reduce)
         self.branch_5x5_bottleneck = relu_cls()
         self.branch_5x5_pre_relu_conv = nn.Conv2d(
-            ch5x5_reduce, ch5x5, 5, padding=2, bias=False
+            ch5x5_reduce, ch5x5, 5, padding=2, bias=bias
         )
-        self.branch_5x5_bn = nn.BatchNorm2d(ch5x5)
+        self.branch_5x5_bn = _norm(ch5x5)
         self.branch_5x5 = relu_cls()
 
         # pool branch: 3x3/stride-1 maxpool (padding=1 keeps size) -> 1x1 reduce
         self.branch_pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
         self.branch_pool_reduce_pre_relu_conv = nn.Conv2d(
-            in_channels, pool_proj, 1, bias=False
+            in_channels, pool_proj, 1, bias=bias
         )
-        self.branch_pool_reduce_bn = nn.BatchNorm2d(pool_proj)
+        self.branch_pool_reduce_bn = _norm(pool_proj)
         self.branch_pool_reduce = relu_cls()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -136,8 +157,10 @@ class StlInception(nn.Module):
         num_classes: int = NUM_CLASSES,
         redirected_relu: bool = False,
         stem_stride: int = 2,
+        use_bn: bool = True,
     ):
         super().__init__()
+        self.use_bn = use_bn
         # See cifar_inception for the full redirected-ReLU rationale: a normal
         # forward but a faked backward that leaks ~10% gradient through the
         # negative region, wanted ONLY for lucent feature-viz optimization.
@@ -151,23 +174,43 @@ class StlInception(nn.Module):
         # stem: 3x3 conv (stride=stem_stride, padding=1) -> bn -> relu, then
         # 3x3/stride-2 maxpool. stem_stride=2 -> 96x96 conv to 48x48, pool to 24x24.
         self.stem_pre_relu_conv = nn.Conv2d(
-            3, 64, kernel_size=3, stride=stem_stride, padding=1, bias=False
+            3, 64, kernel_size=3, stride=stem_stride, padding=1, bias=not use_bn
         )
-        self.stem_bn = nn.BatchNorm2d(64)
+        self.stem_bn = nn.BatchNorm2d(64) if use_bn else nn.Identity()
         self.stem = relu_cls()
         self.stem_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         # (in, ch1x1, ch3x3red, ch3x3, ch5x5red, ch5x5, pool_proj)
-        self.block_a = StlInceptionBlock(64, 32, 48, 64, 8, 16, 16, relu_cls)   # out 128
-        self.block_b = StlInceptionBlock(128, 64, 64, 96, 16, 32, 32, relu_cls)  # out 224
-        self.block_c = StlInceptionBlock(224, 96, 64, 128, 16, 32, 32, relu_cls)  # out 288
-        self.block_d = StlInceptionBlock(288, 112, 72, 144, 16, 48, 48, relu_cls)  # out 352
+        self.block_a = StlInceptionBlock(64, 32, 48, 64, 8, 16, 16, relu_cls, use_bn)   # out 128
+        self.block_b = StlInceptionBlock(128, 64, 64, 96, 16, 32, 32, relu_cls, use_bn)  # out 224
+        self.block_c = StlInceptionBlock(224, 96, 64, 128, 16, 32, 32, relu_cls, use_bn)  # out 288
+        self.block_d = StlInceptionBlock(288, 112, 72, 144, 16, 48, 48, relu_cls, use_bn)  # out 352
 
         # downsample between the block_a/b resolution and the block_c/d resolution
         self.downpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.flatten = nn.Flatten()
         self.fc = nn.Linear(self.block_d.out_channels, num_classes)
+
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Kaiming (He) init for convs — the fan_in-preserving init that makes
+        norm-free training viable (see train_stl_bnfree.py), and a fine default
+        for the BN net too. Only affects freshly-built models; loading a
+        checkpoint overwrites these. BN params start at the identity affine
+        (weight=1, bias=0), the fc at a small normal."""
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, mean=0.0, std=0.01)
+                nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.stem_pool(self.stem(self.stem_bn(self.stem_pre_relu_conv(x))))
@@ -189,6 +232,7 @@ def stl_inception(
     map_location: str = "cpu",
     eval_mode: bool = True,
     stem_stride: int = 2,
+    use_bn: bool = True,
 ) -> StlInception:
     """Factory mirroring `lucent.modelzoo.inceptionv1`'s call style. Loads a
     training snapshot's weights when `ckpt_path` is given.
@@ -196,8 +240,13 @@ def stl_inception(
     Pass `redirected_relu=True` when using the model for lucent feature
     visualization; leave it False for training and act_ranges analysis.
     `stem_stride` must match whatever the snapshot was trained with (2 for STL).
+    `use_bn` must ALSO match the snapshot: a BN checkpoint won't load into a
+    `use_bn=False` model or vice versa (different keys — bn/running-stats vs conv
+    biases). Default True keeps existing BN checkpoints loading unchanged.
     """
-    model = StlInception(redirected_relu=redirected_relu, stem_stride=stem_stride)
+    model = StlInception(
+        redirected_relu=redirected_relu, stem_stride=stem_stride, use_bn=use_bn
+    )
     if ckpt_path is not None:
         state = torch.load(ckpt_path, map_location=map_location)
         # accept either a bare state_dict or a {"model": state_dict, ...} snapshot
