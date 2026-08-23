@@ -16,7 +16,7 @@ dependencies = [
     "huggingface-hub>=1.19.0",
     "matplotlib>=3.11.0",
     "numpy==2.0",
-    "pandas==2.2.2",
+    "pandas>=2.2",
     "pillow>=12.2.0",
     "torch>=2.11",
     "torch-lucent>=0.1.8",
@@ -24,6 +24,10 @@ dependencies = [
     "tqdm>=4.68.2",
     "webdataset>=1.0.2",
     "seaborn>=0.13.2",
+    "ultralytics>=8.4.123",
+    "clip",
+    "nltk>=3.10.3",
+    "transformers>=5.15.1",
 ]
 
 [project.scripts]
@@ -39,3 +43,6 @@ dev = [
     "jupyter>=1.1.1",
     "ruff>=0.15.20",
 ]
+
+[tool.uv.sources]
+clip = { git = "https://github.com/ultralytics/CLIP.git" }
